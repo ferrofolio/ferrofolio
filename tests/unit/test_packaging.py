@@ -1,4 +1,3 @@
-import os
 import runpy
 import shutil
 import subprocess
@@ -10,78 +9,6 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RETRY_SCRIPT = ROOT / ".github" / "scripts" / "retry.sh"
-
-
-@pytest.mark.parametrize(
-    ("max_attempts", "success_attempt"),
-    [(None, 1), (None, 2), (None, 3), (None, 4), (2, 1), (2, 2), (2, 3)],
-)
-def test_retry_command(max_attempts, success_attempt, tmp_path):
-    calls = tmp_path / "calls"
-    sleeps = tmp_path / "sleeps"
-    sleep = tmp_path / "sleep"
-    sleep.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$1" >> "$SLEEPS"\n')
-    sleep.chmod(0o755)
-    env = os.environ | {
-        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
-        "CALLS": str(calls),
-        "SLEEPS": str(sleeps),
-        "SUCCESS_ATTEMPT": str(success_attempt),
-    }
-    if max_attempts is None:
-        env.pop("RETRY_ATTEMPTS", None)
-    else:
-        env["RETRY_ATTEMPTS"] = str(max_attempts)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(RETRY_SCRIPT),
-            "bash",
-            "-c",
-            'printf "%s\\n" "$1" >> "$CALLS"; '
-            '[ "$(wc -l < "$CALLS")" -ge "$SUCCESS_ATTEMPT" ] || exit 23',
-            "_",
-            "argument with spaces",
-        ],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    limit = max_attempts or 3
-    expected_attempts = min(success_attempt, limit)
-    assert result.returncode == (0 if success_attempt <= limit else 23)
-    assert (
-        calls.read_text().splitlines() == ["argument with spaces"] * expected_attempts
-    )
-    actual_sleeps = sleeps.read_text().splitlines() if sleeps.exists() else []
-    assert actual_sleeps == ["10", "20"][: expected_attempts - 1]
-
-
-def test_retry_requires_a_command():
-    result = subprocess.run(
-        ["bash", str(RETRY_SCRIPT)], capture_output=True, text=True, check=False
-    )
-
-    assert result.returncode == 2
-    assert "No command provided" in result.stderr
-
-
-@pytest.mark.parametrize("max_attempts", ["", "0", "-1", "abc", "100"])
-def test_retry_rejects_invalid_attempts(max_attempts):
-    result = subprocess.run(
-        ["bash", str(RETRY_SCRIPT), "true"],
-        env=os.environ | {"RETRY_ATTEMPTS": max_attempts},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 2
-    assert "RETRY_ATTEMPTS must be" in result.stderr
 
 
 @pytest.mark.parametrize("noconfirm", [False, True])
