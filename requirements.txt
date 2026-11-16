@@ -6,7 +6,7 @@ google-auth-oauthlib==1.5.0
 quart==0.23.1
 quart-cors==0.8.0
 uvicorn==0.54.0
-cachetools==7.2.4
+cachetools==8.0.0
 strictyaml==1.7.3
 pydantic==2.14.1
 requests_toolbelt==1.0.0
