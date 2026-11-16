@@ -11,6 +11,10 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    # Major upgrades are deliberate migration PRs that need a manual review.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       python:
         update-types: [minor, patch]
@@ -25,6 +29,15 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    # Major upgrades are deliberate migration PRs that need a manual review.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # Electron and Capacitor are being removed (roadmap section 4.3).
+      - dependency-name: "electron"
+      - dependency-name: "electron-builder"
+      - dependency-name: "@capacitor/*"
+      - dependency-name: "capacitor-*"
     groups:
       javascript:
         update-types: [minor, patch]
