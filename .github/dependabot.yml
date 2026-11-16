@@ -38,6 +38,14 @@ updates:
       day: monday
     commit-message:
       prefix: "chore(deps)"
+    # The runtime versions in the images have to match the versions CI tests
+    # (python-version in ci.yml, frontend/app/.nvmrc). CI does not build the
+    # images, so a runtime upgrade is done by hand in all places at once.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     groups:
       docker:
         update-types: [minor, patch]
