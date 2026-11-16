@@ -1,6 +1,8 @@
-# Contributing to Finanze
+# Contributing to Ferrofolio
 
-Thanks for your interest in contributing to **Finanze**, the self-hosted personal finance and net worth tracker!
+Thanks for your interest in contributing to **Ferrofolio**, the self-hosted personal finance and net worth tracker!
+
+Ferrofolio is an independent fork of [Finanze](https://github.com/finanze/finanze). All project communication, code comments, commit messages and documentation are written in English.
 
 ## Getting Started
 
@@ -15,11 +17,13 @@ See the [Development](../README.md#development) section of the README for comple
 
 ---
 
-## Contributor License Agreement (CLA)
+## Licensing of Contributions
 
-By contributing to Finanze, you agree that your contributions will be licensed under the project's [AGPLv3 License](../LICENSE) and terms described in our [Contributor License Agreement (CLA)](../CLA.md).
+Ferrofolio is licensed under the [AGPL-3.0](../LICENSE). Contributions are accepted under the same license
+("inbound = outbound"): by opening a pull request you agree that your contribution is licensed under the AGPL-3.0.
 
-- **Automated Signing:** When you open your first Pull Request, our automated **CLA Assistant bot** will leave a comment asking you to agree to the CLA. It only takes one click using your GitHub account.
+There is **no contributor license agreement** and no sign-off requirement. You keep the copyright in your work and
+grant nobody the right to relicense it.
 
 ---
 
@@ -34,8 +38,7 @@ By contributing to Finanze, you agree that your contributions will be licensed u
    - Add unit tests or integration tests for new features and infrastructure adapters in `tests/` and `e2e/` if possible.
    - Ensure all tests pass: `pytest` (backend) and `pnpm test` (frontend).
    - More on this in [README.md](../README.md).
-4. **Sign the CLA:** Ensure you have accepted the CLA via the automated PR bot.
-5. **Submit:** Open the Pull Request against the `develop` branch with a clear title and description of your changes.
+4. **Submit:** Open the Pull Request against the `develop` branch with a clear title and description of your changes.
 
 ---
 

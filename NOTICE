@@ -1,0 +1,33 @@
+Ferrofolio
+==========
+
+Ferrofolio is a fork of Finanze (https://github.com/finanze/finanze),
+Copyright (C) Marcos Alvarez and the Finanze contributors.
+
+Finanze is licensed under the GNU Affero General Public License, version 3
+(see the LICENSE file). Ferrofolio is distributed under the same license.
+
+Fork point
+----------
+
+Ferrofolio was forked from the Finanze `develop` branch at commit
+d9761ed6ee553981d9221f32a5e08ec9d67459ef on 2026-11-16.
+
+Everything up to and including that commit is the work of the Finanze
+authors. All later changes are modifications made by the Ferrofolio
+contributors. Each modification is recorded, with its author and date, in the
+Git history of this repository.
+
+Independence
+------------
+
+Ferrofolio is an independent project. It is not affiliated with, sponsored by
+or endorsed by the Finanze project or its maintainers. The name "Finanze"
+belongs to the upstream project and is used in this repository only to
+describe the origin of the code and where the rename is not yet complete.
+
+Third-party components
+----------------------
+
+Third-party attributions are listed in the "Attributions & Credits" section
+of README.md.

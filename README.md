@@ -1,3 +1,11 @@
+> [!IMPORTANT]
+> **Ferrofolio** is an independent, community-driven fork of [Finanze](https://github.com/finanze/finanze).
+> It is not affiliated with or endorsed by the Finanze project.
+>
+> The rename is in progress. This README and parts of the code still say "Finanze", and the download links,
+> container images and app listings below still point to the upstream project. Ferrofolio does not publish
+> its own releases yet. See [NOTICE](./NOTICE) for the origin of the code.
+
 <p align="center">
   <a href="https://github.com/finanze/finanze/releases/latest"><img src="https://img.shields.io/github/v/release/finanze/finanze?style=for-the-badge&color=blue&label=Latest%20Release" alt="Latest release of Finanze"></a>
 </p>
@@ -412,9 +420,12 @@ important ones are::
 
 ## License
 
-Finanze is open-source software licensed under the [AGPLv3](./LICENSE).
+Ferrofolio is free software licensed under the [GNU Affero General Public License v3.0](./LICENSE) (`AGPL-3.0-only`).
 
-If you are interested in using Finanze in a proprietary environment or need a commercial license that bypasses AGPLv3 obligations, please contact us at `contact@finanze.me`.
+Contributions are accepted under the same license. There is no contributor license agreement: nobody, including
+the maintainers, can relicense the project under proprietary terms. See [CONTRIBUTING](.github/CONTRIBUTING.md).
+
+Ferrofolio is derived from [Finanze](https://github.com/finanze/finanze). See [NOTICE](./NOTICE).
 
 ## Attributions & Credits
 
