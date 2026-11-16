@@ -1,11 +1,24 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Review policy for Ferrofolio.
+#
+# Sections 1 to 4 are not specific to this repository. When a second repository
+# is added they can move unchanged to `.coderabbit.yaml` in a repository named
+# `ferrofolio/coderabbit`, and this file then keeps section 5 plus
+# `inheritance: true`.
+
 language: en-US
 tone_instructions: "Be direct and concise. Lead with the concrete defect and how to fix it. No praise and no filler."
 
 reviews:
+  # ---------------------------------------------------------------------------
+  # 1. How reviews run
+  # ---------------------------------------------------------------------------
   profile: assertive
-  request_changes_workflow: true
   high_level_summary: true
+  commit_status: true
+  # A review that stops with an error counts as failed instead of passing silently.
+  fail_commit_status: true
   poem: false
   in_progress_fortune: false
 
@@ -19,18 +32,196 @@ reviews:
     ignore_usernames:
       - "dependabot[bot]"
 
+  # ---------------------------------------------------------------------------
+  # 2. Approval policy
+  #
+  # CodeRabbit requests changes for blocking findings. It approves only when all
+  # threads are resolved, the pre-merge checks pass and the merge risk is low.
+  # Sensitive areas are never approved automatically: a maintainer decides.
+  # A maintainer merges in every case; an approval is not a merge.
+  # ---------------------------------------------------------------------------
+  auto_approvals:
+    enabled: true
+    max_merge_risk: low
+    approve_on_skipped_review: false
+    # Authors cannot approve or resolve their own pull request through commands.
+    allow_author_approval: false
+    overrides:
+      - enabled: false
+        paths:
+          # Authentication, sessions, CORS
+          - "finanze/infrastructure/controller/api_session_guard.py"
+          - "finanze/infrastructure/controller/config.py"
+          - "finanze/infrastructure/api_session/**"
+          - "finanze/application/use_cases/user_login.py"
+          - "finanze/application/use_cases/register_user.py"
+          - "finanze/application/use_cases/change_user_password.py"
+          # Backup encryption, key derivation, credentials
+          - "finanze/infrastructure/cloud/**"
+          - "finanze/infrastructure/crypto/**"
+          - "finanze/infrastructure/keychain/**"
+          - "finanze/infrastructure/repository/credentials/**"
+          - "finanze/infrastructure/repository/sessions/**"
+          # Database schema
+          - "finanze/infrastructure/repository/db/**"
+          # Bank and broker connectors
+          - "finanze/infrastructure/client/entity/**"
+          - "finanze/infrastructure/client/financial/**"
+          # Money arithmetic
+          - "finanze/domain/dezimal.py"
+          - "finanze/infrastructure/calculations/**"
+          # Rust workspace, once it exists
+          - "crates/server/**"
+          - "crates/infra-db/**"
+          - "crates/connectors-*/**"
+          - "crates/sync/**"
+          # Build, release and project governance
+          - ".github/**"
+          - "Dockerfile"
+          - "frontend/Dockerfile"
+          - "docker-compose.yml"
+          - ".coderabbit.yaml"
+          - "AGENTS.md"
+          - "LICENSE"
+          - "NOTICE"
+
+  merge_risk_instructions: |
+    High risk: authentication, sessions and CORS; cryptography and the backup format;
+    database migrations; arithmetic on money and rounding; bank and broker connectors
+    and anything that stores or sends their credentials; changes to routes under
+    /api/v1 that are not purely additive; CI workflows and container images;
+    licensing files.
+    Moderate risk: new dependencies; changes to data import and export; changes that
+    touch more than one architectural layer.
+    Low risk: documentation only, tests only, locale files, UI text and styling
+    without logic.
+    A change that deletes tests or loosens assertions is never low risk.
+
+  security_risk_instructions: |
+    The application is self-hosted. Instances are often reachable from the internet
+    through a reverse proxy, and many run on plain HTTP inside a home network.
+    The database is SQLCipher, encrypted with the user's password, and holds bank and
+    broker credentials, session tokens and complete financial histories.
+    Every request needs a bearer session token, except a short list of public paths
+    in api_session_guard.py. Each addition to that list is high risk.
+    Callback routes are reached by browser redirects from third parties without a
+    session; they must validate their input and must not redirect to unvalidated URLs.
+    Connectors are read-only by design. Code that could move money or place an order
+    is high risk.
+
+  # ---------------------------------------------------------------------------
+  # 3. Pre-merge checks
+  # ---------------------------------------------------------------------------
+  pre_merge_checks:
+    # With a single maintainer the author is also the only person who can override
+    # a false positive. Set this to true once there is a second maintainer.
+    override_requested_reviewers_only: false
+    title:
+      mode: error
+      requirements: |
+        Follows Conventional Commits: a type (feat, fix, docs, chore, ci, refactor, test,
+        perf, build) with an optional scope in parentheses, a colon and a space, then
+        the subject. The subject is in English, in the imperative, starts lower case,
+        has no trailing period and the whole title is at most 72 characters.
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - name: English only
+        mode: error
+        instructions: |
+          Fail if the pull request adds text in a language other than English in code,
+          comments, identifiers, documentation, the pull request title or description,
+          or commit messages. Files under an i18n locale directory are exempt, and so
+          are quoted names of banks, products and people.
+      - name: No trailers or tool attribution
+        mode: error
+        instructions: |
+          Fail if a commit message or the pull request description contains a
+          Co-authored-by or Signed-off-by trailer, or a line that credits a tool or
+          assistant with producing the change. Pass otherwise.
+      - name: No secrets or personal data
+        mode: error
+        instructions: |
+          Fail if the change adds a credential, API key, token, private key, session
+          payload, or a real IBAN, account number, phone number or personal name to
+          code, tests, fixtures, logs or documentation. Obvious placeholders and
+          values generated for tests pass.
+      - name: Tests are not weakened
+        mode: error
+        instructions: |
+          Fail if the change deletes a test, skips a test or loosens an assertion and
+          the pull request description does not explain why that test was wrong.
+      - name: Money is exact
+        mode: error
+        instructions: |
+          Fail if the change stores, computes or compares a monetary amount using a
+          binary floating point type. Python uses Dezimal, Rust uses rust_decimal,
+          Swift and Kotlin use their decimal types. Converting to a float only to
+          serialise a response at the API boundary passes.
+      - name: API stays compatible
+        mode: error
+        instructions: |
+          Fail if the change removes or renames a route, a request field or a response
+          field under /api/v1, or changes the type of an existing field. Adding routes
+          and optional fields passes.
+      - name: Behaviour changes come with tests
+        mode: warning
+        instructions: |
+          Fail if the change alters runtime behaviour and adds or updates no test that
+          covers it. Documentation, configuration and pure refactoring pass.
+      - name: New dependencies are justified
+        mode: warning
+        instructions: |
+          Fail if the change adds a runtime dependency and the pull request description
+          does not state why it is needed.
+      # --- specific to this repository ---
+      - name: No new upstream service calls
+        mode: error
+        instructions: |
+          Fail if the change adds a request to, or a hard-coded URL of, a host under
+          finanze.me. Removing such references passes. Mentions in NOTICE, README and
+          documentation that describe the origin of the project pass.
+      - name: Merged migrations are immutable
+        mode: error
+        instructions: |
+          Fail if the change edits or deletes an existing file under
+          finanze/infrastructure/repository/db/versions or crates/infra-db/migrations.
+          Adding a new migration file passes.
+
+  # ---------------------------------------------------------------------------
+  # 4. Tools
+  # ---------------------------------------------------------------------------
+  tools:
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    osvScanner:
+      enabled: true
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    hadolint:
+      enabled: true
+    ruff:
+      enabled: true
+    eslint:
+      enabled: true
+    clippy:
+      enabled: true
+
+  # ---------------------------------------------------------------------------
+  # 5. This repository: what to skip and what to look for where
+  # ---------------------------------------------------------------------------
   path_filters:
     - "!**/pnpm-lock.yaml"
     - "!tests/resources/**"
     - "!resources/**"
 
   path_instructions:
-    - path: "**/*"
-      instructions: |
-        Everything in this project is written in English: code comments, identifiers,
-        documentation, commit messages and user-facing source strings outside locale files.
-        Flag text in any other language.
-        Flag new requests to upstream services under finanze.me; the project is removing them.
     - path: "finanze/**/*.py"
       instructions: |
         Money is never a float. Amounts use the Dezimal type from domain/dezimal.py.
@@ -77,3 +268,15 @@ reviews:
     - path: "docs/**"
       instructions: |
         Check statements about the code against the code. Flag claims that are not verifiable.
+
+knowledge_base:
+  web_search:
+    enabled: true
+  # AGENTS.md is read as a coding guideline by default.
+  code_guidelines:
+    enabled: true
+  # Review decisions recorded in one repository apply across the organisation.
+  learnings:
+    scope: global
+  pull_requests:
+    scope: global
