@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Be direct and concise. Lead with the concrete defect and how to fix it. No praise and no filler."
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+    # Dependency updates are covered by CI; reviewing them would only use up the review quota.
+    ignore_usernames:
+      - "dependabot[bot]"
+
+  path_filters:
+    - "!**/pnpm-lock.yaml"
+    - "!tests/resources/**"
+    - "!resources/**"
+
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Everything in this project is written in English: code comments, identifiers,
+        documentation, commit messages and user-facing source strings outside locale files.
+        Flag text in any other language.
+        Flag new requests to upstream services under finanze.me; the project is removing them.
+    - path: "finanze/**/*.py"
+      instructions: |
+        Money is never a float. Amounts use the Dezimal type from domain/dezimal.py.
+        SQL uses bound parameters only, never string formatting.
+        Credentials, tokens, session payloads and IBANs must not appear in logs or error messages.
+        The layering is domain -> application -> infrastructure; domain and application code
+        must not import from infrastructure.
+    - path: "finanze/infrastructure/controller/**"
+      instructions: |
+        Every new route must be covered by the API session guard unless it is deliberately public.
+        A route added to PUBLIC_PATHS needs a justification in the pull request.
+        Redirect targets taken from request data must be validated; flag open redirects.
+        Changes to /api/v1 must be additive: no removed fields, no changed types.
+    - path: "finanze/infrastructure/repository/db/versions/**"
+      instructions: |
+        Migrations are immutable once merged. Flag any edit to an existing migration.
+        A new migration needs a test that upgrades a database from the previous version.
+    - path: "finanze/infrastructure/client/**"
+      instructions: |
+        Responses from banks, brokers and other remote services are untrusted input.
+        Parsing failures must become typed errors and must not crash a fetch.
+        Connectors are read-only: flag any call that could move money or place an order.
+    - path: "frontend/app/src/**"
+      instructions: |
+        User-facing text goes through the i18n locale files; a new key must exist in every locale.
+        Tokens and credentials must not be written to logs or sent to third parties.
+    - path: "crates/**/*.rs"
+      instructions: |
+        Money is never f32 or f64, always rust_decimal.
+        No unwrap, expect or panic outside tests. No unsafe.
+        SQL only with bound parameters.
+        No credentials, tokens or IBANs in logs.
+    - path: "{tests,e2e}/**"
+      instructions: |
+        Flag deleted tests and weakened or removed assertions explicitly.
+    - path: "frontend/app/test/**"
+      instructions: |
+        Flag deleted tests and weakened or removed assertions explicitly.
+    - path: ".github/workflows/**"
+      instructions: |
+        Workflows run with read-only token permissions unless a job states why it needs more.
+        Third-party actions should be pinned. Flag use of pull_request_target and any step
+        that exposes secrets to code from a pull request.
+    - path: "docs/**"
+      instructions: |
+        Check statements about the code against the code. Flag claims that are not verifiable.
