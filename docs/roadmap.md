@@ -23,6 +23,7 @@ Last updated: 2026-11-16 · Fork point: Finanze `develop` at `d9761ed6` · Code 
 | iOS distribution | Not in the App Store for now and without a paid Apple Developer account; installed by sideloading through AltStore Classic (section 4.8) |
 | Desktop app | Dropped; the PWA covers the desktop |
 | Transition | Until the iOS app exists, the PWA is the mobile client |
+| Dependency updates | Dependabot instead of a third-party app: it is part of GitHub and needs no additional write access to the repositories |
 | Bank connectivity | Enable Banking is proven with German banks in Docker operation and is the reference connector |
 | Scalable Capital | New connector as a goal of its own, prioritised **before Trade Republic** (section 4.6) |
 | Trade Republic | Must keep working, also without the desktop app (section 4.7) |
@@ -48,7 +49,7 @@ Five findings shape this roadmap:
 
 1. **The architecture is hexagonal** (`domain` / `application/ports` / `infrastructure`). It maps almost one-to-one onto Rust crates and traits and can be ported in small slices.
 2. **The existing mobile apps have no server backend.** They run the complete Python backend through Pyodide inside the web view (`frontend/app/src/services/apiClient.ts`). This approach is not continued.
-3. **Per-client API sessions exist, but the server is not yet hardened for the internet.** Since upstream change #238 every request needs a bearer token (`finanze/infrastructure/controller/api_session_guard.py`). What is still missing: CORS is fully open (`finanze/infrastructure/controller/config.py`), the login has no rate limit, sessions cannot be listed or revoked per device, and the web client keeps its token in browser storage.
+3. **Per-client API sessions exist, but the server is not yet hardened for the internet.** Since upstream change #238 a session guard requires a bearer token on every request, except for a short list of public paths (status, login and the OAuth and bank callbacks), `OPTIONS` requests and static files (`finanze/infrastructure/controller/api_session_guard.py`). The guard is on by default and is not registered at all when `FINANZE_API_SESSION` is set to `false`. What is still missing: CORS is fully open (`finanze/infrastructure/controller/config.py`), the login has no rate limit, sessions cannot be listed or revoked per device, and the web client keeps its token in browser storage.
 4. **The code depends on upstream services**: `api.finanze.me` (backup), Supabase (cloud login), `features.api.finanze.me` (feature flags), `static.finanze.me` (ticker icons), telemetry DSNs, the Docker Hub images `finanze/finanze*` and the bundle ID `me.finanze`.
 5. **Enable Banking also runs through upstream.** The redirect after bank consent is hard-coded to `https://finanze.me/eb/v1/entity/callback/` (`finanze/infrastructure/client/financial/enablebanking/enablebanking_client.py`). Existing connections therefore depend on the upstream website today. The same holds for Google Sheets (`finanze/infrastructure/sheets/sheets_service_loader.py`).
 
@@ -114,7 +115,7 @@ With native apps the split is clean. Server and apps share **no UI code**, only 
 | Two-factor requirement | On |
 | Base permission for members | Read |
 | Organisation-level rulesets | Pull request required, required checks, no direct push to `develop` or `main` |
-| Organisation-wide apps | CodeRabbit, Renovate |
+| Organisation-wide apps | CodeRabbit |
 | Secrets | Registry access organisation-wide; none for `ios` for now, because it is built unsigned |
 
 ---
@@ -218,7 +219,9 @@ Crate names reflect the state of knowledge when this roadmap was written and are
 
 One consequence: five connectors sign in to the bank through their own Electron windows today, namely IBKR, ING, Mintos, Trade Republic and Unicaja (`frontend/app/electron/main/loginHandlers`). According to the upstream README, Trade Republic, ING and IBKR therefore do not work in Docker operation at all today. A replacement path exists for Trade Republic (section 4.7); the other four have not been investigated. Enable Banking is not affected.
 
-**From phase 2 on the desktop app is no longer built or shipped. Its code stays in the repository as a reference until Trade Republic demonstrably works in server operation.**
+**Ferrofolio does not build or ship the desktop app. Its code stays in the repository as a reference until Trade Republic demonstrably works in server operation.**
+
+This leaves a known gap. Until the server-side sign-in exists (phase 4, slice 4), no Ferrofolio build offers Trade Republic sign-in, just as the upstream Docker image does not today. In the interim the connector can be used by building the Electron app from source or through the upstream desktop app. The gap is accepted because Scalable Capital has priority. The server-side sign-in is still Python work with no dependency on the Rust foundation, so it can be pulled forward into phase 2 if the gap becomes a problem.
 
 **Native iOS app.**
 
@@ -345,6 +348,7 @@ Every intermediate state is usable, and the project always runs what it is devel
 What this needs:
 
 - **A shared database.** Both processes open the same SQLCipher file in WAL mode. The login goes to Rust; Rust unlocks its connection and passes the login on to Python.
+- **One authentication boundary.** Rust is the only process that authenticates clients: it validates the browser's session cookie or the native app's token. Python listens on the loopback interface only and keeps its existing session guard. When Rust passes a login on to Python, it keeps the bearer token Python returns and attaches it as `Authorization: Bearer` to every request it forwards. Forwarded browser requests therefore never rely on Python understanding cookies. A logout or a Python restart invalidates that internal token together with the client sessions.
 - **Migration ownership** stays with Python until cutover. Rust then starts with a schema baseline and continues the numbering.
 - **In-memory state** (bank sessions, caches). A route always moves together with the state it needs. Connectors are therefore ported as a whole, never in halves.
 
@@ -414,7 +418,7 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 - Web app and API in one container
 - PWA: service worker, installability, width-dependent mobile layout (section 4.3)
 - Remove Capacitor, Pyodide and the native shells
-- Switch off desktop builds and PyInstaller packaging; the Electron code stays for now (section 4.3)
+- Remove the desktop build and PyInstaller packaging workflows; the Electron code stays for now, and Trade Republic sign-in remains unavailable in Ferrofolio builds until phase 4 (section 4.3)
 - In parallel: start the `connectors-scalable` crate and test it from the command line against a real account (section 4.6)
 - Extend `GET /api/v1/status` with the server version and capabilities
 - Generate the OpenAPI specification and publish it as a release artifact
@@ -561,7 +565,7 @@ reviews:
 | End to end | Playwright against the built container | Against the server's `next` build |
 | Licences, advisories | `cargo deny`, `cargo audit` | Check of the Swift packages |
 | Secrets | gitleaks | gitleaks |
-| Dependencies | Renovate | Renovate |
+| Dependencies | Dependabot, grouped and on a weekly schedule | Dependabot, grouped and on a weekly schedule |
 
 The server repository additionally runs coverage (`cargo llvm-cov`), actionlint and hadolint. Occasionally, not per pull request: mutation tests (`cargo mutants`) for money arithmetic and auth.
 
@@ -590,7 +594,7 @@ iOS builds run on macOS runners; the standard runners are free for public reposi
 ### 7.6 Working across two repositories
 
 - Order for cross-cutting features: first the server pull request with the contract change, then a release or `next` build, then the iOS pull request with a reference to the server pull request.
-- Renovate raises the OpenAPI version in the iOS repository and thereby triggers regeneration and tests.
+- A scheduled workflow in the iOS repository raises the pinned OpenAPI version and thereby triggers regeneration and tests.
 
 ### 7.7 Watching upstream
 
@@ -607,7 +611,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Two large efforts at once (rewrite and iOS app) | The iOS app covers everyday tasks only; the desktop app is dropped |
 | Scalable changes or blocks the CLI interface | Watch the official CLI; as a way out, invoke the CLI itself in the container |
 | The Scalable access can trade | Fixed allow-list of read queries, human approval for this code |
-| Trade Republic loses its sign-in path with the desktop app | Prove the replacement path in phase 4, only then remove the Electron code (section 4.7) |
+| No Ferrofolio build offers Trade Republic sign-in until phase 4 | Accepted gap with a documented workaround (section 4.3); the server-side sign-in can be pulled forward into phase 2; the Electron code is removed only after it works (section 4.7) |
 | Trade Republic changes its interface or bot protection | Watch `pytr` and upstream; keep the connector on Python for a long time |
 | Other connectors that use an Electron login window | Decide per connector in phase 2; drop those without a server path |
 | Connectors break and nobody can test | Port only connectors with a real test account |
