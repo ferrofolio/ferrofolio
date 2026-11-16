@@ -164,8 +164,9 @@ class TestRequests:
             rsa_private_key_pem,
         )
 
+        redirect_url = "https://my-host.example/api/v1/entities/external/callback"
         result = await client.start_auth(
-            "Bank", "ES", "state-1", "2024-01-01T00:00:00+00:00"
+            "Bank", "ES", "state-1", "2024-01-01T00:00:00+00:00", redirect_url
         )
 
         assert result == {"url": "https://x", "authorization_id": "auth-1"}
@@ -173,7 +174,7 @@ class TestRequests:
         assert call.args[0] == "POST"
         assert call.args[1].endswith("/auth")
         body = call.kwargs["json"]
-        assert body["redirect_url"] == EnableBankingClient.REDIRECT_URL
+        assert body["redirect_url"] == redirect_url
         assert body["aspsp"] == {"name": "Bank", "country": "ES"}
         assert body["state"] == "state-1"
         assert body["access"] == {
@@ -191,7 +192,12 @@ class TestRequests:
         )
 
         await client.start_auth(
-            "Bank", "ES", "state-1", "2024-01-01T00:00:00+00:00", psu_type="business"
+            "Bank",
+            "ES",
+            "state-1",
+            "2024-01-01T00:00:00+00:00",
+            "https://my-host.example/api/v1/entities/external/callback",
+            psu_type="business",
         )
 
         body = client._session.request.call_args.kwargs["json"]

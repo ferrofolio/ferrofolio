@@ -9,6 +9,7 @@ PUBLIC_PATHS = frozenset(
         "/oauth/callback",
         "/auth/callback",
         "/api/v1/entities/external/complete",
+        "/api/v1/entities/external/callback",
     }
 )
 

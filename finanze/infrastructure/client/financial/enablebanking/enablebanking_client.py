@@ -19,7 +19,6 @@ from infrastructure.client.http.http_session import get_http_session
 
 class EnableBankingClient(ConnectableIntegration):
     BASE_URL = "https://api.enablebanking.com"
-    REDIRECT_URL = "https://finanze.me/eb/v1/entity/callback/"
     JWT_ISSUER = "enablebanking.com"
     JWT_AUDIENCE = "api.enablebanking.com"
     JWT_TTL_SECONDS = 3600
@@ -150,6 +149,7 @@ class EnableBankingClient(ConnectableIntegration):
         aspsp_country: str,
         state: str,
         valid_until: str,
+        redirect_url: str,
         psu_type: str = DEFAULT_PSU_TYPE,
     ) -> dict:
         body = {
@@ -160,7 +160,7 @@ class EnableBankingClient(ConnectableIntegration):
             },
             "aspsp": {"name": aspsp_name, "country": aspsp_country},
             "state": state,
-            "redirect_url": self.REDIRECT_URL,
+            "redirect_url": redirect_url,
             "psu_type": psu_type,
         }
         return await self._request("POST", "/auth", json=body)

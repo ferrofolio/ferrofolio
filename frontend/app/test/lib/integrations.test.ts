@@ -4,9 +4,12 @@ import es from "@/i18n/locales/es.json"
 import itTranslations from "@/i18n/locales/it.json"
 import de from "@/i18n/locales/de.json"
 import {
+  buildExternalEntityCallbackUrl,
+  EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER,
   getIntegrationFamilyName,
   getIntegrationMethodName,
   getIntegrationName,
+  resolveIntegrationHintUrl,
 } from "@/lib/integrations"
 
 describe("integration display names", () => {
@@ -130,5 +133,65 @@ describe("integration display names", () => {
       }),
     ).toBe("Future API")
     expect(getIntegrationMethodName(en, "FUTURE_API")).toBe("FUTURE_API")
+  })
+})
+
+describe("external entity callback URL", () => {
+  const origin = "https://app.example.com"
+
+  it("is built from an absolute server address", () => {
+    expect(
+      buildExternalEntityCallbackUrl("https://finance.example.com", origin),
+    ).toBe("https://finance.example.com/api/v1/entities/external/callback")
+  })
+
+  it("ignores trailing slashes of the server address", () => {
+    expect(
+      buildExternalEntityCallbackUrl("http://localhost:7592//", origin),
+    ).toBe("http://localhost:7592/api/v1/entities/external/callback")
+  })
+
+  it("falls back to the page origin for a relative server address", () => {
+    expect(buildExternalEntityCallbackUrl("", origin)).toBe(
+      "https://app.example.com/api/v1/entities/external/callback",
+    )
+  })
+
+  it("replaces the placeholder once the callback URL is known", () => {
+    const callbackUrl = buildExternalEntityCallbackUrl(
+      "https://finance.example.com",
+      origin,
+    )
+
+    expect(
+      resolveIntegrationHintUrl(
+        EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER,
+        callbackUrl,
+      ),
+    ).toBe(callbackUrl)
+  })
+
+  it("leaves other URLs untouched", () => {
+    expect(resolveIntegrationHintUrl("https://example.com/", null)).toBe(
+      "https://example.com/",
+    )
+  })
+
+  it("does not resolve the placeholder while the server address is unknown", () => {
+    expect(
+      resolveIntegrationHintUrl(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER, null),
+    ).toBeNull()
+  })
+
+  it.each([
+    ["en", en],
+    ["es", es],
+    ["it", itTranslations],
+    ["de", de],
+  ])("no longer points %s users to the upstream relay", (_, locale) => {
+    const text = JSON.stringify(locale)
+
+    expect(text).not.toContain("finanze.me/eb/")
+    expect(text).toContain(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER)
   })
 })

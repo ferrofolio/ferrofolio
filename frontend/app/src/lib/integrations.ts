@@ -39,3 +39,38 @@ export function getIntegrationMethodName(
     getIntegrationName(translations, integrationId, integration)
   )
 }
+
+export const EXTERNAL_ENTITY_CALLBACK_PATH =
+  "/api/v1/entities/external/callback"
+export const EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER =
+  "{{externalEntityCallbackUrl}}"
+
+/**
+ * URL of this server that an account-information provider redirects to after the
+ * user gave consent. It has to be registered with the provider, so it is built
+ * from the address the app uses to reach the server.
+ */
+export function buildExternalEntityCallbackUrl(
+  apiBaseUrl: string,
+  origin: string,
+): string {
+  const base = apiBaseUrl.replace(/\/+$/, "")
+  return new URL(`${base}${EXTERNAL_ENTITY_CALLBACK_PATH}`, origin).toString()
+}
+
+/**
+ * Replace the callback placeholder used in integration setup instructions.
+ * While the server address is not known yet the placeholder resolves to null.
+ */
+export function resolveIntegrationHintUrl(
+  value: string,
+  callbackUrl: string | null,
+): string | null {
+  if (!value.includes(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER)) {
+    return value
+  }
+  if (!callbackUrl) {
+    return null
+  }
+  return value.split(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER).join(callbackUrl)
+}

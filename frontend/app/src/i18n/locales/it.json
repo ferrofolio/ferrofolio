@@ -1332,8 +1332,8 @@
               "Aggiungi questo URL agli URL di reindirizzamento consentiti ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/eb/v1/entity/callback/",
-                "url": "https://finanze.me/eb/v1/entity/callback/"
+                "label": "{{externalEntityCallbackUrl}}",
+                "url": "{{externalEntityCallbackUrl}}"
               },
               ". Questo campo è **molto importante**."
             ],

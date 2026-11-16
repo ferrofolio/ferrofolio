@@ -1,4 +1,3 @@
-import base64
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
@@ -46,6 +45,7 @@ from domain.transactions import Transactions
 from infrastructure.client.entity.financial.psd2.psd2_transactions import (
     map_enablebanking_transaction,
 )
+from infrastructure.client.financial.enablebanking.auth_state import build_auth_state
 from infrastructure.client.financial.enablebanking.enablebanking_client import (
     EnableBankingClient,
 )
@@ -64,19 +64,18 @@ ACCOUNT_TYPE_MAP = {
     "TRAS": AccountType.BROKERAGE,
 }
 
+CALLBACK_PATH = "/api/v1/entities/external/callback"
+DEFAULT_REDIRECT_BASE = "http://localhost:7592"
+
 BALANCE_TYPE_PREFERENCE = ["CLAV", "ITAV", "CLBD", "XPCD", "OTHR"]
 PSU_TYPE_VALUES = {psu_type.value for psu_type in PsuType}
 
 
-def _build_auth_state(external_entity_id: str, completion_url: Optional[str]) -> str:
-    if not completion_url:
-        return external_entity_id
-    encoded = (
-        base64.urlsafe_b64encode(completion_url.encode("utf-8"))
-        .decode("ascii")
-        .rstrip("=")
-    )
-    return f"{external_entity_id}~{encoded}"
+def _build_redirect_url(redirect_host: Optional[str]) -> str:
+    base = (redirect_host or DEFAULT_REDIRECT_BASE).rstrip("/")
+    if not base.startswith(("http://", "https://")):
+        base = f"http://{base}"
+    return f"{base}{CALLBACK_PATH}"
 
 
 class EnableBankingFetcher(ExternalEntityFetcher):
@@ -118,7 +117,8 @@ class EnableBankingFetcher(ExternalEntityFetcher):
         auth = await self._client.start_auth(
             aspsp_name=aspsp["name"],
             aspsp_country=aspsp["country"],
-            state=_build_auth_state(str(external_entity.id), request.completion_url),
+            state=build_auth_state(str(external_entity.id), request.completion_url),
+            redirect_url=_build_redirect_url(request.redirect_host),
             valid_until=valid_until,
             psu_type=psu_type.value,
         )

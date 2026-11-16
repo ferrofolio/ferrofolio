@@ -26,6 +26,7 @@ from domain.external_integration import ExternalIntegrationId, ExternalIntegrati
 from infrastructure.client.entity.financial.psd2.enablebanking_fetcher import (
     EnableBankingFetcher,
 )
+from infrastructure.client.financial.enablebanking.auth_state import parse_auth_state
 from infrastructure.client.financial.enablebanking.enablebanking_client import (
     EnableBankingClient,
 )
@@ -264,14 +265,7 @@ class TestEnableBankingConnectFlow:
 
         external_entity = (await external_entity_port.get_all())[0]
         state = client.start_auth.await_args.kwargs["state"]
-        entity_part, _, encoded = state.partition("~")
-        assert entity_part == str(external_entity.id)
-
-        import base64
-
-        padding = "=" * (-len(encoded) % 4)
-        decoded = base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
-        assert decoded == completion_url
+        assert parse_auth_state(state) == (str(external_entity.id), completion_url)
 
     @pytest.mark.asyncio
     async def test_connect_updates_icon_of_existing_externally_provided_entity(
