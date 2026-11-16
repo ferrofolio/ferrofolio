@@ -1,4 +1,3 @@
-import os
 from uuid import UUID
 
 from domain.exception.exceptions import (
@@ -8,38 +7,8 @@ from domain.exception.exceptions import (
 from domain.external_entity import ConnectExternalEntityRequest, PsuType
 from domain.external_integration import ExternalIntegrationId
 from domain.use_cases.connect_external_entity import ConnectExternalEntity
+from infrastructure.controller.public_url import public_base_url
 from quart import jsonify, request
-
-
-PUBLIC_URL_ENV = "FINANZE_PUBLIC_URL"
-
-
-def _first(value: str | None) -> str | None:
-    if not value:
-        return None
-    return value.split(",")[0].strip() or None
-
-
-def public_base_url() -> str | None:
-    """Base URL under which this server is reachable from the user's browser.
-
-    FINANZE_PUBLIC_URL takes precedence. Without it the URL is derived from the
-    current request, honouring the headers a reverse proxy sets.
-    """
-    configured = (os.environ.get(PUBLIC_URL_ENV) or "").strip().rstrip("/")
-    if configured:
-        return configured
-
-    headers = request.headers
-    host = _first(headers.get("X-Forwarded-Host")) or headers.get("Host")
-    if not host:
-        return None
-
-    scheme = (_first(headers.get("X-Forwarded-Proto")) or "").lower()
-    if scheme not in ("http", "https"):
-        scheme = getattr(request, "scheme", None) or "http"
-
-    return f"{scheme}://{host}"
 
 
 async def connect_external_entity(connect_external_entity_uc: ConnectExternalEntity):

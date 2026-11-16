@@ -33,6 +33,13 @@ def _sign(payload: str) -> str:
 
 
 def is_allowed_completion_url(url: str) -> bool:
+    """Whether the callback may send the browser back to this URL.
+
+    Self-hosted instances are often reached over plain HTTP inside a local
+    network, so both schemes are accepted. The provider then returns the
+    authorization code in clear text; an instance that is reachable from other
+    networks should be served over HTTPS.
+    """
     if url.startswith(EXTERNAL_COMPLETE_DEEPLINK):
         return True
     parsed = urlsplit(url)
@@ -61,7 +68,11 @@ def parse_auth_state(state: Optional[str]) -> tuple[str, Optional[str]]:
 
     external_entity_id, encoded_url, signature = parts
     payload = f"{external_entity_id}{_SEPARATOR}{encoded_url}"
-    if not external_entity_id or not hmac.compare_digest(signature, _sign(payload)):
+    if (
+        not external_entity_id
+        or not signature.isascii()
+        or not hmac.compare_digest(signature, _sign(payload))
+    ):
         raise InvalidAuthState("Invalid state signature")
 
     if not encoded_url:

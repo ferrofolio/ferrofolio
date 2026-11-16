@@ -46,7 +46,7 @@ import {
   setupIntegration,
   disableIntegration,
   completeIntegrationOAuth,
-  getApiServerInfo,
+  checkStatus,
 } from "@/services/api"
 import { cn } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/clipboard"
@@ -439,12 +439,12 @@ export function ProvidersTab() {
 
   useEffect(() => {
     let active = true
-    getApiServerInfo()
-      .then(serverInfo => {
+    checkStatus()
+      .then(status => {
         if (!active) return
         setExternalEntityCallbackUrl(
           buildExternalEntityCallbackUrl(
-            serverInfo.baseUrl,
+            status.server.publicUrl ?? "",
             window.location.origin,
           ),
         )

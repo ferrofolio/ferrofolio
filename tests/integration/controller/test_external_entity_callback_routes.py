@@ -10,17 +10,21 @@ from domain.external_entity import (
     ExternalEntityConnectionResult,
     ExternalEntitySetupResponseCode,
 )
+from domain.platform import OS
+from domain.status import BackendDetails, BackendOptions, GlobalStatus, LoginStatusCode
 from infrastructure.client.financial.enablebanking.auth_state import build_auth_state
 from infrastructure.controller.config import quart
 from infrastructure.controller.routes.connect_external_entity import (
     connect_external_entity,
 )
+from infrastructure.controller.routes.get_status import status as get_status
 from infrastructure.controller.routes.relay_external_entity_callback import (
     relay_external_entity_callback,
 )
 
 CALLBACK_URL = "/api/v1/entities/external/callback"
 CONNECT_URL = "/api/v1/entities/external"
+STATUS_URL = "/api/v1/status"
 ENTITY_ID = str(uuid4())
 COMPLETION_URL = "https://my-host.example/app/#/entities"
 BODY = {"institution_id": "ES:Bank", "provider": "ENABLE_BANKING"}
@@ -36,6 +40,15 @@ async def ctx(tmp_path):
         id=uuid4(),
     )
 
+    status_uc = AsyncMock()
+    status_uc.execute.return_value = GlobalStatus(
+        status=LoginStatusCode.LOCKED,
+        server=BackendDetails(
+            version="1.0.0", platform_type=OS.LINUX, options=BackendOptions()
+        ),
+        features={},
+    )
+
     static_dir = tmp_path / "static"
     static_dir.mkdir()
     app = quart(static_dir)
@@ -48,8 +61,15 @@ async def ctx(tmp_path):
     async def connect_route():
         return await connect_external_entity(connect_uc)
 
+    @app.route(STATUS_URL, methods=["GET"])
+    async def status_route():
+        return await get_status(status_uc)
+
     yield SimpleNamespace(
-        http=app.test_client(), complete_uc=complete_uc, connect_uc=connect_uc
+        http=app.test_client(),
+        complete_uc=complete_uc,
+        connect_uc=connect_uc,
+        status_uc=status_uc,
     )
 
 
@@ -212,3 +232,21 @@ class TestRedirectHost:
 
         request = ctx.connect_uc.execute.await_args.args[0]
         assert request.redirect_host == "https://finance.example.com"
+
+
+class TestStatusPublicUrl:
+    @pytest.mark.asyncio
+    async def test_reports_the_address_of_the_current_request(self, ctx):
+        response = await ctx.http.get(STATUS_URL, headers={"Host": "my-host:7592"})
+        payload = await response.get_json()
+
+        assert payload["server"]["publicUrl"] == "http://my-host:7592"
+
+    @pytest.mark.asyncio
+    async def test_reports_the_configured_public_url(self, ctx, monkeypatch):
+        monkeypatch.setenv("FINANZE_PUBLIC_URL", "https://finance.example.com/")
+
+        response = await ctx.http.get(STATUS_URL, headers={"Host": "internal:7592"})
+        payload = await response.get_json()
+
+        assert payload["server"]["publicUrl"] == "https://finance.example.com"
