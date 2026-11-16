@@ -420,7 +420,9 @@ important ones are::
   `https://finance.example.com`. Bank connections through Enable Banking redirect to
   `<address>/api/v1/entities/external/callback` after you gave consent, and that URL has to be listed as an allowed
   redirect URL in your Enable Banking application. Without this variable the address is taken from the request,
-  including the `X-Forwarded-Proto` and `X-Forwarded-Host` headers of a reverse proxy.
+  including the `X-Forwarded-Proto` and `X-Forwarded-Host` headers of a reverse proxy. The browser carries the
+  authorization code back to the app, so serve the server over HTTPS unless it only runs in a trusted local network;
+  over plain HTTP that code is sent unencrypted.
 - Other Selenium related ones.
 
 ## License

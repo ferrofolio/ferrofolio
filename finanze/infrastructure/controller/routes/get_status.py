@@ -1,6 +1,7 @@
 from quart import jsonify, request
 
 from domain.use_cases.get_status import GetStatus
+from infrastructure.controller.public_url import public_base_url
 
 
 async def status(get_status_uc: GetStatus):
@@ -22,6 +23,7 @@ async def status(get_status_uc: GetStatus):
             "version": result.server.version,
             "platform_type": result.server.platform_type,
             "platform_version": result.server.platform_version,
+            "publicUrl": public_base_url(),
             "options": {
                 "dataDir": result.server.options.data_dir,
                 "port": result.server.options.port,

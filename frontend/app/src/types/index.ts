@@ -308,6 +308,7 @@ export interface StatusResponse {
     version: string
     platform_type: PlatformType
     platform_version?: string | null
+    publicUrl?: string | null
     options: BackendOptions
   }
   features: FeatureFlags

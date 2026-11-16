@@ -63,6 +63,11 @@ class TestRejection:
         with pytest.raises(InvalidAuthState):
             parse_auth_state(f"another-entity~{encoded_url}~{signature}")
 
+    @pytest.mark.parametrize("signature", ["é", "sigñature", "🙂"])
+    def test_rejects_non_ascii_signature(self, signature):
+        with pytest.raises(InvalidAuthState):
+            parse_auth_state(f"{ENTITY_ID}~~{signature}")
+
     def test_rejects_completion_url_with_unsupported_scheme(self):
         state = build_auth_state(ENTITY_ID, "javascript:alert(1)")
 
