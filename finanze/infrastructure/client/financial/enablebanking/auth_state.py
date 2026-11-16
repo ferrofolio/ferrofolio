@@ -36,9 +36,9 @@ def is_allowed_completion_url(url: str) -> bool:
     """Whether the callback may send the browser back to this URL.
 
     Self-hosted instances are often reached over plain HTTP inside a local
-    network, so both schemes are accepted. The provider then returns the
-    authorization code in clear text; an instance that is reachable from other
-    networks should be served over HTTPS.
+    network, so both schemes are accepted. The callback forwards the
+    authorization code to that URL, which sends it unencrypted; an instance that
+    is reachable from other networks should be served over HTTPS.
     """
     if url.startswith(EXTERNAL_COMPLETE_DEEPLINK):
         return True
