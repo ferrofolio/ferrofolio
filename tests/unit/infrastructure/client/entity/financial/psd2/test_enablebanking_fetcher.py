@@ -1,4 +1,3 @@
-import base64
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -24,6 +23,7 @@ from domain.global_position import AccountType, ProductType
 from infrastructure.client.entity.financial.psd2.enablebanking_fetcher import (
     EnableBankingFetcher,
 )
+from infrastructure.client.financial.enablebanking.auth_state import parse_auth_state
 
 
 def _make_fetcher():
@@ -123,7 +123,7 @@ class TestCreateOrLink:
         client.start_auth.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_state_is_plain_entity_id_without_completion_url(self):
+    async def test_state_carries_entity_id_without_completion_url(self):
         fetcher, client = _make_fetcher()
         client.get_aspsps = AsyncMock(
             return_value=[
@@ -142,7 +142,8 @@ class TestCreateOrLink:
 
         await fetcher.create_or_link(request)
 
-        assert client.start_auth.await_args.kwargs["state"] == str(external_entity.id)
+        state = client.start_auth.await_args.kwargs["state"]
+        assert parse_auth_state(state) == (str(external_entity.id), None)
 
     @pytest.mark.asyncio
     async def test_state_encodes_completion_url_when_present(self):
@@ -167,13 +168,56 @@ class TestCreateOrLink:
         await fetcher.create_or_link(request)
 
         state = client.start_auth.await_args.kwargs["state"]
-        entity_part, _, encoded = state.partition("~")
-        assert entity_part == str(external_entity.id)
-        assert encoded != ""
+        assert parse_auth_state(state) == (str(external_entity.id), completion_url)
 
-        padding = "=" * (-len(encoded) % 4)
-        decoded = base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
-        assert decoded == completion_url
+    @pytest.mark.asyncio
+    async def test_redirects_to_the_callback_of_the_requesting_host(self):
+        fetcher, client = _make_fetcher()
+        client.get_aspsps = AsyncMock(
+            return_value=[
+                {"name": "Bank", "country": "ES", "maximum_consent_validity": 7776000}
+            ]
+        )
+        client.start_auth = AsyncMock(
+            return_value={"url": "https://auth", "authorization_id": "auth-1"}
+        )
+
+        request = ExternalEntityLoginRequest(
+            external_entity=_external_entity(),
+            institution_id="ES:Bank",
+            redirect_host="https://my-host.example/",
+        )
+
+        await fetcher.create_or_link(request)
+
+        assert (
+            client.start_auth.await_args.kwargs["redirect_url"]
+            == "https://my-host.example/api/v1/entities/external/callback"
+        )
+
+    @pytest.mark.asyncio
+    async def test_redirect_falls_back_to_localhost_without_host(self):
+        fetcher, client = _make_fetcher()
+        client.get_aspsps = AsyncMock(
+            return_value=[
+                {"name": "Bank", "country": "ES", "maximum_consent_validity": 7776000}
+            ]
+        )
+        client.start_auth = AsyncMock(
+            return_value={"url": "https://auth", "authorization_id": "auth-1"}
+        )
+
+        request = ExternalEntityLoginRequest(
+            external_entity=_external_entity(),
+            institution_id="ES:Bank",
+        )
+
+        await fetcher.create_or_link(request)
+
+        assert (
+            client.start_auth.await_args.kwargs["redirect_url"]
+            == "http://localhost:7592/api/v1/entities/external/callback"
+        )
 
 
 class TestCompleteLink:

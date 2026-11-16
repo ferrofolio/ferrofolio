@@ -251,6 +251,9 @@ class TestUnauthenticatedClient:
 
         assert (await other_http.get("/static/logo.png")).status_code == 200
         assert (await other_http.get("/oauth/callback")).status_code == 200
+        # Not routed in this test app: 404 shows that the guard let it through.
+        callback = await other_http.get("/api/v1/entities/external/callback")
+        assert callback.status_code == 404
         preflight = await other_http.options(
             SETTINGS_URL,
             headers={

@@ -272,6 +272,9 @@ from infrastructure.controller.routes.networth_timeline import networth_timeline
 from infrastructure.controller.routes.get_mcp_config import get_mcp_config
 from infrastructure.mcp.tool_catalog import McpToolCatalog
 from infrastructure.controller.routes.update_mcp_config import update_mcp_config
+from infrastructure.controller.routes.relay_external_entity_callback import (
+    relay_external_entity_callback,
+)
 from infrastructure.controller.routes.regenerate_mcp_token import (
     regenerate_mcp_token,
 )
@@ -500,6 +503,12 @@ async def register_routes(
     @app.route("/api/v1/entities/external/complete", methods=["GET"])
     async def complete_external_entity_connection_route():
         return await complete_external_entity_connection(
+            complete_external_entity_connection_uc
+        )
+
+    @app.route("/api/v1/entities/external/callback", methods=["GET"])
+    async def relay_external_entity_callback_route():
+        return await relay_external_entity_callback(
             complete_external_entity_connection_uc
         )
 

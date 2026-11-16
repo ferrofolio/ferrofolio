@@ -1331,8 +1331,8 @@
               "Añade esta URL a las URLs de redirección permitidas: ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/eb/v1/entity/callback/",
-                "url": "https://finanze.me/eb/v1/entity/callback/"
+                "label": "{{externalEntityCallbackUrl}}",
+                "url": "{{externalEntityCallbackUrl}}"
               },
               ". Este campo es **imprescindible**."
             ],

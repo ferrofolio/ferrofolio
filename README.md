@@ -416,6 +416,11 @@ important ones are::
 
 - `USERNAME` and `PASSWORD` optional, to auto start session on load.
 - `MULTI_USER` optional, to allow multiple user sign up (only recommended for local development).
+- `FINANZE_PUBLIC_URL` optional, the address under which the server is reachable from your browser, for example
+  `https://finance.example.com`. Bank connections through Enable Banking redirect to
+  `<address>/api/v1/entities/external/callback` after you gave consent, and that URL has to be listed as an allowed
+  redirect URL in your Enable Banking application. Without this variable the address is taken from the request,
+  including the `X-Forwarded-Proto` and `X-Forwarded-Host` headers of a reverse proxy.
 - Other Selenium related ones.
 
 ## License

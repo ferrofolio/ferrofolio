@@ -46,13 +46,16 @@ import {
   setupIntegration,
   disableIntegration,
   completeIntegrationOAuth,
+  getApiServerInfo,
 } from "@/services/api"
 import { cn } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/clipboard"
 import {
+  buildExternalEntityCallbackUrl,
   getIntegrationFamilyName,
   getIntegrationMethodName,
   getIntegrationName,
+  resolveIntegrationHintUrl,
 } from "@/lib/integrations"
 import {
   ExternalIntegrationStatus,
@@ -430,6 +433,51 @@ export function ProvidersTab() {
     })
   }, [])
 
+  const [externalEntityCallbackUrl, setExternalEntityCallbackUrl] = useState<
+    string | null
+  >(null)
+
+  useEffect(() => {
+    let active = true
+    getApiServerInfo()
+      .then(serverInfo => {
+        if (!active) return
+        setExternalEntityCallbackUrl(
+          buildExternalEntityCallbackUrl(
+            serverInfo.baseUrl,
+            window.location.origin,
+          ),
+        )
+      })
+      .catch(() => {
+        // The setup instructions keep showing a placeholder
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const resolveHintParts = useCallback(
+    (parts: IntegrationHintPart[] | undefined) =>
+      parts?.map(part => {
+        if (part.type !== "copylink") {
+          return part
+        }
+        const url = resolveIntegrationHintUrl(
+          part.url,
+          externalEntityCallbackUrl,
+        )
+        const label = resolveIntegrationHintUrl(
+          part.label,
+          externalEntityCallbackUrl,
+        )
+        return url && label
+          ? { ...part, url, label }
+          : ({ type: "text", value: "…" } as const)
+      }),
+    [externalEntityCallbackUrl],
+  )
+
   const getIntegrationCopy = useCallback(
     (integration: ExternalIntegration) => {
       const title = getIntegrationName(t, integration.id, integration)
@@ -453,12 +501,14 @@ export function ProvidersTab() {
         typeof hintRaw?.text === "string" ? hintRaw.text.trim() : ""
       const hintTitleRaw =
         typeof hintRaw?.title === "string" ? hintRaw.title.trim() : ""
-      const hintParts = parseIntegrationHintParts(hintRaw?.parts)
+      const hintParts = resolveHintParts(
+        parseIntegrationHintParts(hintRaw?.parts),
+      )
       const hintStepsRaw = Array.isArray(hintRaw?.steps)
         ? hintRaw.steps
         : undefined
       const hintSteps = hintStepsRaw
-        ?.map(step => parseIntegrationHintParts(step))
+        ?.map(step => resolveHintParts(parseIntegrationHintParts(step)))
         .filter(Boolean) as IntegrationHintPart[][] | undefined
 
       const hint =
@@ -478,7 +528,7 @@ export function ProvidersTab() {
         hint,
       }
     },
-    [t],
+    [t, resolveHintParts],
   )
 
   const formatIntegrationMessage = useCallback(

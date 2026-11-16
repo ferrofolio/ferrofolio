@@ -1333,8 +1333,8 @@
               "Füge diese URL zu den erlaubten Weiterleitungs-URLs hinzu: ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/eb/v1/entity/callback/",
-                "url": "https://finanze.me/eb/v1/entity/callback/"
+                "label": "{{externalEntityCallbackUrl}}",
+                "url": "{{externalEntityCallbackUrl}}"
               },
               ". Dieses Feld ist **besonders wichtig**."
             ],
