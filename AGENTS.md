@@ -43,18 +43,24 @@ issues and review replies. The only exception is the content of locale files und
 
 ## Checks
 
+Each block is run from the repository root.
+
 ```bash
 # Backend
 ruff check .
 ruff format --check .
 pytest
+```
 
+```bash
 # Frontend
 cd frontend/app
 pnpm run lint
 pnpm exec prettier --check .
 pnpm test
+```
 
+```bash
 # End to end
 cd e2e/standard
 pnpm test
