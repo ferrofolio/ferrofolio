@@ -2155,7 +2155,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
   }, [autoRefreshCountdown, scrape])
 
   useEffect(() => {
-    if (!__CONNECTIONS__) return
     if (autoRefreshExecutedRef.current) return
     if (!entitiesLoaded || entities.length === 0) return
 
