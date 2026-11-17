@@ -13,7 +13,7 @@ Last updated: 2026-11-16 · Fork point: Finanze `develop` at `d9761ed6` · Code 
 | Name | **Ferrofolio** |
 | GitHub | Own organisation `ferrofolio`; server and apps live in separate repositories |
 | Registry | `ghcr.io/ferrofolio/ferrofolio` |
-| Bundle IDs | `app.ferrofolio.ios`, later `app.ferrofolio.android`; domain `ferrofolio.app` |
+| Bundle IDs | `app.ferrofolio.ios`, later `app.ferrofolio.android`, based on the project domain `ferrofolio.app` (registered) |
 | Licence | AGPL-3.0 stays, the CLA is dropped; contributions come in under the project licence |
 | Language | Everything in the project is written in English |
 | Backend | Rewritten in Rust, incrementally |
@@ -74,7 +74,7 @@ About the PWA: a web manifest with `display: standalone` and the iOS meta tags a
 | New files | SPDX header `AGPL-3.0-only` |
 | `cargo deny` | Licence check of all Rust dependencies for AGPL compatibility as a CI gate |
 
-**Trademark.** The AGPL grants no trademark rights. The name, icons and identifiers of "Finanze" are replaced completely. The name "Ferrofolio" has been checked against GitHub, crates.io, npm, Docker Hub and domain registries, but not yet against trademark registers (DPMA, EUIPO, USPTO) or the app stores.
+**Trademark.** The AGPL grants no trademark rights. The name, icons and identifiers of "Finanze" are planned to be replaced. The name "Ferrofolio" has been checked against GitHub, crates.io, npm, Docker Hub and domain registries, and the domain `ferrofolio.app` is registered for the project. A check against trademark registers is not planned.
 
 **Direction of code flow.** Ferrofolio may take upstream changes (AGPL to AGPL). Upstream cannot take Ferrofolio code unless its authors sign the upstream CLA.
 
@@ -384,7 +384,7 @@ flowchart LR
 
 ### Phase 0 – Independence · S
 
-- Set up the `ferrofolio` organisation (section 3.1) and register the domain `ferrofolio.app`
+- Set up the `ferrofolio` organisation (section 3.1) and register the domain `ferrofolio.app` (done)
 - Repository `ferrofolio/ferrofolio` with the full history, `upstream` as a fetch-only remote
 - Licence steps from section 3
 - Rename: name, icons, image names, the URL scheme `finanze://`, and the default data directory `Finanze` in `finanze/args.py` with a migration of existing data
@@ -625,7 +625,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Apple changes the sideloading rules | The PWA stays a complete mobile client |
 | No Mac available | No iOS development without a Mac; until then the PWA is the mobile client |
 | CodeRabbit limits slow down throughput | Bundle pull requests, check the limits early, a second reviewer as a fallback |
-| Trademark conflict over the name | Register check still outstanding |
+| Trademark conflict over the name | Accepted risk; no register check is planned. The project owns the domain and the GitHub organisation |
 | Single-maintainer project | Documented workflow, low barrier for contributors without a CLA |
 
 ---
@@ -648,9 +648,9 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 
 ## 10. Next steps
 
-1. Check "Ferrofolio" against the trademark registers and the app stores.
-2. Finish the organisation settings from section 3.1: two-factor requirement, rulesets, apps. Register the domain `ferrofolio.app`.
-3. Phase 0 as a series of small pull requests: Enable Banking redirect → rename → remaining upstream services.
-4. Phase 1: CodeRabbit, `.coderabbit.yaml`, `AGENTS.md`, rulesets, CI gates.
+1. Done: organisation set up with two-factor requirement, ruleset with required checks and CodeRabbit; domain `ferrofolio.app` registered.
+2. Done: the first Phase 0 and Phase 1 pull requests (roadmap, CI cleanup, review policy, Dependabot, Enable Banking redirect).
+3. Verify the Enable Banking redirect with a real bank consent.
+4. Phase 0 continued: rename → remaining upstream services.
 5. Phase 2: hardening auth is the first functional pull request, followed by the PWA and the removal of Capacitor. In parallel, enable "Agentic Investing" in a Scalable account and start the `connectors-scalable` crate.
 6. Once a Mac is available and phase 2 delivers the OpenAPI specification: start iOS stage A.
