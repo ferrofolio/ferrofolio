@@ -423,6 +423,10 @@ COMMODITIES = Entity(
     icon_url=None,
 )
 
+# Their connectors were removed. They stay defined so that stored data keeps its
+# entity, but they are only listed where such data exists.
+RETIRED_ENTITY_IDS = frozenset(e.id for e in (MY_INVESTOR, URBANITAE, SEGO, B100))
+
 NATIVE_ENTITIES = [
     MY_INVESTOR,
     UNICAJA,
