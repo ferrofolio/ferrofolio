@@ -13,6 +13,10 @@ from domain.exchange_rate import HistoricMetalRates
 from infrastructure.client.http.http_session import get_http_session
 
 
+class HistoricRatesParseError(Exception):
+    """Raised when a historic metal rates payload has an unexpected structure."""
+
+
 class HistoricMetalPriceClient(HistoricMetalPriceProvider):
     # Optional source of historic metal prices; none is used by default
     BASE_URL = os.getenv("METAL_RATES_URL") or None
@@ -62,7 +66,11 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
             self._log.error(f"Failed fetching historic rates for {commodity}: {e}")
             return None
 
-        rates = self._build(raw)
+        try:
+            rates = self._build(raw)
+        except HistoricRatesParseError as e:
+            self._log.error(f"Invalid historic rates for {commodity}: {e}")
+            return None
         if rates is not None:
             await self._cache.set(cache_key, rates, ttl=self.CACHE_TTL)
         return rates
@@ -71,13 +79,16 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
         if not raw:
             return None
 
-        ordered = sorted(raw.items())
-        days: list[date] = []
-        series: dict[str, list[Dezimal]] = {}
-        for day_str, by_currency in ordered:
-            days.append(date.fromisoformat(day_str))
-            for currency, value in by_currency.items():
-                series.setdefault(currency, []).append(Dezimal(str(value)))
+        try:
+            ordered = sorted(raw.items())
+            days: list[date] = []
+            series: dict[str, list[Dezimal]] = {}
+            for day_str, by_currency in ordered:
+                days.append(date.fromisoformat(day_str))
+                for currency, value in by_currency.items():
+                    series.setdefault(currency, []).append(Dezimal(str(value)))
+        except (AttributeError, TypeError, ValueError) as e:
+            raise HistoricRatesParseError(f"{type(e).__name__}: {e}") from e
 
         return HistoricMetalRates(
             unit=WeightUnit.TROY_OUNCE,
