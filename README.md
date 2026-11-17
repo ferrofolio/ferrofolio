@@ -91,8 +91,9 @@ AI powers transaction labeling and file importing. Connect OpenAI (API key), Cha
 
 - **Local models:** Run GGUF models with a llama.cpp server in router mode, for example the optional
   `ferrofolio-llama` service in the example [docker-compose.yml](docker-compose.yml). Download recommended or
-  Hugging Face models or import a GGUF file. Models with a vision projector (`mmproj`) can read images and scanned
-  PDFs.
+  Hugging Face models or import a GGUF file. With the compose service, imported GGUF files and their `mmproj` files
+  must be in `./.storage/models/local`, the folder mounted into the llama.cpp container. Models with a vision projector
+  (`mmproj`) can read images and scanned PDFs.
 - **Custom AI:** Connect an OpenAI-compatible API such as Ollama, LM Studio, vLLM, or a single-model llama.cpp server with its base URL and optional API key.
 
 External endpoints must be reachable from the Ferrofolio server.
