@@ -94,6 +94,10 @@ def configure_logging(args):
             )
             file_enabled = False
 
+    if not root_logger.handlers:
+        # Without any handler Python falls back to printing warnings to stderr
+        root_logger.addHandler(logging.NullHandler())
+
     active_levels = [
         lvl
         for lvl in [

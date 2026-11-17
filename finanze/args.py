@@ -110,7 +110,7 @@ def _log_migration(migration: DataDirMigration) -> None:
         logging.warning(
             f"Found data of a previous installation in {migration.conflict}, but "
             f"{migration.data_dir} is not empty. Leaving both untouched; pass "
-            f"--data-dir {_shell_quote(migration.conflict)} to keep using the previous data."
+            f"{_data_dir_argument(migration.conflict)} to keep using the previous data."
         )
     elif migration.error is not None:
         logging.error(
@@ -119,16 +119,23 @@ def _log_migration(migration: DataDirMigration) -> None:
         )
 
 
-def _shell_quote(path: Path) -> str:
-    """Quote a path so it can be pasted as a single command line argument.
+# Characters PowerShell treats as a single quote; each is escaped by doubling it
+_POWERSHELL_SINGLE_QUOTES = "'\u2018\u2019\u201a\u201b"
 
-    On Windows the instruction targets the Command Prompt (cmd.exe). The path is
-    always wrapped in double quotes, which keeps metacharacters such as & | < > ^
-    literal; a Windows path cannot contain a double quote itself.
+
+def _data_dir_argument(path: Path) -> str:
+    """Build a --data-dir argument that can be pasted as a single argument.
+
+    On Windows the instruction targets PowerShell: inside single quotes nothing is
+    expanded, unlike in cmd.exe where %VARIABLE% is expanded even within double
+    quotes, so a literal path such as C:\\Users\\%USERNAME% stays unchanged.
     """
     if os.name == "nt":
-        return f'"{path}"'
-    return shlex.quote(str(path))
+        quoted = "".join(
+            c * 2 if c in _POWERSHELL_SINGLE_QUOTES else c for c in str(path)
+        )
+        return f"--data-dir '{quoted}' (PowerShell syntax)"
+    return f"--data-dir {shlex.quote(str(path))}"
 
 
 def _remember_ttl(raw: Optional[str]) -> Optional[timedelta]:

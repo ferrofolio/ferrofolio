@@ -228,22 +228,64 @@ def test_conflict_instruction_quotes_the_previous_directory(caplog):
     assert shlex.split(instruction) == ["--data-dir", str(conflict)]
 
 
-def test_conflict_instruction_uses_windows_quoting_on_windows(monkeypatch, caplog):
+@pytest.mark.parametrize(
+    "raw, quoted",
+    [
+        (
+            r"C:\Users\Ada Lovelace\AppData\Local\Finanze",
+            r"'C:\Users\Ada Lovelace\AppData\Local\Finanze'",
+        ),
+        (
+            r"C:\Users\Ada&Bob\AppData\Local\Finanze",
+            r"'C:\Users\Ada&Bob\AppData\Local\Finanze'",
+        ),
+        (
+            r"C:\Users\%USERNAME%\AppData\Local\Finanze",
+            r"'C:\Users\%USERNAME%\AppData\Local\Finanze'",
+        ),
+        (
+            r"C:\Users\O'Brien\AppData\Local\Finanze",
+            r"'C:\Users\O''Brien\AppData\Local\Finanze'",
+        ),
+    ],
+)
+def test_conflict_instruction_uses_literal_powershell_quoting_on_windows(
+    monkeypatch, caplog, raw, quoted
+):
     monkeypatch.setattr(app_args_module, "os", SimpleNamespace(name="nt"))
-    conflict = PureWindowsPath(r"C:\Users\Ada Lovelace\AppData\Local\Finanze")
 
-    instruction = _conflict_instruction(caplog, conflict)
+    instruction = _conflict_instruction(caplog, PureWindowsPath(raw))
 
-    assert instruction == f'--data-dir "{conflict}"'
+    assert instruction == f"--data-dir {quoted} (PowerShell syntax)"
 
 
-def test_conflict_instruction_quotes_cmd_metacharacters_on_windows(monkeypatch, caplog):
-    monkeypatch.setattr(app_args_module, "os", SimpleNamespace(name="nt"))
-    conflict = PureWindowsPath(r"C:\Users\Ada&Bob\AppData\Local\Finanze")
+def test_conflict_is_not_printed_when_all_logging_is_disabled(
+    monkeypatch, tmp_path, capsys
+):
+    target = tmp_path / "Ferrofolio"
+    target.mkdir()
+    (target / "user.db").write_bytes(b"newer")
+    legacy = _legacy_with_db(tmp_path)
+    monkeypatch.setattr(app_args_module, "default_data_dir", lambda: target)
+    monkeypatch.setattr(data_dir, "legacy_data_dir", lambda: legacy)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["finanze", "--log-level", "NONE", "--log-file-level", "NONE"],
+    )
+    root = logging.getLogger()
+    saved_handlers, saved_level = root.handlers[:], root.level
+    try:
+        parsed = app_args_module.parse_args()
+    finally:
+        for handler in root.handlers[:]:
+            root.removeHandler(handler)
+        for handler in saved_handlers:
+            root.addHandler(handler)
+        root.setLevel(saved_level)
 
-    instruction = _conflict_instruction(caplog, conflict)
-
-    assert instruction == f'--data-dir "{conflict}"'
+    assert parsed.data_dir == target
+    assert "Found data of a previous installation" not in capsys.readouterr().err
 
 
 def test_concurrent_copies_use_separate_staging_directories(tmp_path, monkeypatch):
