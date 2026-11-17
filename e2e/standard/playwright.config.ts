@@ -43,13 +43,13 @@ export default defineConfig<{}, { backendPort: number }>({
 
     webServer: [
         {
-            command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${BACKEND_PORT} MOBILE_DEV=1 VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRONTEND_PORT}`,
+            command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${BACKEND_PORT} WEB_ONLY=1 VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRONTEND_PORT}`,
             port: FRONTEND_PORT,
             reuseExistingServer: !process.env.CI,
             timeout: 30_000,
         },
         {
-            command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${FRESH_BACKEND_PORT} VITE_SUPABASE_URL=https://e2e-mock.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=e2e-mock-key MOBILE_DEV=1 VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRESH_FRONTEND_PORT}`,
+            command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${FRESH_BACKEND_PORT} VITE_SUPABASE_URL=https://e2e-mock.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=e2e-mock-key WEB_ONLY=1 VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRESH_FRONTEND_PORT}`,
             port: FRESH_FRONTEND_PORT,
             reuseExistingServer: !process.env.CI,
             timeout: 30_000,
