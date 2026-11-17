@@ -109,8 +109,6 @@
     "details": "Details",
     "unsupportedWebView": "Dein Android System WebView ist veraltet und wird nicht unterstützt. Bitte aktualisiere es im Play Store, um diese App zu nutzen.",
     "updateWebView": "WebView aktualisieren",
-    "officialWebpage": "finanze.me",
-    "officialWebpageUrl": "https://finanze.me",
     "optional": "Optional",
     "clear": "Leeren",
     "notAvailableOnPlatform": "Auf dieser Plattform nicht verfügbar",
@@ -603,7 +601,6 @@
     "tabEntities": "Institute",
     "tabProviders": "Anbieter",
     "storeNotice": "Diese Version unterstützt keine Verbindungen zu Finanzinstituten. Du kannst deine Daten manuell verwalten oder aus Dateien importieren. Weitere Optionen findest du auf {link}.",
-    "storeNoticeLink": "finanze.me",
     "connected": "Verbunden",
     "requiresLogin": "Anmeldung erforderlich",
     "login": "Erneut anmelden",
@@ -846,9 +843,9 @@
     "integrations": "Integrationen",
     "legal": {
       "title": "Rechtliches",
-      "description": "Rechtliche Informationen und Richtlinien",
-      "privacyPolicy": "Datenschutzerklärung",
-      "termsOfService": "Nutzungsbedingungen"
+      "description": "Ferrofolio ist freie Software. Der Quellcode steht allen offen, die es nutzen.",
+      "sourceCode": "Quellcode",
+      "license": "Lizenz (AGPL-3.0)"
     },
     "privacy": {
       "title": "Diagnose",

@@ -1,4 +1,5 @@
 import { useAppContext } from "@/context/AppContext"
+import { SOURCE_CODE_LABEL, SOURCE_CODE_URL } from "@/lib/project"
 import { useEntityWorkflow } from "@/context/EntityWorkflowContext"
 import { EntityCard } from "@/components/EntityCard"
 import { LoginForm } from "@/components/LoginForm"
@@ -453,12 +454,12 @@ export default function EntityIntegrationsPage() {
             <p className="text-sm text-muted-foreground">
               {t.entities.storeNotice.split("{link}")[0]}
               <a
-                href="https://finanze.me"
+                href={SOURCE_CODE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary underline"
               >
-                {t.entities.storeNoticeLink}
+                {SOURCE_CODE_LABEL}
               </a>
               {t.entities.storeNotice.split("{link}")[1]}
             </p>
