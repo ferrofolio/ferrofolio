@@ -12,7 +12,6 @@ from domain.market_forecast import (
     MarketForecastClosedPositionsResponse,
 )
 from domain.native_entities import POLYMARKET
-from domain.public_keychain import PublicKeychain
 from domain.use_cases.get_market_forecast_closed_positions import (
     GetMarketForecastClosedPositions,
 )
@@ -74,7 +73,6 @@ class GetMarketForecastClosedPositionsImpl(GetMarketForecastClosedPositions):
 
         login_params = EntityLoginParams(
             credentials=credentials,
-            keychain=PublicKeychain({}),
         )
         account_data = await self._provider.get_closed_positions(login_params)
         if not account_data:

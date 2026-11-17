@@ -5,7 +5,6 @@ import pytest
 import pytest_asyncio
 
 from domain.entity_login import EntityLoginParams
-from domain.public_keychain import PublicKeychain
 from infrastructure.client.entity.exchange.polymarket.polymarket_client import (
     CLOSED_POSITIONS_CACHE_TTL,
     PNL_CACHE_TTL,
@@ -17,7 +16,6 @@ from infrastructure.client.entity.exchange.polymarket.polymarket_client import (
 def login_params():
     return EntityLoginParams(
         credentials={"identifier": "0x0000000000000000000000000000000000000001"},
-        keychain=PublicKeychain({}),
     )
 
 
