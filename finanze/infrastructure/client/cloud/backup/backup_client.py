@@ -120,9 +120,19 @@ class BackupClient(BackupRepository):
                     self._log.warning(f"No piece found for type {upload_info['type']}")
                     continue
 
+                # The backup payload must not travel unencrypted
+                upload_url = upload_info.get("url")
+                if (
+                    not isinstance(upload_url, str)
+                    or urlparse(upload_url).scheme != "https"
+                ):
+                    raise BackupTransferFailed(
+                        f"The upload URL for backup piece {piece.type.value} must use HTTPS"
+                    )
+
                 try:
                     await self._file_transfer_strategy.upload(
-                        url=upload_info["url"],
+                        url=upload_url,
                         method=upload_info["method"],
                         payload=piece.payload,
                         headers=upload_info.get("headers", {}),

@@ -2,12 +2,13 @@
 import json
 from datetime import datetime
 from types import SimpleNamespace
+from uuid import UUID
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
 
-from domain.backup import BackupFileType
+from domain.backup import BackupFileType, BackupTransferPiece
 from domain.exception.exceptions import BackupTransferFailed
 from infrastructure.client.cloud.backup.backup_client import BackupClient
 
@@ -92,8 +93,8 @@ def _configured_client(monkeypatch, payload=None, error=None) -> BackupClient:
 
 
 def _upload_request():
-    piece = SimpleNamespace(
-        id="00000000-0000-0000-0000-000000000001",
+    piece = BackupTransferPiece(
+        id=UUID("00000000-0000-0000-0000-000000000001"),
         type=BackupFileType.DATA,
         size=1,
         date=datetime(2025, 1, 1),
@@ -160,3 +161,45 @@ async def test_upload_rejects_a_malformed_response(monkeypatch, payload, error):
         await client.upload(_upload_request())
 
     client._file_transfer_strategy.upload.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "url",
+    ["http://storage.example.com/piece", "ftp://storage.example.com/piece", None],
+)
+async def test_upload_refuses_a_non_https_upload_url(monkeypatch, url):
+    client = _configured_client(
+        monkeypatch, {"uploads": [{"type": "DATA", "url": url, "method": "PUT"}]}
+    )
+
+    with pytest.raises(BackupTransferFailed):
+        await client.upload(_upload_request())
+
+    client._file_transfer_strategy.upload.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upload_sends_the_piece_to_an_https_upload_url(monkeypatch):
+    client = _configured_client(
+        monkeypatch,
+        {
+            "uploads": [
+                {
+                    "type": "DATA",
+                    "url": "https://storage.example.com/piece",
+                    "method": "PUT",
+                }
+            ]
+        },
+    )
+    client._file_transfer_strategy.upload = AsyncMock()
+
+    result = await client.upload(_upload_request())
+
+    assert [p.type for p in result.pieces] == [BackupFileType.DATA]
+    client._file_transfer_strategy.upload.assert_awaited_once()
+    assert (
+        client._file_transfer_strategy.upload.await_args.kwargs["url"]
+        == "https://storage.example.com/piece"
+    )
