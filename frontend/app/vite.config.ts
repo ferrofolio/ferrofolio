@@ -10,7 +10,6 @@ const require = createRequire(import.meta.url)
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, __dirname, "")
-  const includeConnections = process.env.INCLUDE_CONNECTIONS !== "0"
   rmSync("dist-electron", { recursive: true, force: true })
 
   const isServe = command === "serve"
@@ -67,7 +66,6 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     define: {
-      __CONNECTIONS__: JSON.stringify(includeConnections),
       __APP_VERSION__: JSON.stringify(appVersion),
     },
     resolve: {
