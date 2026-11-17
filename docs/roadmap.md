@@ -11,7 +11,7 @@ Last updated: 2026-11-17 · Fork point: Finanze `develop` at `d9761ed6` · Code 
 | Topic | Decision |
 |---|---|
 | Name | **Ferrofolio** |
-| Distribution | The server runs as a Docker image that users build from this repository; the project does not publish images yet. The web app is served by the server and becomes a PWA; native mobile apps are planned in their own repositories. Nothing else |
+| Distribution | The server runs as a Docker image that users build from this repository; the project does not publish images yet. The web app is served by a separate nginx frontend container (`ferrofolio-front`, built from `frontend/Dockerfile`) and becomes a PWA; native mobile apps are planned in their own repositories. Nothing else |
 | GitHub | Own organisation `ferrofolio`; server and apps live in separate repositories, one per mobile platform |
 | Registry | `ghcr.io/ferrofolio/ferrofolio` |
 | Bundle IDs | `app.ferrofolio.ios`, later `app.ferrofolio.android`, based on the project domain `ferrofolio.app` (registered) |
