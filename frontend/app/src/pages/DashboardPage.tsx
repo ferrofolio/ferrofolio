@@ -12,7 +12,6 @@ import { useAppContext } from "@/context/AppContext"
 import { TxType } from "@/types/transactions"
 import { formatCurrency, formatPercentage, formatDate } from "@/lib/formatters"
 import { useSkipMountAnimation } from "@/lib/animations"
-import { isNativeMobile } from "@/lib/platform"
 import { AnimatedContainer } from "@/components/ui/AnimatedContainer"
 import { FormattedMarketValue } from "@/components/ui/FormattedMarketValue"
 import { Sensitive } from "@/components/ui/Sensitive"
@@ -234,7 +233,6 @@ export default function DashboardPage() {
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [clickedItem, setClickedItem] = useState<string | null>(null)
-  const isNativeApp = isNativeMobile()
 
   const isPopoverOpen = (itemId: string) => {
     return hoveredItem === itemId || clickedItem === itemId
@@ -250,7 +248,6 @@ export default function DashboardPage() {
   }
 
   const handleMouseEnter = (itemId: string) => {
-    if (isNativeApp) return
     setHoveredItem(itemId)
     if (clickedItem && clickedItem !== itemId) {
       setClickedItem(null)
@@ -258,7 +255,6 @@ export default function DashboardPage() {
   }
 
   const handleMouseLeave = () => {
-    if (isNativeApp) return
     setHoveredItem(null)
   }
 

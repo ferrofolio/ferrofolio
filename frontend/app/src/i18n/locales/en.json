@@ -109,8 +109,6 @@
     "startingServer": "Starting server",
     "backendFailedToStart": "Failed to start server",
     "details": "Details",
-    "unsupportedWebView": "Your Android System WebView is outdated and not supported. Please update it from the Play Store to use this app.",
-    "updateWebView": "Update WebView",
     "optional": "Optional",
     "clear": "Clear",
     "notAvailableOnPlatform": "Not available on this platform",
@@ -142,16 +140,6 @@
     "manualDownloads": {
       "show": "Show manual download options",
       "hide": "Hide manual download options"
-    },
-    "mobileUpdate": {
-      "description": "A new version is ready to download and install.",
-      "download": "Download update",
-      "downloading": "Downloading…",
-      "install": "Install update",
-      "permissionRequired": "Allow installing apps from this source, then tap Install update again.",
-      "retry": "Retry",
-      "showMore": "Show more",
-      "showLess": "Show less"
     }
   },
   "about": {

@@ -10,12 +10,6 @@ import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog"
 import { Input } from "@/components/ui/Input"
-import {
-  addSmsOtpReceivedListener,
-  getLastSmsOtpMessage,
-} from "@/lib/mobile/smsOtp"
-import { parseSmsOtp } from "@/lib/otp/parseSmsOtp"
-import { isIOS } from "@/lib/platform"
 
 export function PinPad() {
   const {
@@ -63,14 +57,6 @@ export function PinPad() {
     [selectedEntity],
   )
 
-  const applySmsMessage = useRef<(message: string) => void>(() => {})
-  applySmsMessage.current = (message: string) => {
-    if (!selectedEntity || isAuthenticator) return
-    const code = parseSmsOtp(message, pinLength, selectedEntity.pin?.pattern)
-    if (!code) return
-    syncPinForEntity(code.split(""))
-  }
-
   useEffect(() => {
     if (!selectedEntity) return
     const storedPin = pinByEntityRef.current.get(selectedEntity.id)
@@ -85,33 +71,6 @@ export function PinPad() {
       syncPinForEntity([])
     }
   }, [processId, selectedEntity, syncPinForEntity])
-
-  useEffect(() => {
-    if (!isIOS() || !selectedEntity) return
-    otpInputRef.current?.focus()
-  }, [selectedEntity])
-
-  useEffect(() => {
-    if (isAuthenticator) return
-    let cancelled = false
-    let handle: { remove: () => Promise<void> } | null = null
-    void getLastSmsOtpMessage().then(message => {
-      if (!cancelled && message) applySmsMessage.current(message)
-    })
-    addSmsOtpReceivedListener(event => {
-      applySmsMessage.current(event.message)
-    }).then(listener => {
-      if (cancelled) {
-        void listener?.remove()
-        return
-      }
-      handle = listener
-    })
-    return () => {
-      cancelled = true
-      void handle?.remove()
-    }
-  }, [isAuthenticator])
 
   useEffect(() => {
     if (pinError) {

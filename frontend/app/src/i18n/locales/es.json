@@ -107,8 +107,6 @@
     "startingServer": "Iniciando servidor",
     "backendFailedToStart": "Error al iniciar el servidor",
     "details": "Detalles",
-    "unsupportedWebView": "Tu Android System WebView está desactualizado y no es compatible. Por favor, actualízalo desde la Play Store para usar esta aplicación.",
-    "updateWebView": "Actualizar WebView",
     "optional": "Opcional",
     "clear": "Limpiar",
     "notAvailableOnPlatform": "No disponible en esta plataforma",
@@ -140,16 +138,6 @@
     "manualDownloads": {
       "show": "Mostrar descargas manuales",
       "hide": "Ocultar descargas manuales"
-    },
-    "mobileUpdate": {
-      "description": "Hay una nueva versión lista para descargar e instalar.",
-      "download": "Descargar actualización",
-      "downloading": "Descargando…",
-      "install": "Instalar actualización",
-      "permissionRequired": "Permite instalar apps de este origen y vuelve a pulsar Instalar actualización.",
-      "retry": "Reintentar",
-      "showMore": "Mostrar más",
-      "showLess": "Mostrar menos"
     }
   },
   "about": {

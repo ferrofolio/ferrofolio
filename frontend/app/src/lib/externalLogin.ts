@@ -1,5 +1,3 @@
-import { isNativeMobile } from "@/lib/platform"
-
 export interface LoginHandlerResult {
   success: boolean
   credentials: Record<string, string>
@@ -33,11 +31,7 @@ export function getExternalLoginAPI(): ExternalLoginAPI | null {
     }
   }
 
-  if (isNativeMobile() || mobileLoginAPI) {
-    return mobileLoginAPI
-  }
-
-  return null
+  return mobileLoginAPI
 }
 
 export function setMobileLoginAPI(api: ExternalLoginAPI | null) {
