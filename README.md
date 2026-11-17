@@ -2,13 +2,9 @@
 > **Ferrofolio** is an independent, community-driven fork of [Finanze](https://github.com/finanze/finanze).
 > It is not affiliated with or endorsed by the Finanze project.
 >
-> The rename is in progress. This README and parts of the code still say "Finanze", and the download links
-> and app listings below still point to the upstream project. Ferrofolio does not publish its own releases or
-> container images yet; the [Docker](#docker) setup builds the images from this repository. See [NOTICE](./NOTICE) for the origin of the code.
-
-<p align="center">
-  <a href="https://github.com/finanze/finanze/releases/latest"><img src="https://img.shields.io/github/v/release/finanze/finanze?style=for-the-badge&color=blue&label=Latest%20Release" alt="Latest release of Finanze"></a>
-</p>
+> The rename is in progress. This README and parts of the code still say "Finanze". Ferrofolio does not publish
+> its own releases or container images yet; the [Docker](#docker) setup builds the images from this repository.
+> See [NOTICE](./NOTICE) for the origin of the code.
 
 <p align="center"><img src="frontend/app/public/finanze-app.png" alt="Finanze logo — self-hosted personal finance and net worth tracker" width="220px"></p>
 <h1 align="center">Finanze — Self-hosted Personal Finance & Net Worth Tracker</h1>
@@ -18,29 +14,23 @@
 It connects to real financial entities via public ways and open banking (PSD2), supports multiple asset types (real estate, crypto, funds, stocks, commodities...) and stores everything in a local encrypted database.
 </p>
 
-<h3 align="center">Available On</h3>
+<h3 align="center">Available As</h3>
 
 <table align="center">
   <tr>
-    <td align="center" width="30%"><b>🖥️ Desktop</b></td>
-    <td align="center" width="30%"><b>📱 Android</b></td>
-    <td align="center" width="40%"><b>🍎 iOS</b></td>
+    <td align="center" width="33%"><b>🐳 Docker</b></td>
+    <td align="center" width="33%"><b>🌐 Web app (PWA)</b></td>
+    <td align="center" width="34%"><b>📱 Mobile apps</b></td>
   </tr>
   <tr>
     <td align="center">
-      Latest release<br>
-      <a href="https://github.com/finanze/finanze/releases/latest">Download here</a>
+      Self-hosted server,<br>see <a href="#docker">Docker</a>
     </td>
     <td align="center">
-      Get it at <br>
-      <a href="https://finanze.en.uptodown.com/android" title="Download Finanze"><img src="https://stc.utdstc.com/img/mediakit/isotipo.png" alt="Uptodown" height="14"> Uptodown</a>
-      <br>
-      <b>or </b><a href="https://github.com/finanze/finanze/releases/latest">Download .apk</a>
+      Served by your server,<br>in the browser on desktop and phone
     </td>
     <td align="center">
-      Install <a href="https://altstore.io/download"><img src="resources/altstore.png" alt="AltStore" height="14"> AltStore</a>, then <a href="https://addaltstore.finanze.me">add the app</a><br>
-      <b>or </b>join <a href="https://testflight.finanze.me"><img src="resources/testflight.png" alt="TestFlight" height="14">TestFlight</a><br>
-      <b>or </b><a href="https://apps.apple.com/es/app/finanze-portfolio-tracker/id6763042710"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="28"></a>*
+      Native iOS and Android apps<br>are planned in their own repositories
     </td>
   </tr>
 </table>
@@ -95,14 +85,17 @@ Create labels and reusable rules to categorize transactions. Rules can match tra
 
 ### AI Providers
 
-AI powers transaction labeling and file importing. Connect OpenAI (API key), ChatGPT (Plus or Pro plan), OpenRouter, GitHub Copilot, Anthropic Claude through Claude Code, a custom OpenAI-compatible endpoint, or local models under **Entities > Providers > AI providers**. GitHub Copilot and Claude Code are available in desktop and self-hosted distributions.
+AI powers transaction labeling and file importing. Connect OpenAI (API key), ChatGPT (Plus or Pro plan), OpenRouter, GitHub Copilot, Anthropic Claude through Claude Code, a custom OpenAI-compatible endpoint, or local models under **Entities > Providers > AI providers**. GitHub Copilot and Claude Code are available on a self-hosted server.
 
 ### Local and Self-Hosted Models
 
-- **Local models:** Run GGUF models with the built-in llama.cpp engine on desktop. Download recommended or Hugging Face models, import a GGUF file, or connect your own llama.cpp server in router mode. Models with a vision projector (`mmproj`) can read images and scanned PDFs.
+- **Local models:** Run GGUF models with a llama.cpp server in router mode, for example the optional
+  `ferrofolio-llama` service in the example [docker-compose.yml](docker-compose.yml). Download recommended or
+  Hugging Face models or import a GGUF file. Models with a vision projector (`mmproj`) can read images and scanned
+  PDFs.
 - **Custom AI:** Connect an OpenAI-compatible API such as Ollama, LM Studio, vLLM, or a single-model llama.cpp server with its base URL and optional API key.
 
-The built-in engine runs models on-device and is desktop-only. External endpoints must be reachable from Finanze.
+External endpoints must be reachable from the Ferrofolio server.
 
 ### MCP Server
 
@@ -191,12 +184,12 @@ following ones:
 
 Important points to remark:
 
-- **Unicaja**:
-    - May fail sometimes in mobile app.
-    - If not using the app, it requires setting `UNICAJA_ABCK` environment variable to login, as it uses
-      Akamai for antibot protection.
-- **Mintos** needs Selenium to resolve reCAPTCHA when not using the app.
-- **Trade Republic**, **ING** and **IBKR** only work via app, as require user interaction to log in.
+- **Unicaja** requires setting the `UNICAJA_ABCK` environment variable to log in, as it uses Akamai for antibot
+  protection.
+- **Mintos** needs Selenium to resolve reCAPTCHA.
+- **Trade Republic**, **ING** and **IBKR** cannot log in on a Ferrofolio server yet. Their login needs a browser
+  window that only the upstream desktop app opens, and Ferrofolio does not ship a desktop app. A server-side login
+  for Trade Republic is planned, see the [roadmap](docs/roadmap.md).
 - **Freedom24** D-Account interest (swaps) txs were supported and its related transactions, but not anymore since its
   removal.
 
@@ -254,13 +247,11 @@ Check [Export & Import Configuration](#export--import-configuration) for more te
 
 ## Usage
 
-### Download
-
-Download the latest version of the app from the [Releases](https://github.com/finanze/finanze/releases) for your OS.
-
-Want to try the latest in-development features? Grab a build from the rolling
-[`next` pre-release](https://github.com/finanze/finanze/releases/tag/next), which is automatically updated on every push
-to `develop`. These builds may be unstable and not intended for production use.
+Ferrofolio runs as a self-hosted server in Docker. The web app is served by that server and is used in the browser,
+on the desktop as well as on the phone. There is no desktop app. Native mobile apps are planned in their own
+repositories, `ferrofolio/ios` first and `ferrofolio/android` later; until they exist, the web app is the mobile
+client. Offline caching of the app shell and installation on the home screen are in progress. See the
+[roadmap](docs/roadmap.md) for details.
 
 ### Docker
 
@@ -410,8 +401,3 @@ Ferrofolio is derived from [Finanze](https://github.com/finanze/finanze). See [N
   project, using a slightly modified version of Selenium version. In an attempt of using Playwright I made an adaptation
   for it [here](finanze/infrastructure/scrapers/mintos/recaptcha_solver_playwright.py), it works, but has some troubles
   with headless mode.
-
----
-
-<small>\* App Store version has limited features and does not support bank connections. Use AltStore or TestFlight for
-the full experience.</small>

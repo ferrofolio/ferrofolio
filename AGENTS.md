@@ -9,6 +9,11 @@ Ferrofolio is a self-hosted personal finance and net worth tracker and an indepe
 [Finanze](https://github.com/finanze/finanze). The plan for the project, including the migration of the
 backend from Python to Rust, is in `docs/roadmap.md`. Read it before starting work that touches architecture.
 
+This repository ships the server as a Docker image and the web app, which it serves as a PWA. There is no desktop
+app: do not add desktop builds or extend `frontend/app/electron`, which stays only as a reference until Trade Republic
+can log in on the server. The native mobile apps live in their own repositories (`ferrofolio/ios`, later
+`ferrofolio/android`), not here; Capacitor and Pyodide are being removed from this repository.
+
 | Path | Content |
 |---|---|
 | `finanze/domain` | Types, errors and use case interfaces. No dependencies on other layers |
