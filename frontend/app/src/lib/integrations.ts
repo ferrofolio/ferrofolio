@@ -58,19 +58,45 @@ export function buildExternalEntityCallbackUrl(
   return new URL(`${base}${EXTERNAL_ENTITY_CALLBACK_PATH}`, origin).toString()
 }
 
+export const INTEGRATION_CALLBACK_PATH = "/oauth/callback"
+export const INTEGRATION_CALLBACK_PLACEHOLDER = "{{integrationCallbackUrl}}"
+
 /**
- * Replace the callback placeholder used in integration setup instructions.
- * While the server address is not known yet the placeholder resolves to null.
+ * URL of this server that an OAuth provider such as Google redirects to after
+ * the user authorized an integration. It has to be registered with the provider.
  */
+export function buildIntegrationCallbackUrl(
+  serverUrl: string,
+  origin: string,
+): string {
+  const base = serverUrl.replace(/\/+$/, "")
+  return new URL(`${base}${INTEGRATION_CALLBACK_PATH}`, origin).toString()
+}
+
+export type IntegrationHintUrls = Record<string, string | null>
+
+/**
+ * Replace the callback placeholders used in integration setup instructions.
+ * While the server address is not known yet a placeholder resolves to null.
+ */
+export function resolveIntegrationHintPlaceholders(
+  value: string,
+  urls: IntegrationHintUrls,
+): string | null {
+  let resolved = value
+  for (const [placeholder, url] of Object.entries(urls)) {
+    if (!resolved.includes(placeholder)) continue
+    if (!url) return null
+    resolved = resolved.split(placeholder).join(url)
+  }
+  return resolved
+}
+
 export function resolveIntegrationHintUrl(
   value: string,
   callbackUrl: string | null,
 ): string | null {
-  if (!value.includes(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER)) {
-    return value
-  }
-  if (!callbackUrl) {
-    return null
-  }
-  return value.split(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER).join(callbackUrl)
+  return resolveIntegrationHintPlaceholders(value, {
+    [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]: callbackUrl,
+  })
 }

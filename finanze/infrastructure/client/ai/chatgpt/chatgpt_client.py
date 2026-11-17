@@ -153,7 +153,7 @@ def _error_for_code(code: Optional[str], message: str) -> Optional[Exception]:
     if code in FORBIDDEN_CODES:
         return AIProviderError(
             AIProviderErrorCode.INVALID_CREDENTIALS,
-            "The connected ChatGPT account can't use its plan in Finanze",
+            "The connected ChatGPT account can't use its plan in Ferrofolio",
         )
     if code in UNSUPPORTED_CODES:
         return AIProviderError(AIProviderErrorCode.UNSUPPORTED_OPERATION, message)
@@ -199,8 +199,12 @@ class ChatGPTClient(HttpAIClient, OAuthConnectableIntegration):
         }
 
     async def start_authorization(
-        self, payload: ExternalIntegrationPayload, completion_url: Optional[str]
+        self,
+        payload: ExternalIntegrationPayload,
+        completion_url: Optional[str],
+        redirect_host: Optional[str] = None,
     ) -> str:
+        # The ChatGPT sign-in redirects to a loopback listener, not to this server
         previous = await self._external_integration_port.get_payload(
             CHATGPT, include_expired=True
         )

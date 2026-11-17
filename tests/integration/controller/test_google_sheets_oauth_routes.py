@@ -15,6 +15,9 @@ from application.use_cases.connect_external_integration import (
 from application.use_cases.disconnect_external_integration import (
     DisconnectExternalIntegrationImpl,
 )
+from application.use_cases.forward_integration_oauth_callback import (
+    ForwardIntegrationOAuthCallbackImpl,
+)
 from application.use_cases.get_external_integrations import (
     GetExternalIntegrationsImpl,
 )
@@ -31,6 +34,9 @@ from infrastructure.controller.routes.connect_external_integration import (
 )
 from infrastructure.controller.routes.disconnect_external_integration import (
     disconnect_external_integration,
+)
+from infrastructure.controller.routes.forward_integration_oauth_callback import (
+    forward_integration_oauth_callback,
 )
 from infrastructure.controller.routes.get_external_integrations import (
     get_external_integrations,
@@ -75,6 +81,7 @@ async def ctx(tmp_path):
     connect_uc = ConnectExternalIntegrationImpl(repository, integrations)
     complete_uc = CompleteExternalIntegrationConnectionImpl(repository, integrations)
     disconnect_uc = DisconnectExternalIntegrationImpl(repository, integrations)
+    forward_uc = ForwardIntegrationOAuthCallbackImpl(integrations)
 
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -98,6 +105,10 @@ async def ctx(tmp_path):
         return await complete_external_integration_connection(
             complete_uc, integration_id
         )
+
+    @app.route("/oauth/callback", methods=["GET"])
+    async def oauth_callback_route():
+        return await forward_integration_oauth_callback(forward_uc)
 
     yield SimpleNamespace(http=app.test_client(), repository=repository, path=tmp_path)
 
@@ -197,7 +208,7 @@ async def test_invalid_completion_url_is_rejected(ctx, completion_url):
 @pytest.mark.asyncio
 async def test_desktop_completion_deeplink_is_accepted(ctx):
     response = await _connect(
-        ctx, "finanze://integration/complete?integration_oauth=GOOGLE_SHEETS"
+        ctx, "ferrofolio://integration/complete?integration_oauth=GOOGLE_SHEETS"
     )
     assert response.status_code == 200
 
@@ -214,3 +225,63 @@ async def test_disconnect_removes_legacy_token(ctx):
     assert response.status_code == 204
     assert await _status(ctx) == "OFF"
     assert not (ctx.path / TOKEN_FILENAME).exists()
+
+
+async def _authorization_link(ctx) -> dict[str, str]:
+    response = await _connect(ctx)
+    assert response.status_code == 200
+    link = (await response.get_json())["link"]
+    return {k: v[0] for k, v in parse_qs(urlsplit(link).query).items()}
+
+
+@pytest.mark.asyncio
+async def test_google_redirects_to_this_server(ctx, monkeypatch):
+    monkeypatch.delenv("FINANZE_PUBLIC_URL", raising=False)
+
+    query = await _authorization_link(ctx)
+
+    assert query["redirect_uri"].endswith("/oauth/callback")
+    assert "finanze.me" not in query["redirect_uri"]
+
+
+@pytest.mark.asyncio
+async def test_configured_public_url_is_the_redirect_base(ctx, monkeypatch):
+    monkeypatch.setenv("FINANZE_PUBLIC_URL", "https://finance.example.com/")
+
+    query = await _authorization_link(ctx)
+
+    assert query["redirect_uri"] == "https://finance.example.com/oauth/callback"
+
+
+@pytest.mark.asyncio
+async def test_callback_forwards_to_the_app_and_completes(ctx):
+    state = (await _authorization_link(ctx))["state"]
+
+    response = await ctx.http.get(
+        "/oauth/callback", query_string={"state": state, "code": "auth-code"}
+    )
+
+    assert response.status_code == 302
+    location = response.headers["Location"]
+    assert location.startswith("http://localhost:8080/?")
+    forwarded = {k: v[0] for k, v in parse_qs(urlsplit(location).query).items()}
+    assert forwarded["state"] == state
+    assert forwarded["code"] == "auth-code"
+    assert forwarded["integration_oauth"] == SHEETS.value
+
+    with patch.object(Flow, "fetch_token", return_value=TOKEN):
+        complete = await _complete(ctx, {"state": state, "code": "auth-code"})
+    assert complete.status_code == 204
+    assert await _status(ctx) == "ON"
+
+
+@pytest.mark.asyncio
+async def test_callback_with_unknown_state_does_not_redirect(ctx):
+    await _authorization_link(ctx)
+
+    response = await ctx.http.get(
+        "/oauth/callback", query_string={"state": "forged", "code": "auth-code"}
+    )
+
+    assert response.status_code == 400
+    assert "Location" not in response.headers

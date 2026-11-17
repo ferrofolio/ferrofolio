@@ -3,7 +3,7 @@ import { openInAppBrowser, closeInAppBrowser } from "@/lib/mobile"
 
 export const INTEGRATION_OAUTH_PARAM = "integration_oauth"
 
-const INTEGRATION_COMPLETE_DEEPLINK = "finanze://integration/complete"
+const INTEGRATION_COMPLETE_DEEPLINK = "ferrofolio://integration/complete"
 const LOOPBACK_CALLBACK_PATH = "/auth/callback"
 
 export interface IntegrationOAuthCallback {

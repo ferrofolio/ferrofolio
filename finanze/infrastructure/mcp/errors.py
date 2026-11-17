@@ -38,7 +38,7 @@ from domain.exception.exceptions import (
 from mcp.server.mcpserver.exceptions import ToolError
 
 LOCKED_MESSAGE = (
-    "Finanze is locked. Ask the user to open Finanze and log in, then retry."
+    "Ferrofolio is locked. Ask the user to open Ferrofolio and log in, then retry."
 )
 
 _NOT_FOUND = {
@@ -126,5 +126,5 @@ def map_error(
     if error_reporter:
         error_reporter.capture_exception(error, tags={"mcp_tool": tool_name})
     return ToolError(
-        "Unexpected error. Check the Finanze logs for details and retry later."
+        "Unexpected error. Check the Ferrofolio logs for details and retry later."
     )

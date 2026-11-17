@@ -46,7 +46,7 @@ SCOPES = (
 CALLBACK_HOST = "127.0.0.1"
 CALLBACK_PATH = "/auth/callback"
 DEFAULT_COMPLETION_URL = (
-    "finanze://integration/complete?integration_oauth="
+    "ferrofolio://integration/complete?integration_oauth="
     + ExternalIntegrationId.CHATGPT.value
 )
 PENDING_AUTHORIZATION_TTL_SECONDS = 15 * 60

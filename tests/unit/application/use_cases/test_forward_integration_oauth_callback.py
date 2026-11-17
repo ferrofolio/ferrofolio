@@ -22,7 +22,7 @@ WEB_DESTINATION = (
     "http://localhost:8080/?integration_oauth=CHATGPT"
     "#/entities?tab=providers&focus=CHATGPT"
 )
-DEEP_LINK = "finanze://integration/complete?integration_oauth=CHATGPT"
+DEEP_LINK = "ferrofolio://integration/complete?integration_oauth=CHATGPT"
 
 
 class FakeLoopbackIntegration(OAuthConnectableIntegration):
@@ -30,7 +30,7 @@ class FakeLoopbackIntegration(OAuthConnectableIntegration):
         self.destinations = destinations
         self.teardowns = []
 
-    async def start_authorization(self, payload, completion_url):
+    async def start_authorization(self, payload, completion_url, redirect_host=None):
         return "https://auth.example/authorize"
 
     async def complete_authorization(self, request):
@@ -79,7 +79,7 @@ class TestForwardIntegrationOAuthCallback:
         )
 
         assert destination == (
-            "finanze://integration/complete?integration_oauth=CHATGPT"
+            "ferrofolio://integration/complete?integration_oauth=CHATGPT"
             "&state=state-1&error=access_denied"
         )
 

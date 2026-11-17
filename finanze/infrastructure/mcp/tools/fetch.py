@@ -21,17 +21,17 @@ _SAFE_DETAILS = {
 _NEXT_STEPS = {
     FetchResultCode.COOLDOWN: "Data was updated recently, wait wait_seconds before retrying.",
     FetchResultCode.FEATURE_NOT_SUPPORTED: "The entity does not support some requested features, retry with fewer features.",
-    FetchResultCode.MANUAL_LOGIN: "The entity requires a manual login, ask the user to do it in the Finanze app.",
-    FetchResultCode.NOT_LOGGED: "The user must log in to this entity in the Finanze app.",
-    FetchResultCode.NO_CREDENTIALS_AVAILABLE: "The user must log in to this entity in the Finanze app.",
-    FetchResultCode.NOT_CONNECTED: "The user must log in to this entity in the Finanze app.",
-    FetchResultCode.LOGIN_REQUIRED: "The session expired, the user must log in again in the Finanze app.",
-    FetchResultCode.INVALID_CREDENTIALS: "Stored credentials are invalid, the user must update them in the Finanze app.",
+    FetchResultCode.MANUAL_LOGIN: "The entity requires a manual login, ask the user to do it in the Ferrofolio app.",
+    FetchResultCode.NOT_LOGGED: "The user must log in to this entity in the Ferrofolio app.",
+    FetchResultCode.NO_CREDENTIALS_AVAILABLE: "The user must log in to this entity in the Ferrofolio app.",
+    FetchResultCode.NOT_CONNECTED: "The user must log in to this entity in the Ferrofolio app.",
+    FetchResultCode.LOGIN_REQUIRED: "The session expired, the user must log in again in the Ferrofolio app.",
+    FetchResultCode.INVALID_CREDENTIALS: "Stored credentials are invalid, the user must update them in the Ferrofolio app.",
     FetchResultCode.INVALID_CODE: "The code was wrong or expired, call again without code to request a new one.",
     FetchResultCode.CURRENTLY_UNAVAILABLE: "The entity is currently unavailable, retry later.",
     FetchResultCode.REMOTE_FAILED: "The entity failed, retry later.",
-    FetchResultCode.LINK_EXPIRED: "The bank link expired, the user must renew it in the Finanze app.",
-    FetchResultCode.UNEXPECTED_LOGIN_ERROR: "Unexpected login error, the user should retry from the Finanze app.",
+    FetchResultCode.LINK_EXPIRED: "The bank link expired, the user must renew it in the Ferrofolio app.",
+    FetchResultCode.UNEXPECTED_LOGIN_ERROR: "Unexpected login error, the user should retry from the Ferrofolio app.",
 }
 
 
@@ -40,7 +40,7 @@ def _next_step(
 ) -> Optional[str]:
     if code == FetchResultCode.CODE_REQUESTED:
         if details.get("challengeType"):
-            return "The entity requires solving a challenge, the user must update it from the Finanze app."
+            return "The entity requires solving a challenge, the user must update it from the Ferrofolio app."
         if confirmation_type == LoginConfirmationType.IN_APP:
             return "Ask the user to approve the login in the entity's app, then call this tool again with the returned process_id and no code."
         return "Ask the user for the code they received, then call this tool again with that code and the returned process_id."
@@ -74,7 +74,7 @@ def register(registry: ToolRegistry, ucs: McpUseCases):
             Field(description="process_id returned by the previous call."),
         ] = None,
     ):
-        """Fetch fresh data from a connected bank, broker or platform using its stored login. May require two-factor authentication: when code is CODE_REQUESTED follow next_step and call again. Never ask the user for passwords, logins are managed in the Finanze app."""
+        """Fetch fresh data from a connected bank, broker or platform using its stored login. May require two-factor authentication: when code is CODE_REQUESTED follow next_step and call again. Never ask the user for passwords, logins are managed in the Ferrofolio app."""
         result = await ucs.fetch_financial_data.execute(
             FetchRequest(
                 entity_account_id=account_id,

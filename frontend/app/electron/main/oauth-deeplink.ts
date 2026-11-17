@@ -1,6 +1,6 @@
 import type { App, BrowserWindow } from "electron"
 
-export const OAUTH_PROTOCOL_NAME = "finanze"
+export const OAUTH_PROTOCOL_NAME = "ferrofolio"
 
 type OAuthTokens = {
   access_token: string
