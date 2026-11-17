@@ -248,6 +248,10 @@ class FetchFinancialDataImpl(FetchFinancialData):
         if not entity:
             raise EntityNotFound(account.entity_id)
 
+        if entity not in self._entity_fetchers:
+            # The connector for this entity was removed; existing data stays readable
+            return FetchResult(FetchResultCode.FEATURE_NOT_SUPPORTED)
+
         features = fetch_request.features
 
         if features and not all(f in entity.features for f in features):

@@ -55,6 +55,10 @@ class AddEntityCredentialsImpl(AddEntityCredentials):
         if not entity:
             raise EntityNotFound(entity_id)
 
+        if entity not in self._entity_fetchers:
+            # The connector for this entity was removed
+            return EntityLoginResult(LoginResultCode.CURRENTLY_UNAVAILABLE)
+
         credentials = login_request.credentials
 
         for cred_name, cred_type in entity.credentials_template.items():
