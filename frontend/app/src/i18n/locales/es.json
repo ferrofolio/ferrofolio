@@ -1,5 +1,7 @@
 {
   "common": {
+    "appName": "Ferrofolio",
+    "logoAlt": "Logotipo de Ferrofolio",
     "back": "Volver",
     "backTo": "Volver a {page}",
     "backToTop": "Volver arriba",

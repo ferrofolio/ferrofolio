@@ -32,6 +32,8 @@ describe("product name", () => {
     )
     expect(offending).toEqual([])
     expect(locale.login.title).toContain("Ferrofolio")
+    expect(locale.common.appName).toBe("Ferrofolio")
+    expect(locale.common.logoAlt).toContain("Ferrofolio")
   })
 
   it("is Ferrofolio in the page title and the web manifest", () => {
