@@ -44,7 +44,7 @@ import {
   type PinnedShortcutId,
 } from "@/context/PinnedShortcutsContext"
 import { BackupStatusPopover } from "@/components/layout/BackupStatusPopover"
-import { getPlatformType, isNativeMobile } from "@/lib/platform"
+import { getPlatformType } from "@/lib/platform"
 
 export function Sidebar() {
   const { t } = useI18n()
@@ -327,7 +327,6 @@ export function Sidebar() {
   const baseSidebarClass = cn(
     "h-screen min-h-0 flex flex-col bg-gray-100 dark:bg-black border-r border-gray-200 dark:border-gray-800 overflow-hidden",
     platform === PlatformType.MAC ? "pt-4" : "",
-    isNativeMobile() && "pt-[max(12px,var(--safe-area-inset-top,0px))]",
   )
 
   const sidebarClass = overlayVisible

@@ -59,12 +59,10 @@ vi.mock("@/services/api", () => ({
   getImageUrl: vi.fn(),
 }))
 vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
   isWeb: () => false,
 }))
 vi.mock("@/lib/externalAuth", () => ({
   INTEGRATION_OAUTH_PARAM: "integration_oauth",
-  closeExternalAuthBrowser: vi.fn(),
   openExternalAuthLink: vi.fn(),
 }))
 vi.mock("@/hooks/useModalBackHandler", () => ({

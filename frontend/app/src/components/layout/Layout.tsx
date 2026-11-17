@@ -7,22 +7,14 @@ import { useAppContext } from "@/context/AppContext"
 import { motion, AnimatePresence } from "framer-motion"
 import { PlatformType } from "@/types"
 import { useI18n } from "@/i18n"
-import { useLocation, useNavigate } from "react-router-dom"
-import {
-  getPlatformType,
-  isAndroid,
-  isNativeMobile,
-  isPWAStandalone,
-} from "@/lib/platform"
+import { useLocation } from "react-router-dom"
+import { getPlatformType, isPWAStandalone } from "@/lib/platform"
 import { StatusBarBlur } from "./StatusBarBlur"
 import {
   LayoutScrollProvider,
   useLayoutScroll,
 } from "@/context/LayoutScrollContext"
 import { cn } from "@/lib/utils"
-import { SwipeBackGesture } from "./SwipeBackGesture"
-import { useModalRegistry } from "@/context/ModalRegistryContext"
-import { canNavigateBack } from "@/lib/mobile/backNavigation"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import {
   TelemetryConsentDialog,
@@ -36,56 +28,6 @@ interface LayoutProps {
 
 const NARROW_BREAKPOINT = 768
 
-function BackButtonHandler() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { dismissTop, hasOpen } = useModalRegistry()
-  const pathnameRef = useRef(location.pathname)
-  pathnameRef.current = location.pathname
-  const locationStateRef = useRef<unknown>(location.state)
-  locationStateRef.current = location.state
-  const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
-  const dismissTopRef = useRef(dismissTop)
-  dismissTopRef.current = dismissTop
-  const hasOpenRef = useRef(hasOpen)
-  hasOpenRef.current = hasOpen
-
-  useEffect(() => {
-    if (!isAndroid()) return
-
-    let cleanup: (() => void) | undefined
-    let mounted = true
-
-    import("@capacitor/app").then(({ App }) => {
-      if (!mounted) return
-
-      const listener = App.addListener("backButton", () => {
-        if (hasOpenRef.current()) {
-          dismissTopRef.current()
-          return
-        }
-        if (canNavigateBack(pathnameRef.current, locationStateRef.current)) {
-          navigateRef.current(-1)
-          return
-        }
-        App.minimizeApp()
-      })
-
-      cleanup = () => {
-        listener.then(l => l.remove())
-      }
-    })
-
-    return () => {
-      mounted = false
-      cleanup?.()
-    }
-  }, [])
-
-  return null
-}
-
 function LayoutContent({ children }: LayoutProps) {
   const { toast, hideToast, showToast } = useAppContext()
   const { t } = useI18n()
@@ -93,8 +35,7 @@ function LayoutContent({ children }: LayoutProps) {
   const prevPathnameRef = useRef(location.pathname)
   const platform = getPlatformType()
   const { handleScroll, resetScroll, scrollRootRef } = useLayoutScroll()
-  const isMobilePlatform = isNativeMobile()
-  const isMobileViewport = isMobilePlatform || isPWAStandalone()
+  const isMobileViewport = isPWAStandalone()
   const { enabled: isErrorReportingEnabled, refresh: refreshErrorReporting } =
     useErrorReportingConsent()
   const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false)
@@ -125,7 +66,6 @@ function LayoutContent({ children }: LayoutProps) {
 
   return (
     <>
-      <BackButtonHandler />
       <div className="flex h-screen h-[100svh] min-h-0 overflow-hidden bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100">
         {!isNarrowView && <Sidebar />}
         <main
@@ -139,7 +79,7 @@ function LayoutContent({ children }: LayoutProps) {
           )}
           onScroll={isNarrowView ? handleScroll : undefined}
         >
-          <SwipeBackGesture>
+          <div className="relative min-h-full" style={{ touchAction: "pan-y" }}>
             <motion.div
               key={location.pathname}
               initial={isRouteChange ? { opacity: 0, y: 10 } : false}
@@ -157,7 +97,7 @@ function LayoutContent({ children }: LayoutProps) {
                 {children}
               </ErrorBoundary>
             </motion.div>
-          </SwipeBackGesture>
+          </div>
         </main>
         {isNarrowView && <FloatingBottomNav />}
         {isNarrowView && <StatusBarBlur />}

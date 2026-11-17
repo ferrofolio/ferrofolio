@@ -1,6 +1,3 @@
-import { Preferences } from "@capacitor/preferences"
-
-import { isNativeMobile } from "@/lib/platform"
 import { randomUuid } from "@/lib/telemetry/uuid"
 
 export const TELEMETRY_CONSENT_KEY = "telemetry_consent"
@@ -39,20 +36,10 @@ function parse(raw: string | null): TelemetryConsent | null {
 }
 
 async function readRaw(): Promise<string | null> {
-  if (isNativeMobile()) {
-    const { value } = await Preferences.get({ key: TELEMETRY_CONSENT_KEY })
-    return value
-  }
-
   return localStorage.getItem(TELEMETRY_CONSENT_KEY)
 }
 
 async function writeRaw(raw: string): Promise<void> {
-  if (isNativeMobile()) {
-    await Preferences.set({ key: TELEMETRY_CONSENT_KEY, value: raw })
-    return
-  }
-
   localStorage.setItem(TELEMETRY_CONSENT_KEY, raw)
 }
 

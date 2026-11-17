@@ -48,12 +48,7 @@ import {
 import { useFileImportJob } from "@/context/FileImportJobContext"
 import { AIImportSettingsCard } from "@/components/import/AIImportSettingsCard"
 import { CollapsibleNotes } from "@/components/import/CollapsibleNotes"
-import {
-  NATIVE_IMAGE_EXTENSIONS,
-  isImageFile,
-  prepareAIImageUpload,
-} from "@/lib/aiImageUpload"
-import { isNativeMobile } from "@/lib/platform"
+import { isImageFile } from "@/lib/aiImageUpload"
 import {
   EntityType,
   ExternalIntegrationStatus,
@@ -78,7 +73,6 @@ import {
 import { ApiErrorException } from "@/utils/apiErrors"
 import { cn } from "@/lib/utils"
 import { getIntegrationName } from "@/lib/integrations"
-import { saveBlobToDevice } from "@/lib/mobile"
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog"
 import { ErrorDetailsDialog } from "@/components/ui/ErrorDetailsDialog"
 import { Button } from "@/components/ui/Button"
@@ -513,7 +507,6 @@ interface ManualImportResult {
 const CREATE_IMPORT_TEMPLATE_OPTION = "__create_import_template__"
 const FILE_IMPORT_ACCEPT = [
   ".csv,.tsv,.xls,.xlsx,.html,.htm,.pdf,.txt,.png,.jpg,.jpeg,.webp,.gif",
-  ...(isNativeMobile() ? NATIVE_IMAGE_EXTENSIONS : []),
 ].join(",")
 const AI_ONLY_EXTENSIONS = [".txt"]
 
@@ -1046,21 +1039,14 @@ export default function ExportPage() {
     try {
       const result = await exportFile(payload)
       const filename = result.filename ?? "export"
-      const saved = await saveBlobToDevice({
-        blob: result.blob,
-        filename,
-        contentType: result.contentType,
-      })
-      if (!saved) {
-        const blobUrl = URL.createObjectURL(result.blob)
-        const anchor = document.createElement("a")
-        anchor.href = blobUrl
-        anchor.download = filename
-        document.body.appendChild(anchor)
-        anchor.click()
-        document.body.removeChild(anchor)
-        URL.revokeObjectURL(blobUrl)
-      }
+      const blobUrl = URL.createObjectURL(result.blob)
+      const anchor = document.createElement("a")
+      anchor.href = blobUrl
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(blobUrl)
       showToast(t.export.file.toast.success, "success")
       setIsFileExportDialogOpen(false)
       resetFileExportForm()
@@ -1282,7 +1268,7 @@ export default function ExportPage() {
           useAi: true,
           aiInstructions: fileImportAiInstructions.trim() || null,
         },
-        await prepareAIImageUpload(fileImportFile),
+        fileImportFile,
         isPreviewRequest,
       )
       return
