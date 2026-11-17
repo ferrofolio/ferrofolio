@@ -350,7 +350,7 @@ export function Sidebar() {
                     "bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent",
                 )}
               >
-                Ferrofolio
+                {t.common.appName}
               </h1>
             </div>
           )}
