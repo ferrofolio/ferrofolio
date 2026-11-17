@@ -111,7 +111,7 @@ test.describe('GitHub Copilot integration', () => {
         const card = await startCopilotSetup(page)
         await expect(
             card.getByText(
-                'Enter this code at github.com to authorize Finanze:',
+                'Enter this code at github.com to authorize Ferrofolio:',
             ),
         ).toBeVisible()
 
