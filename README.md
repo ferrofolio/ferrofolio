@@ -272,6 +272,15 @@ repository:
 docker compose up -d --build
 ```
 
+When upgrading a setup that used the upstream compose file, the services were named `finanze-server` and
+`finanze-front`. Remove those containers in the same step, otherwise they keep ports 7592 and 8080:
+
+```sh
+docker compose up -d --build --remove-orphans
+```
+
+The data in `./.storage` is not affected.
+
 The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
 dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
 
