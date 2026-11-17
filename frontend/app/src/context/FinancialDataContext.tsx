@@ -24,7 +24,6 @@ import { TransactionsResult } from "@/types/transactions"
 import { useAppContext } from "./AppContext"
 import { useEntityWorkflow } from "./EntityWorkflowContext"
 import { useCloud } from "./CloudContext"
-import { triggerLazyInit } from "@/lib/mobile"
 import { EntityType } from "@/types"
 import { getAllRealEstate } from "@/services/api"
 import type { RealEstate } from "@/types"
@@ -110,7 +109,6 @@ export function FinancialDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
       setIsInitialLoading(false)
-      triggerLazyInit()
     }
   }, [])
 
@@ -144,7 +142,6 @@ export function FinancialDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
       setIsInitialLoading(false)
-      triggerLazyInit()
     }
   }, [])
 

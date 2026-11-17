@@ -6,14 +6,6 @@ const mocks = vi.hoisted(() => ({ post: vi.fn() }))
 vi.mock("@/services/apiClient", () => ({
   getApiClient: async () => ({ post: mocks.post }),
 }))
-vi.mock("@/lib/mobile", () => ({
-  triggerDeferredInit: vi.fn(),
-  isBackgroundUpdateAvailable: vi.fn(),
-  backgroundUpdateQuotes: vi.fn(),
-  backgroundUpdateLoans: vi.fn(),
-  backgroundGetNetworthTimeline: vi.fn(),
-  backgroundGetGainsTimeline: vi.fn(),
-}))
 
 beforeEach(() => {
   mocks.post.mockReset()
