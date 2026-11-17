@@ -41,46 +41,10 @@ updates:
       - dependency-name: "electron-builder"
         update-types:
           ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/android"
+      - dependency-name: "@capacitor/*"
         update-types:
           ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/app"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/browser"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/cli"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/core"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/device"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/filesystem"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/haptics"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/ios"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/preferences"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/share"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/splash-screen"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@capacitor/status-bar"
-        update-types:
-          ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "capacitor-plugin-safe-area"
+      - dependency-name: "capacitor-*"
         update-types:
           ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     groups:
