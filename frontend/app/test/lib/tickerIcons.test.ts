@@ -5,7 +5,7 @@ import { tickerIconUrl } from "@/lib/tickerIcons"
 
 describe("tickerIconUrl", () => {
   it("loads no icon without a configured source", () => {
-    expect(tickerIconUrl("US0378331005")).toBeNull()
+    expect(tickerIconUrl("US0378331005", "")).toBeNull()
     expect(tickerIconUrl("AAPL", "")).toBeNull()
   })
 

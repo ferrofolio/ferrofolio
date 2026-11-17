@@ -61,12 +61,15 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
                     f"Error fetching historic rates for {commodity}: {body}"
                 )
                 return None
-            raw = await response.json()
         except (httpx.RequestError, TimeoutError) as e:
             self._log.error(f"Failed fetching historic rates for {commodity}: {e}")
             return None
 
         try:
+            try:
+                raw = await response.json()
+            except ValueError as e:
+                raise HistoricRatesParseError(f"Invalid JSON: {e}") from e
             rates = self._build(raw)
         except HistoricRatesParseError as e:
             self._log.error(f"Invalid historic rates for {commodity}: {e}")
@@ -86,9 +89,21 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
             for day_str, by_currency in ordered:
                 days.append(date.fromisoformat(day_str))
                 for currency, value in by_currency.items():
-                    series.setdefault(currency, []).append(Dezimal(str(value)))
+                    price = Dezimal(str(value))
+                    if not price.val.is_finite():
+                        raise HistoricRatesParseError(
+                            f"Non-finite price for {currency} on {day_str}"
+                        )
+                    series.setdefault(currency, []).append(price)
         except (AttributeError, TypeError, ValueError) as e:
             raise HistoricRatesParseError(f"{type(e).__name__}: {e}") from e
+
+        # Prices are looked up by day index, so every currency needs a price on every day
+        for currency, values in series.items():
+            if len(values) != len(days):
+                raise HistoricRatesParseError(
+                    f"Prices for {currency} do not cover every day"
+                )
 
         return HistoricMetalRates(
             unit=WeightUnit.TROY_OUNCE,

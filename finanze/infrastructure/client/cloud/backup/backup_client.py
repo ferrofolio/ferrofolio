@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -38,6 +39,9 @@ class BackupClient(BackupRepository):
     def _url(self, path: str) -> str:
         if not self.BASE_URL:
             raise BackupTransferFailed("No cloud backup service is configured")
+        # Requests carry the bearer token, which must not travel unencrypted
+        if urlparse(self.BASE_URL).scheme != "https":
+            raise BackupTransferFailed("The cloud backup service must use HTTPS")
         return f"{self.BASE_URL}{path}"
 
     def _get_auth_headers(self, auth: CloudAuthData) -> dict[str, str]:

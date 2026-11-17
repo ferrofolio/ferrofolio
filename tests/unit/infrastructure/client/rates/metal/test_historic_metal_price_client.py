@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from unittest.mock import AsyncMock
 
@@ -82,6 +83,11 @@ class TestHistoricMetalPriceClientParsing:
             {"2025-01-01": {"EUR": "not-a-number"}},
             {"2025-01-01": ["EUR", "100"]},
             ["2025-01-01"],
+            {"2025-01-01": {"EUR": "NaN"}},
+            {"2025-01-01": {"EUR": "Infinity"}},
+            {"2025-01-01": {"EUR": "-Infinity"}},
+            {"2025-01-01": {"EUR": "100"}, "2025-01-02": {"USD": "110"}},
+            {"2025-01-01": {"EUR": "100", "USD": "110"}, "2025-01-02": {"EUR": "101"}},
         ],
     )
     def test_build_rejects_malformed_payload(self, raw):
@@ -132,6 +138,18 @@ class TestHistoricMetalPriceClientFetch:
     @pytest.mark.asyncio
     async def test_returns_none_and_skips_cache_on_malformed_payload(self):
         client = _build_client({"bad-date": {"EUR": "100"}})
+
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+
+        assert client._session.get.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_returns_none_and_skips_cache_on_invalid_json(self):
+        client = _build_client(None)
+        client._session.get.return_value.json = AsyncMock(
+            side_effect=json.JSONDecodeError("Expecting value", "{", 1)
+        )
 
         assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
         assert await client.get_partial_historic_rates(CommodityType.GOLD) is None

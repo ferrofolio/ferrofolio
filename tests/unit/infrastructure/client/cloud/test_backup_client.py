@@ -46,3 +46,14 @@ def test_configured_service_is_used(monkeypatch):
     monkeypatch.setattr(BackupClient, "BASE_URL", "https://backups.example.com")
 
     assert _client()._url("/v1/backups") == "https://backups.example.com/v1/backups"
+
+
+@pytest.mark.asyncio
+async def test_plain_http_service_is_rejected_before_sending_the_token(monkeypatch):
+    monkeypatch.setattr(BackupClient, "BASE_URL", "http://backups.example.com")
+    client = _client()
+
+    with pytest.raises(BackupTransferFailed):
+        await client.get_info(SimpleNamespace(auth=AUTH))
+
+    client._session.get.assert_not_called()
