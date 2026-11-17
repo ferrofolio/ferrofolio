@@ -242,22 +242,6 @@ class TestSaveCloudData:
         assert await register._load_cloud_data() == new_data
         assert list(tmp_path.iterdir()) == [cloud_file]
 
-    @pytest.mark.asyncio
-    async def test_pyodide_writes_without_native_fsync(
-        self, register, tmp_path, monkeypatch
-    ):
-        sync = Mock(side_effect=AssertionError("Native fsync is unavailable"))
-        monkeypatch.setattr(cloud_data_register.sys, "platform", "emscripten")
-        monkeypatch.setattr(cloud_data_register.os, "fsync", sync)
-
-        await register.connect(_make_user(tmp_path))
-        await register.save_auth(_make_token())
-        await register._load_cloud_data.cache.clear()
-
-        assert await register.get_auth_token() == _make_token()
-        sync.assert_not_called()
-        assert list(tmp_path.iterdir()) == [tmp_path / "cloud.json"]
-
 
 class TestGetInfo:
     @pytest.mark.asyncio

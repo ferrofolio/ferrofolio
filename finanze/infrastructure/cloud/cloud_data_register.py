@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -81,8 +80,7 @@ class CloudDataRegister(CloudRegister, BackupLocalRegistry, BackupSettingsPort):
                 temporary_path = Path(temporary_file.name)
                 temporary_file.write(content)
                 temporary_file.flush()
-                if sys.platform != "emscripten":
-                    os.fsync(temporary_file.fileno())
+                os.fsync(temporary_file.fileno())
             os.replace(temporary_path, cloud_file)
         finally:
             if temporary_path is not None:
