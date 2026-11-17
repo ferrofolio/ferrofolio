@@ -158,6 +158,7 @@ def test_parse_args_leaves_an_explicit_directory_alone(monkeypatch, tmp_path):
     )
 
     assert parsed.data_dir == explicit
+    assert parsed.log_dir == explicit / "logs"
     assert explicit.is_dir()
     assert (legacy / "user.db").exists()
     assert not target.exists()
@@ -310,3 +311,85 @@ def test_concurrent_copies_use_separate_staging_directories(tmp_path, monkeypatc
     assert staged and staged[0] != foreign
     assert (foreign / "partial").read_bytes() == b"other attempt"
     assert not (target / "partial").exists()
+
+
+def test_failing_to_remove_empty_target_keeps_using_legacy(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    target.mkdir()
+
+    def rmdir_fails(self):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(data_dir.Path, "rmdir", rmdir_fails)
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result.data_dir == legacy
+    assert "Read-only file system" in result.error
+    assert (legacy / "user.db").read_bytes() == b"encrypted"
+
+
+def test_uses_target_when_a_concurrent_start_moved_the_data_first(
+    tmp_path, monkeypatch
+):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    real_rename = os.rename
+
+    def concurrent_start_wins(src, dst):
+        real_rename(src, dst)
+        raise FileNotFoundError(2, "No such file or directory")
+
+    monkeypatch.setattr(data_dir.os, "rename", concurrent_start_wins)
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result == DataDirMigration(target)
+    assert (target / "user.db").read_bytes() == b"encrypted"
+
+
+def test_losing_concurrent_copy_uses_the_published_target(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    _rename_fails_across_devices(monkeypatch, legacy)
+    real_copytree = shutil.copytree
+
+    def other_start_publishes_first(src, dst, *args, **kwargs):
+        real_copytree(src, target, *args, **kwargs)
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(data_dir.shutil, "copytree", other_start_publishes_first)
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result == DataDirMigration(target)
+    assert (target / "user.db").read_bytes() == b"encrypted"
+    assert not list(tmp_path.glob(f"{target.name}{STAGING_SUFFIX}*"))
+
+
+def test_legacy_vanishing_during_the_probe_is_not_an_error(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+
+    def moved_away(self):
+        raise FileNotFoundError(2, "No such file or directory")
+
+    monkeypatch.setattr(data_dir.Path, "iterdir", moved_away)
+
+    assert migrate_legacy_data_dir(target, legacy) == DataDirMigration(target)
+
+
+def test_failing_probe_keeps_using_legacy(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+
+    def denied(self):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(data_dir.Path, "iterdir", denied)
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result.data_dir == legacy
+    assert "Permission denied" in result.error

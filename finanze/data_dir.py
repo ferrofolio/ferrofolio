@@ -36,7 +36,11 @@ class DataDirMigration:
 
 
 def _has_entries(path: Path) -> bool:
-    return path.is_dir() and any(path.iterdir())
+    try:
+        return path.is_dir() and any(path.iterdir())
+    except FileNotFoundError:
+        # Removed in the meantime, e.g. moved away by a concurrent start
+        return False
 
 
 def _copy_then_publish(legacy: Path, target: Path) -> None:
@@ -67,21 +71,27 @@ def migrate_legacy_data_dir(
     """
     legacy = legacy if legacy is not None else legacy_data_dir()
 
-    if not _has_entries(legacy) or legacy.resolve() == target.resolve():
-        return DataDirMigration(target)
+    try:
+        if not _has_entries(legacy) or legacy.resolve() == target.resolve():
+            return DataDirMigration(target)
 
-    if target.exists():
-        if not target.is_dir() or _has_entries(target):
+        if target.exists() and (not target.is_dir() or _has_entries(target)):
             return DataDirMigration(target, conflict=legacy)
-        target.rmdir()
+    except OSError as e:
+        return DataDirMigration(legacy, error=f"{type(e).__name__}: {e}")
 
     try:
+        if target.exists():
+            target.rmdir()
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             os.rename(legacy, target)
         except OSError:
             _copy_then_publish(legacy, target)
     except OSError as e:
+        if _has_entries(target):
+            # The target was empty before, so a concurrent start published it
+            return DataDirMigration(target)
         return DataDirMigration(legacy, error=f"{type(e).__name__}: {e}")
 
     return DataDirMigration(target, moved_from=legacy)

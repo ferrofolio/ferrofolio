@@ -39,7 +39,7 @@ def app_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--log-dir",
-        help="Path to log directory (default: <default-app-data-dir>/logs).",
+        help="Path to log directory (default: <data-dir>/logs).",
         type=str,
         default=None,
     )
@@ -75,9 +75,9 @@ def parse_args() -> argparse.Namespace:
     else:
         args.data_dir = Path(args.data_dir)
     if args.log_dir is None:
-        # Logs follow the default data directory, also while it is the legacy one
-        base = migration.data_dir if migration is not None else default_data_dir()
-        args.log_dir = base / "logs"
+        # Logs follow the data directory, also while it is the legacy one, so an
+        # explicit --data-dir never creates the pending migration target
+        args.log_dir = args.data_dir / "logs"
     os.makedirs(args.data_dir, exist_ok=True)
     args.llama_server_path = (
         Path(args.llama_server_path) if args.llama_server_path else None

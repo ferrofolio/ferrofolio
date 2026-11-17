@@ -48,9 +48,8 @@ def _apply_third_party_level(level_name: str):
 
 def configure_logging(args):
     root_logger = logging.getLogger()
-    if root_logger.handlers:
-        for h in root_logger.handlers:
-            root_logger.removeHandler(h)
+    for h in list(root_logger.handlers):
+        root_logger.removeHandler(h)
 
     console_level_name = args.log_level
     console_enabled = console_level_name != "NONE"
