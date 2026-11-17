@@ -2,7 +2,7 @@
 
 Rust backend, web app as a PWA, native iOS app, an open licence and an agent-driven workflow.
 
-Last updated: 2026-11-16 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
+Last updated: 2026-11-17 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
 
 ---
 
@@ -386,23 +386,23 @@ flowchart LR
 
 - Set up the `ferrofolio` organisation (section 3.1) and register the domain `ferrofolio.app` (done)
 - Repository `ferrofolio/ferrofolio` with the full history, `upstream` as a fetch-only remote
-- Licence steps from section 3
-- Rename: name, icons, image names, the URL scheme `finanze://`, and the default data directory `Finanze` in `finanze/args.py` with a migration of existing data
+- Licence steps from section 3 (CLA, README, `NOTICE` done; source link in the web UI in review, #24)
+- Rename: name, icons, image names, the URL scheme `finanze://`, and the default data directory `Finanze` in `finanze/args.py` with a migration of existing data (in review: data directory #25, web app #26, backend texts #27, images #28, URL scheme #29; icons still need new artwork)
 - Replace, self-host or remove upstream services:
 
-| Service | Action |
-|---|---|
-| Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it |
-| Google Sheets redirect | Same |
-| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B |
-| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) |
-| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable |
-| Telemetry DSNs | Off by default, DSN freely configurable |
-| Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2; disabled until then |
+| Service | Action | Status |
+|---|---|---|
+| Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5); verification with a real consent outstanding |
+| Google Sheets redirect | Same | In review (#30) |
+| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | In review: off by default after #31 and #32; removing the code needs a decision, because it deletes `/api/v1` routes |
+| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | In review (#31); the upstream host is still the default until it is merged. After #31 the public keychain for four scraping connectors is opt-in as well |
+| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | In review (#32); the icon URLs are still hard-coded until it is merged. After #32 the source is configurable and off by default; the crypto snapshot and historic metal prices as well |
+| Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |
+| Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2; disabled until then | In review (#33) |
 
 - Set up CI secrets anew; clean up workflows that expect upstream secrets
 
-**Done when:** a fresh build runs without a single request to `*.finanze.me` (enforced by a test) and a bank consent through Enable Banking works with the instance's own redirect.
+**Done when:** a fresh build runs without a single request to `*.finanze.me` (enforced by a test, #34) and a bank consent through Enable Banking works with the instance's own redirect.
 
 ### Phase 1 – Agent-driven workflow and quality gates · S
 
@@ -651,6 +651,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 1. Done: organisation set up with two-factor requirement, ruleset with required checks and CodeRabbit; domain `ferrofolio.app` registered.
 2. Done: the first Phase 0 and Phase 1 pull requests (roadmap, CI cleanup, review policy, Dependabot, Enable Banking redirect).
 3. Verify the Enable Banking redirect with a real bank consent.
-4. Phase 0 continued: rename → remaining upstream services.
-5. Phase 2: hardening auth is the first functional pull request, followed by the PWA and the removal of Capacitor. In parallel, enable "Agentic Investing" in a Scalable account and start the `connectors-scalable` crate.
-6. Once a Mac is available and phase 2 delivers the OpenAPI specification: start iOS stage A.
+4. In review: the remaining phase 0 pull requests (#24 to #34). Once they are merged, trim the `PENDING` list of the upstream guard test.
+5. Open phase 0 decisions: new icons; whether to delete the upstream cloud code (removes `/api/v1` routes); where the public keychain, ticker icons and crypto snapshot come from in future, if at all; whether Ferrofolio registers its own GitHub, OpenAI and OpenRouter app identities.
+6. Phase 2: hardening auth is the first functional pull request, followed by the PWA and the removal of Capacitor. In parallel, enable "Agentic Investing" in a Scalable account and start the `connectors-scalable` crate.
+7. Once a Mac is available and phase 2 delivers the OpenAPI specification: start iOS stage A.
