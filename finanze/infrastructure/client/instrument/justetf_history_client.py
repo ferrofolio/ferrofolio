@@ -10,7 +10,7 @@ from infrastructure.client.http.http_session import get_http_session
 
 
 class JustEtfHistoryClient:
-    """Standalone from the `jetf_client` package so mobile never pulls its bs4/pandas deps."""
+    """Standalone from the `jetf_client` package, without its bs4/pandas deps."""
 
     BASE_URL = "https://www.justetf.com/api/etfs/{isin}/performance-chart"
     SOURCE = "justetf"

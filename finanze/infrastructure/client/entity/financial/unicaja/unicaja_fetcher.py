@@ -80,8 +80,8 @@ class _PendingSignature:
 
 
 class UnicajaFetcher(FinancialEntityFetcher):
-    def __init__(self, use_mobile_client: bool = False):
-        self._client = UnicajaClient(use_mobile_client=use_mobile_client)
+    def __init__(self):
+        self._client = UnicajaClient()
 
         self._log = logging.getLogger(__name__)
 

@@ -205,7 +205,7 @@ class INGAPIClient:
             )
         except httpx.HTTPStatusError:
             raise
-        # curl_cffi (desktop) and TlsHttp (mobile) raise their own transport errors
+        # curl_cffi raises its own transport errors
         except Exception as e:
             self._log.warning(f"ING SCA status request failed: {e}")
             return {}
