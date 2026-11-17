@@ -18,9 +18,11 @@ from domain.native_entities import (
     ING,
     MY_INVESTOR,
     POLYMARKET,
+    SEGO,
     TRADE_REPUBLIC,
     TRADING212,
     UNICAJA,
+    URBANITAE,
 )
 from domain.native_entity import FinancialEntityCredentialsEntry
 
@@ -144,6 +146,27 @@ async def test_external_entity_not_fetchable_when_provider_not_bundled():
     result = await use_case.execute()
 
     assert result.entities[0].fetchable is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entity", [B100, MY_INVESTOR, SEGO, URBANITAE])
+async def test_entity_without_connector_stays_listed_but_not_fetchable(entity):
+    # Their connectors were removed; stored data must remain visible
+    use_case = _build_use_case(
+        entity=entity,
+        external_entity=None,
+        enabled_provider_payloads={},
+        external_entity_fetchers={},
+        entity_fetchers={ING: MagicMock()},
+    )
+
+    result = await use_case.execute()
+
+    assert len(result.entities) == 1
+    source = result.entities[0]
+    assert source.id == entity.id
+    assert source.name == entity.name
+    assert source.fetchable is False
 
 
 @pytest.mark.parametrize(
