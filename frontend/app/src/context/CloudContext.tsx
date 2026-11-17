@@ -26,11 +26,7 @@ import {
 import { useI18n } from "@/i18n"
 import { useAuth } from "@/context/AuthContext"
 import { useAppContext } from "@/context/AppContext"
-import { isNativeMobile, isElectron } from "@/lib/platform"
-import {
-  signInWithGoogleMobile,
-  signInWithAppleMobile,
-} from "@/lib/mobile/socialLogin"
+import { isElectron } from "@/lib/platform"
 import { resetBackupStatusCache } from "@/hooks/useBackupStatus"
 
 interface CloudContextType {
@@ -92,7 +88,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   const isExplicitSignOutRef = useRef(false)
   const recoveryAttemptedRef = useRef(false)
   const pendingOAuthCallbackUrlRef = useRef<string | null>(null)
-  const launchUrlHandledRef = useRef(false)
   const isAuthenticatedRef = useRef(isAuthenticated)
   isAuthenticatedRef.current = isAuthenticated
   const navigateRef = useRef(navigate)
@@ -612,45 +607,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   }, [handleOAuthCallbackUrl])
 
   useEffect(() => {
-    if (!isNativeMobile()) {
-      return
-    }
-
-    let cleanup: (() => void) | undefined
-    let mounted = true
-
-    import("@capacitor/app").then(({ App }) => {
-      if (!mounted) return
-
-      App.getLaunchUrl().then(result => {
-        if (
-          mounted &&
-          !launchUrlHandledRef.current &&
-          result?.url?.startsWith("ferrofolio://auth/callback")
-        ) {
-          launchUrlHandledRef.current = true
-          void handleOAuthCallbackUrl(result.url)
-        }
-      })
-
-      const listener = App.addListener("appUrlOpen", ({ url }) => {
-        if (url.startsWith("ferrofolio://auth/callback")) {
-          void handleOAuthCallbackUrl(url)
-        }
-      })
-
-      cleanup = () => {
-        listener.then(l => l.remove())
-      }
-    })
-
-    return () => {
-      mounted = false
-      cleanup?.()
-    }
-  }, [handleOAuthCallbackUrl])
-
-  useEffect(() => {
     try {
       const provider = getProvider()
       const unsubscribe = provider.onAuthEvent(event => {
@@ -746,22 +702,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     try {
       const provider = getProvider()
 
-      if (isNativeMobile()) {
-        const result = await signInWithGoogleMobile()
-        if (!result.success) {
-          throw new Error(result.error || "Google sign-in failed")
-        }
-        if (!result.idToken) {
-          throw new Error("No ID token received from Google")
-        }
-        await provider.signInWithIdToken(
-          "google",
-          result.idToken,
-          result.rawNonce,
-        )
-        return
-      }
-
       if (!isElectron()) {
         throw new Error("Google sign-in is only available on desktop or mobile")
       }
@@ -800,22 +740,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       const provider = getProvider()
-
-      if (isNativeMobile()) {
-        const result = await signInWithAppleMobile()
-        if (!result.success) {
-          throw new Error(result.error || "Apple sign-in failed")
-        }
-        if (!result.idToken) {
-          throw new Error("No ID token received from Apple")
-        }
-        await provider.signInWithIdToken(
-          "apple",
-          result.idToken,
-          result.rawNonce,
-        )
-        return
-      }
 
       if (!isElectron()) {
         throw new Error("Apple sign-in is only available on desktop or mobile")

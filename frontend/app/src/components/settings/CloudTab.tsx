@@ -22,8 +22,6 @@ import { Badge } from "@/components/ui/Badge"
 import { useI18n } from "@/i18n"
 import { useCloud } from "@/context/CloudContext"
 import { CloudRole } from "@/types"
-import { isNativeMobile } from "@/lib/platform"
-import { isIOS } from "@/lib/platform"
 import { useBackupStatus } from "@/hooks/useBackupStatus"
 import { BackupStatusContent } from "@/components/backup/BackupStatusContent"
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog"
@@ -108,8 +106,8 @@ export function CloudTab() {
   >(null)
 
   const isElectron = Boolean(window.ipcAPI)
-  const canUseGoogleSignIn = isElectron || isNativeMobile()
-  const canUseAppleSignIn = isElectron || (isNativeMobile() && isIOS())
+  const canUseGoogleSignIn = isElectron
+  const canUseAppleSignIn = isElectron
   const isSignedIn = !!user
   const canSeeBackup = permissions.includes("backup.info")
 
