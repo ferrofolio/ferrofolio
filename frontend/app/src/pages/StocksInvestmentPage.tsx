@@ -1,3 +1,4 @@
+import { tickerIconUrl } from "@/lib/tickerIcons"
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DataSource, type ExchangeRates } from "@/types"
@@ -106,14 +107,9 @@ function StockPositionLogo({
       ? issuerIcon
         ? [issuerIcon]
         : []
-      : [
-          position.isin?.trim()
-            ? `https://static.finanze.me/icons/ticker/${encodeURIComponent(position.isin.trim())}.png`
-            : null,
-          tickerToken
-            ? `https://static.finanze.me/icons/ticker/${encodeURIComponent(tickerToken)}.png`
-            : null,
-        ].filter((value): value is string => Boolean(value))
+      : [tickerIconUrl(position.isin), tickerIconUrl(tickerToken)].filter(
+          (value): value is string => Boolean(value),
+        )
   const [sourceIndex, setSourceIndex] = useState(0)
   const [shouldInvert, setShouldInvert] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -593,15 +589,9 @@ function StocksViewContent({
       const tickerToken = p.symbol?.split(".")[0]?.trim()
       const isinTrimmed = p.isin?.trim()
       if (isinTrimmed) {
-        iconMap.set(
-          key,
-          `https://static.finanze.me/icons/ticker/${encodeURIComponent(isinTrimmed)}.png`,
-        )
+        iconMap.set(key, tickerIconUrl(isinTrimmed))
       } else if (tickerToken) {
-        iconMap.set(
-          key,
-          `https://static.finanze.me/icons/ticker/${encodeURIComponent(tickerToken)}.png`,
-        )
+        iconMap.set(key, tickerIconUrl(tickerToken))
       } else {
         iconMap.set(key, null)
       }

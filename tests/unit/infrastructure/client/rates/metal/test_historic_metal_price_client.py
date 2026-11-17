@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from unittest.mock import AsyncMock
 
@@ -8,7 +9,16 @@ from domain.dezimal import Dezimal
 from domain.exchange_rate import HistoricMetalRates
 from infrastructure.client.rates.metal.historic_metal_price_client import (
     HistoricMetalPriceClient,
+    HistoricRatesParseError,
 )
+
+
+METAL_RATES_URL = "https://data.example.com/rates/metals"
+
+
+@pytest.fixture(autouse=True)
+def _configured_source(monkeypatch):
+    monkeypatch.setattr(HistoricMetalPriceClient, "BASE_URL", METAL_RATES_URL)
 
 
 def _make_response(payload, ok=True, text=""):
@@ -66,6 +76,26 @@ class TestHistoricMetalPriceClientParsing:
         # Unknown currency
         assert rates.price_at(date(2025, 1, 1), "GBP") is None
 
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            {"bad-date": {"EUR": "100"}},
+            {"2025-01-01": {"EUR": "not-a-number"}},
+            {"2025-01-01": ["EUR", "100"]},
+            ["2025-01-01"],
+            {"2025-01-01": {"EUR": "NaN"}},
+            {"2025-01-01": {"EUR": "Infinity"}},
+            {"2025-01-01": {"EUR": "-Infinity"}},
+            {"2025-01-01": {"EUR": "100"}, "2025-01-02": {"USD": "110"}},
+            {"2025-01-01": {"EUR": "100", "USD": "110"}, "2025-01-02": {"EUR": "101"}},
+        ],
+    )
+    def test_build_rejects_malformed_payload(self, raw):
+        client = HistoricMetalPriceClient()
+
+        with pytest.raises(HistoricRatesParseError):
+            client._build(raw)
+
 
 class TestHistoricMetalPriceClientFetch:
     @pytest.mark.asyncio
@@ -106,6 +136,27 @@ class TestHistoricMetalPriceClientFetch:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_returns_none_and_skips_cache_on_malformed_payload(self):
+        client = _build_client({"bad-date": {"EUR": "100"}})
+
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+
+        assert client._session.get.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_returns_none_and_skips_cache_on_invalid_json(self):
+        client = _build_client(None)
+        client._session.get.return_value.json = AsyncMock(
+            side_effect=json.JSONDecodeError("Expecting value", "{", 1)
+        )
+
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+
+        assert client._session.get.await_count == 2
+
+    @pytest.mark.asyncio
     async def test_raises_for_unsupported_commodity(self):
         client = HistoricMetalPriceClient()
 
@@ -114,3 +165,14 @@ class TestHistoricMetalPriceClientFetch:
 
         with pytest.raises(ValueError):
             await client.get_partial_historic_rates(_Fake())
+
+
+class TestWithoutConfiguredSource:
+    @pytest.mark.asyncio
+    async def test_makes_no_request(self, monkeypatch):
+        monkeypatch.setattr(HistoricMetalPriceClient, "BASE_URL", None)
+        client = _build_client({"2025-01-01": {"EUR": "100"}})
+
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+
+        client._session.get.assert_not_called()
