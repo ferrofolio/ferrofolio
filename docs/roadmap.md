@@ -11,7 +11,7 @@ Last updated: 2026-11-17 · Fork point: Finanze `develop` at `d9761ed6` · Code 
 | Topic | Decision |
 |---|---|
 | Name | **Ferrofolio** |
-| Distribution | The project ships the Docker image, the web app as a PWA, and native mobile apps. Nothing else |
+| Distribution | The project ships the Docker image and the web app as a PWA; native mobile apps are planned in their own repositories. Nothing else |
 | GitHub | Own organisation `ferrofolio`; server and apps live in separate repositories, one per mobile platform |
 | Registry | `ghcr.io/ferrofolio/ferrofolio` |
 | Bundle IDs | `app.ferrofolio.ios`, later `app.ferrofolio.android`, based on the project domain `ferrofolio.app` (registered) |
