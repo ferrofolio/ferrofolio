@@ -26,13 +26,19 @@ from infrastructure.client.http.http_session import get_http_session
 
 
 class BackupClient(BackupRepository):
-    BASE_URL = os.getenv("CLOUD_URL") or "https://api.finanze.me"
+    # The upstream backup service is not used by default; set CLOUD_URL to opt in
+    BASE_URL = os.getenv("CLOUD_URL") or None
     TIMEOUT = 60
 
     def __init__(self, file_transfer_strategy: FileTransferStrategy):
         self._log = logging.getLogger(__name__)
         self._session = get_http_session()
         self._file_transfer_strategy = file_transfer_strategy
+
+    def _url(self, path: str) -> str:
+        if not self.BASE_URL:
+            raise BackupTransferFailed("No cloud backup service is configured")
+        return f"{self.BASE_URL}{path}"
 
     def _get_auth_headers(self, auth: CloudAuthData) -> dict[str, str]:
         """Get authentication headers from auth data."""
@@ -63,7 +69,7 @@ class BackupClient(BackupRepository):
 
             headers = self._get_auth_headers(request.auth)
             response = await self._session.post(
-                f"{self.BASE_URL}/v1/backups/upload",
+                self._url("/v1/backups/upload"),
                 json=upload_request_body,
                 headers=headers,
                 timeout=self.TIMEOUT,
@@ -129,7 +135,7 @@ class BackupClient(BackupRepository):
             headers = self._get_auth_headers(request.auth)
 
             response = await self._session.get(
-                f"{self.BASE_URL}/v1/backups/download",
+                self._url("/v1/backups/download"),
                 params=params,
                 headers=headers,
                 timeout=self.TIMEOUT,
@@ -193,7 +199,7 @@ class BackupClient(BackupRepository):
         try:
             headers = self._get_auth_headers(request.auth)
             response = await self._session.get(
-                f"{self.BASE_URL}/v1/backups",
+                self._url("/v1/backups"),
                 headers=headers,
                 timeout=self.TIMEOUT,
             )

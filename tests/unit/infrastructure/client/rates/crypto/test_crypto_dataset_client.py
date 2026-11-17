@@ -12,6 +12,14 @@ from infrastructure.client.rates.crypto.crypto_dataset_client import (
 )
 
 
+DATASET_URL = "https://data.example.com/crypto/v1"
+
+
+@pytest.fixture(autouse=True)
+def _configured_source(monkeypatch):
+    monkeypatch.setattr(CryptoDatasetClient, "BASE_URL", DATASET_URL)
+
+
 def _raw_with_age(raw: dict, age: timedelta) -> dict:
     clone = copy.deepcopy(raw)
     clone["updated_at"] = (
@@ -307,3 +315,15 @@ class TestFreshness:
         await client.load_coingecko(max_age=CryptoDatasetClient.PRICE_MAX_AGE)
         session.get.assert_awaited_once()
         store.save.assert_awaited_once()
+
+
+class TestWithoutConfiguredSource:
+    @pytest.mark.asyncio
+    async def test_makes_no_request(self, monkeypatch):
+        monkeypatch.setattr(CryptoDatasetClient, "BASE_URL", None)
+        client = CryptoDatasetClient()
+        session = _stub_session(client, CG_RAW)
+
+        assert await client.load_coingecko() is None
+
+        session.get.assert_not_called()

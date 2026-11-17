@@ -126,7 +126,8 @@ class CryptoDataset:
 
 
 class CryptoDatasetClient:
-    BASE_URL = os.getenv("CRYPTO_DATASET_URL") or "https://static.finanze.me/crypto/v1"
+    # Optional snapshot source; without it only live providers and stored data are used
+    BASE_URL = os.getenv("CRYPTO_DATASET_URL") or None
     TIMEOUT = 10
 
     # Structural data (coin list, platforms) barely changes, so a stale local copy
@@ -216,6 +217,8 @@ class CryptoDatasetClient:
         return datetime.now(timezone.utc) - last >= self.REFRESH_COOLDOWN
 
     async def _fetch_remote(self, dataset_key: str, **kwargs) -> Optional[Any]:
+        if not self.BASE_URL:
+            return None
         url = f"{self.BASE_URL}/{dataset_key}/list.json"
         try:
             response = await self._session.get(

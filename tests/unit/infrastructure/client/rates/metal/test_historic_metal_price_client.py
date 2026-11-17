@@ -11,6 +11,14 @@ from infrastructure.client.rates.metal.historic_metal_price_client import (
 )
 
 
+METAL_RATES_URL = "https://data.example.com/rates/metals"
+
+
+@pytest.fixture(autouse=True)
+def _configured_source(monkeypatch):
+    monkeypatch.setattr(HistoricMetalPriceClient, "BASE_URL", METAL_RATES_URL)
+
+
 def _make_response(payload, ok=True, text=""):
     response = AsyncMock()
     response.ok = ok
@@ -114,3 +122,14 @@ class TestHistoricMetalPriceClientFetch:
 
         with pytest.raises(ValueError):
             await client.get_partial_historic_rates(_Fake())
+
+
+class TestWithoutConfiguredSource:
+    @pytest.mark.asyncio
+    async def test_makes_no_request(self, monkeypatch):
+        monkeypatch.setattr(HistoricMetalPriceClient, "BASE_URL", None)
+        client = _build_client({"2025-01-01": {"EUR": "100"}})
+
+        assert await client.get_partial_historic_rates(CommodityType.GOLD) is None
+
+        client._session.get.assert_not_called()

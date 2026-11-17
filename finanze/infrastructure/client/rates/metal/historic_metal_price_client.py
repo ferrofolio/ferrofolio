@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import date
 from typing import Optional
 
@@ -13,7 +14,8 @@ from infrastructure.client.http.http_session import get_http_session
 
 
 class HistoricMetalPriceClient(HistoricMetalPriceProvider):
-    BASE_URL = "https://static.finanze.me/rates/metals"
+    # Optional source of historic metal prices; none is used by default
+    BASE_URL = os.getenv("METAL_RATES_URL") or None
     TIMEOUT = 10
     CACHE_TTL = 12 * 60 * 60  # 12 hours; the dataset is historical and static
 
@@ -34,6 +36,9 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
     ) -> Optional[HistoricMetalRates]:
         if commodity not in self.SUPPORTED_COMMODITIES:
             raise ValueError(f"Unsupported commodity type: {commodity}")
+
+        if not self.BASE_URL:
+            return None
 
         cache_key = self._cache_key(commodity)
         cached = await self._cache.get(cache_key)

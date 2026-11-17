@@ -1,3 +1,4 @@
+import { tickerIconUrl } from "@/lib/tickerIcons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
@@ -321,14 +322,9 @@ function SuggestionItemIcon({
         const issuerPath = getIssuerIconPath(option.issuer ?? null)
         return issuerPath ? [`/${issuerPath}`] : []
       }
-      return [
-        option.value?.trim()
-          ? `https://static.finanze.me/icons/ticker/${encodeURIComponent(option.value.trim())}.png`
-          : null,
-        option.ticker?.trim()
-          ? `https://static.finanze.me/icons/ticker/${encodeURIComponent(option.ticker.trim())}.png`
-          : null,
-      ].filter((v): v is string => Boolean(v))
+      return [tickerIconUrl(option.value), tickerIconUrl(option.ticker)].filter(
+        (v): v is string => Boolean(v),
+      )
     }
     if (productType === ProductType.FUND) {
       const issuerPath = getIssuerIconPath(option.issuer ?? null)
