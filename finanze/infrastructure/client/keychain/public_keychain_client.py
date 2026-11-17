@@ -40,6 +40,10 @@ class PublicKeychainClient(PublicKeychainFetcherPort):
             )
             return []
 
+        if not _is_valid_keychain(data):
+            self._log.error("Ignoring public keychain with an unexpected structure")
+            return []
+
         version = data.get("version", 0)
         algo = data.get("algo", 0)
         entries_map = data.get("entries", {})
@@ -49,3 +53,18 @@ class PublicKeychainClient(PublicKeychainFetcherPort):
             PublicKeyEntry(key=k, value=v, algo=algo, version=version, updated_at=now)
             for k, v in entries_map.items()
         ]
+
+
+def _is_int(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_valid_keychain(data) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if not _is_int(data.get("version", 0)) or not _is_int(data.get("algo", 0)):
+        return False
+    entries = data.get("entries", {})
+    return isinstance(entries, dict) and all(
+        isinstance(k, str) and isinstance(v, str) for k, v in entries.items()
+    )
