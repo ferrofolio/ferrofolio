@@ -95,3 +95,23 @@ class TestWithoutConfiguredUrl:
         monkeypatch.setenv("PUBLIC_KEYCHAIN_URL", KEYCHAIN_URL)
 
         assert PublicKeychainClient()._url == KEYCHAIN_URL
+
+
+class TestFetchRejectsMalformedResponse:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response",
+        [
+            [],
+            "keys",
+            None,
+            {"version": 1, "algo": 1, "entries": []},
+            {"version": 1, "algo": 1, "entries": {"abc123": 42}},
+            {"version": "1", "algo": 1, "entries": {}},
+            {"version": 1, "algo": None, "entries": {}},
+        ],
+    )
+    async def test_returns_empty_list(self, response):
+        client, _ = _make_client_with_mock_session(response)
+
+        assert await client.fetch() == []
