@@ -25,9 +25,11 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    # Every base branch, so that stacked pull requests whose base is another feature
+    # branch are reviewed too. Without it their review is skipped and they can never
+    # be approved.
     base_branches:
-      - develop
-      - main
+      - ".*"
     # Dependency updates are covered by CI; reviewing them would only use up the review quota.
     ignore_usernames:
       - "dependabot[bot]"
@@ -95,7 +97,10 @@ reviews:
     touch more than one architectural layer.
     Low risk: documentation only, tests only, locale files, UI text and styling
     without logic.
-    A change that deletes tests or loosens assertions is never low risk.
+    A change that deletes or skips tests, or loosens assertions, for code that still
+    exists is never low risk. Deleting tests together with the code, platform or
+    feature they cover does not raise the risk by itself; judge the removal by what
+    still depends on the removed code.
 
   security_risk_instructions: |
     The application is self-hosted. Instances are often reachable from the internet
