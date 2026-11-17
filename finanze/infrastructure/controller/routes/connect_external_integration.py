@@ -9,7 +9,7 @@ from domain.external_integration import (
 from domain.use_cases.connect_external_integration import ConnectExternalIntegration
 from quart import jsonify, request
 
-INTEGRATION_COMPLETE_DEEPLINK = "finanze://integration/complete"
+INTEGRATION_COMPLETE_DEEPLINK = "ferrofolio://integration/complete"
 
 
 def _is_valid_completion_url(url: str) -> bool:

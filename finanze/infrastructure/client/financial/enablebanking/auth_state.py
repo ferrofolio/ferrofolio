@@ -5,7 +5,7 @@ import secrets
 from typing import Optional
 from urllib.parse import urlsplit
 
-EXTERNAL_COMPLETE_DEEPLINK = "finanze://external/complete"
+EXTERNAL_COMPLETE_DEEPLINK = "ferrofolio://external/complete"
 _SEPARATOR = "~"
 _SIGNATURE_BYTES = 16
 

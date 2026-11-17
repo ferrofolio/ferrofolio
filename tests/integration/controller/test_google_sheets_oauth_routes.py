@@ -197,7 +197,7 @@ async def test_invalid_completion_url_is_rejected(ctx, completion_url):
 @pytest.mark.asyncio
 async def test_desktop_completion_deeplink_is_accepted(ctx):
     response = await _connect(
-        ctx, "finanze://integration/complete?integration_oauth=GOOGLE_SHEETS"
+        ctx, "ferrofolio://integration/complete?integration_oauth=GOOGLE_SHEETS"
     )
     assert response.status_code == 200
 
