@@ -1,3 +1,4 @@
+import { tickerIconUrl } from "@/lib/tickerIcons"
 import {
   useMemo,
   useState,
@@ -182,11 +183,9 @@ function SuggestionIcon({
         const issuerPath = getIssuerIconPath(suggestion.issuer ?? null)
         return issuerPath ? [`/${issuerPath}`] : []
       }
-      return [
-        suggestion.ticker?.trim()
-          ? `https://static.finanze.me/icons/ticker/${encodeURIComponent(suggestion.ticker.trim())}.png`
-          : null,
-      ].filter((v): v is string => Boolean(v))
+      return [tickerIconUrl(suggestion.ticker)].filter((v): v is string =>
+        Boolean(v),
+      )
     }
     if (targetType === ContributionTargetType.FUND) {
       const issuerPath = getIssuerIconPath(suggestion.issuer ?? null)

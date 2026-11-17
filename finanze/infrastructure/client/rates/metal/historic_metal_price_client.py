@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import date
 from typing import Optional
 
@@ -12,8 +13,13 @@ from domain.exchange_rate import HistoricMetalRates
 from infrastructure.client.http.http_session import get_http_session
 
 
+class HistoricRatesParseError(Exception):
+    """Raised when a historic metal rates payload has an unexpected structure."""
+
+
 class HistoricMetalPriceClient(HistoricMetalPriceProvider):
-    BASE_URL = "https://static.finanze.me/rates/metals"
+    # Optional source of historic metal prices; none is used by default
+    BASE_URL = os.getenv("METAL_RATES_URL") or None
     TIMEOUT = 10
     CACHE_TTL = 12 * 60 * 60  # 12 hours; the dataset is historical and static
 
@@ -35,6 +41,9 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
         if commodity not in self.SUPPORTED_COMMODITIES:
             raise ValueError(f"Unsupported commodity type: {commodity}")
 
+        if not self.BASE_URL:
+            return None
+
         cache_key = self._cache_key(commodity)
         cached = await self._cache.get(cache_key)
         if cached is not None:
@@ -52,12 +61,19 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
                     f"Error fetching historic rates for {commodity}: {body}"
                 )
                 return None
-            raw = await response.json()
         except (httpx.RequestError, TimeoutError) as e:
             self._log.error(f"Failed fetching historic rates for {commodity}: {e}")
             return None
 
-        rates = self._build(raw)
+        try:
+            try:
+                raw = await response.json()
+            except ValueError as e:
+                raise HistoricRatesParseError(f"Invalid JSON: {e}") from e
+            rates = self._build(raw)
+        except HistoricRatesParseError as e:
+            self._log.error(f"Invalid historic rates for {commodity}: {e}")
+            return None
         if rates is not None:
             await self._cache.set(cache_key, rates, ttl=self.CACHE_TTL)
         return rates
@@ -66,13 +82,28 @@ class HistoricMetalPriceClient(HistoricMetalPriceProvider):
         if not raw:
             return None
 
-        ordered = sorted(raw.items())
-        days: list[date] = []
-        series: dict[str, list[Dezimal]] = {}
-        for day_str, by_currency in ordered:
-            days.append(date.fromisoformat(day_str))
-            for currency, value in by_currency.items():
-                series.setdefault(currency, []).append(Dezimal(str(value)))
+        try:
+            ordered = sorted(raw.items())
+            days: list[date] = []
+            series: dict[str, list[Dezimal]] = {}
+            for day_str, by_currency in ordered:
+                days.append(date.fromisoformat(day_str))
+                for currency, value in by_currency.items():
+                    price = Dezimal(str(value))
+                    if not price.val.is_finite():
+                        raise HistoricRatesParseError(
+                            f"Non-finite price for {currency} on {day_str}"
+                        )
+                    series.setdefault(currency, []).append(price)
+        except (AttributeError, TypeError, ValueError) as e:
+            raise HistoricRatesParseError(f"{type(e).__name__}: {e}") from e
+
+        # Prices are looked up by day index, so every currency needs a price on every day
+        for currency, values in series.items():
+            if len(values) != len(days):
+                raise HistoricRatesParseError(
+                    f"Prices for {currency} do not cover every day"
+                )
 
         return HistoricMetalRates(
             unit=WeightUnit.TROY_OUNCE,

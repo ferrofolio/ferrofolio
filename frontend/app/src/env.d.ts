@@ -3,4 +3,5 @@ declare module "@/env" {
   export const BS_FRONTEND_DSN: string
   export const BS_MOBILE_BACKEND_DSN: string
   export const BS_ENVIRONMENT: string
+  export const TICKER_ICON_URL: string
 }

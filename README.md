@@ -445,6 +445,8 @@ important ones are::
   Without this variable the address is taken from the request, including the `X-Forwarded-Proto` and
   `X-Forwarded-Host` headers of a reverse proxy. The browser carries the authorization code back to the app, so serve
   the server over HTTPS unless it only runs in a trusted local network; over plain HTTP that code is sent unencrypted.
+- `CRYPTO_DATASET_URL`, `METAL_RATES_URL` and `CLOUD_URL` optional, sources for a crypto coin snapshot, historic
+  metal prices and cloud backups. None is set by default, so the server does not contact upstream services for them.
 - Other Selenium related ones.
 
 ## License
