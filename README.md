@@ -247,11 +247,11 @@ Check [Export & Import Configuration](#export--import-configuration) for more te
 
 ## Usage
 
-Ferrofolio runs as a self-hosted server in Docker. The web app is served by that server and is used in the browser,
-on the desktop as well as on the phone. There is no desktop app. Native mobile apps are planned in their own
-repositories, `ferrofolio/ios` first and `ferrofolio/android` later; until they exist, the web app is the mobile
-client. Offline caching of the app shell and installation on the home screen are in progress. See the
-[roadmap](docs/roadmap.md) for details.
+Ferrofolio runs self-hosted in Docker. The web app is served by its own frontend container, `ferrofolio-front`, next
+to the server and is used in the browser, on the desktop as well as on the phone. There is no desktop app. Native
+mobile apps are planned in their own repositories, `ferrofolio/ios` first and `ferrofolio/android` later; until they
+exist, the web app is the mobile client. Offline caching of the app shell and installation on the home screen are in
+progress. See the [roadmap](docs/roadmap.md) for details.
 
 ### Docker
 
