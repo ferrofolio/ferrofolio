@@ -5,21 +5,20 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
-import appdirs
+from data_dir import default_data_dir, migrate_legacy_data_dir
 from logs import configure_logging
 
 
 def app_args() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Finanze Server")
+    parser = argparse.ArgumentParser(description="Ferrofolio Server")
 
-    default_user_dir = appdirs.user_data_dir("Finanze", False)
-    default_logs_dir = Path(default_user_dir) / "logs"
+    default_logs_dir = default_data_dir() / "logs"
 
     parser.add_argument(
         "--data-dir",
-        help="Directory to store database and configuration files.",
+        help="Directory to store database and configuration files (default: <default-app-data-dir>).",
         type=str,
-        default=default_user_dir,
+        default=None,
     )
     parser.add_argument(
         "--host",
@@ -70,7 +69,12 @@ def parse_args() -> argparse.Namespace:
     parser = app_args()
     args = parser.parse_args()
 
-    args.data_dir = Path(args.data_dir)
+    migrated_from = None
+    if args.data_dir is None:
+        args.data_dir = default_data_dir()
+        migrated_from = migrate_legacy_data_dir(args.data_dir)
+    else:
+        args.data_dir = Path(args.data_dir)
     os.makedirs(args.data_dir, exist_ok=True)
     args.llama_server_path = (
         Path(args.llama_server_path) if args.llama_server_path else None
@@ -83,6 +87,8 @@ def parse_args() -> argparse.Namespace:
     ).strip().lower() not in ("0", "false", "no", "off")
 
     configure_logging(args)
+    if migrated_from is not None:
+        logging.info(f"Moved data of a previous installation from {migrated_from}")
     logging.info(f"Using data directory: {args.data_dir}")
 
     args.api_session_remember_ttl = _remember_ttl(
