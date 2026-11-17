@@ -43,9 +43,12 @@ export default defineConfig(({ command, mode }) => {
 
   const electronExternals = ["electron"]
 
-  const electronPlugin = (
-    require("vite-plugin-electron/simple") as { default: any }
-  ).default
+  // WEB_ONLY=1 serves or builds the web app without starting Electron,
+  // e.g. for the end-to-end tests on a headless runner.
+  const webOnly = process.env.WEB_ONLY === "1"
+  const electronPlugin = webOnly
+    ? null
+    : (require("vite-plugin-electron/simple") as { default: any }).default
 
   // npm_package_version is unset under `pnpm exec`, which package.py uses.
   const appVersion: string = JSON.parse(
