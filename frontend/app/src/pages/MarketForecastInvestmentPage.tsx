@@ -925,7 +925,7 @@ function MarketForecastInvestmentContent() {
   )
 
   useEffect(() => {
-    if (!__CONNECTIONS__ || financialLoading) return
+    if (financialLoading) return
 
     const fetchingEntityIds = new Set(fetchingEntityState.fetchingEntityIds)
     const entitiesToFetch = polymarketEntities.filter(
@@ -1444,11 +1444,9 @@ function MarketForecastInvestmentContent() {
               />
             </div>
           </div>
-          {__CONNECTIONS__ && (
-            <EntityRefreshDropdown
-              entityType={EntityType.MARKET_FORECAST_PLATFORM}
-            />
-          )}
+          <EntityRefreshDropdown
+            entityType={EntityType.MARKET_FORECAST_PLATFORM}
+          />
         </div>
       </div>
 
