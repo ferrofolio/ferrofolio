@@ -58,7 +58,7 @@ def build_mcp_server(
     catalog = catalog if catalog is not None else McpToolCatalog()
     server = MCPServer(
         name="finanze",
-        title="Finanze",
+        title="Ferrofolio",
         version=version,
         instructions=build_instructions(read_only=not writes_enabled),
         middleware=[McpToolAccess(catalog)],

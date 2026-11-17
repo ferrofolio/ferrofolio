@@ -7,7 +7,7 @@ async def oauth_callback() -> Response:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Finanze - Redirecting...</title>
+  <title>Ferrofolio - Redirecting...</title>
   <style>
     :root {
       --background: #ffffff;
@@ -159,12 +159,12 @@ async def oauth_callback() -> Response:
 <body>
   <div class="card">
     <div class="card-header">
-      <h1 class="card-title" id="title">Redirecting to Finanze...</h1>
+      <h1 class="card-title" id="title">Redirecting to Ferrofolio...</h1>
     </div>
     <div class="card-content">
       <div id="loading-state" class="status-row">
         <div class="spinner"></div>
-        <p class="text-muted">Opening the Finanze app...</p>
+        <p class="text-muted">Opening the Ferrofolio app...</p>
       </div>
 
       <div id="error-state" class="error-row hidden">
@@ -180,7 +180,7 @@ async def oauth_callback() -> Response:
       </div>
 
       <button id="open-app-btn" class="button hidden" type="button">
-        Open Finanze
+        Open Ferrofolio
       </button>
 
       <p class="text-muted">You can close this tab after the app opens.</p>

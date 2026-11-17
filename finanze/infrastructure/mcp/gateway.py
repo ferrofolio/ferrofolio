@@ -7,7 +7,7 @@ MCP_AUTHORIZATION_STATE = "finanze_mcp_authorization"
 
 _DENIED = {
     McpAccess.DISABLED: (404, "MCP server is disabled"),
-    McpAccess.LOCKED: (503, "Finanze is locked, log in to the app first"),
+    McpAccess.LOCKED: (503, "Ferrofolio is locked, log in to the app first"),
     McpAccess.UNAUTHORIZED: (401, "Invalid or missing token"),
 }
 

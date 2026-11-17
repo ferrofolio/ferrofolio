@@ -42,7 +42,7 @@ def register(registry: ToolRegistry, ucs: McpUseCases):
             ),
         ],
     ):
-        """Connect or update an external integration with its credentials. Credentials sent here pass through the AI client, so suggest the user enters them in the Finanze app instead if they prefer."""
+        """Connect or update an external integration with its credentials. Credentials sent here pass through the AI client, so suggest the user enters them in the Ferrofolio app instead if they prefer."""
         await ucs.connect_external_integration.execute(
             ConnectedExternalIntegrationRequest(
                 integration_id=ExternalIntegrationId(integration_id), payload=payload

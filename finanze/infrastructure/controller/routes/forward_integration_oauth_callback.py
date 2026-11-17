@@ -9,7 +9,7 @@ EXPIRED_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Finanze</title>
+  <title>Ferrofolio</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -35,7 +35,7 @@ EXPIRED_PAGE = """<!DOCTYPE html>
 <body>
   <main>
     <h1>This sign-in can't be completed</h1>
-    <p>The sign-in expired or was already used. Go back to Finanze and try again.</p>
+    <p>The sign-in expired or was already used. Go back to Ferrofolio and try again.</p>
   </main>
 </body>
 </html>
