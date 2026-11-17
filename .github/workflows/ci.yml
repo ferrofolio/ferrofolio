@@ -89,7 +89,7 @@ jobs:
 
           {
             echo "backend=$(match "^(finanze|tests)/|$python_config")"
-            echo "python=$(match "\.py$|$python_config")"
+            echo "python=$(match "\.(py|pyi|ipynb)$|$python_config")"
             echo "frontend=$(match '^frontend/app/')"
             echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_config")"
           } | tee -a "$GITHUB_OUTPUT"
