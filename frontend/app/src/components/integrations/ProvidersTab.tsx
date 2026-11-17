@@ -67,16 +67,14 @@ import {
   type ExternalIntegration,
   type IntegrationPlatform,
 } from "@/types"
-import { isNativeMobile, isWeb } from "@/lib/platform"
+import { isWeb } from "@/lib/platform"
 import {
   buildIntegrationCompletionUrl,
   openExternalAuthLink,
   openExternalAuthPage,
   parseIntegrationOAuthCallback,
   parseOAuthCallbackAddress,
-  startLoopbackAuthorization,
   type IntegrationOAuthCallback,
-  type LoopbackAuthorization,
 } from "@/lib/externalAuth"
 import { isMostlyBlackLogo } from "@/utils/iconAnalysis"
 import {
@@ -410,21 +408,10 @@ export function ProvidersTab() {
   const [deviceAuthorizations, setDeviceAuthorizations] = useState<
     Record<string, DeviceAuthorization>
   >({})
-  const loopbackRef = useRef<LoopbackAuthorization | null>(null)
   const retryAuthorizationRef = useRef<
     ((integrationId: string) => Promise<void>) | null
   >(null)
   const authorizationRetriedRef = useRef(false)
-
-  const releaseLoopback = useCallback(() => {
-    const active = loopbackRef.current
-    loopbackRef.current = null
-    if (active) {
-      void active.cancel()
-    }
-  }, [])
-
-  useEffect(() => releaseLoopback, [releaseLoopback])
 
   const clearDeviceAuthorization = useCallback((integrationId: string) => {
     setDeviceAuthorizations(prev => {
@@ -653,7 +640,6 @@ export function ProvidersTab() {
 
       const { title: integrationName } = getIntegrationCopy(integration)
 
-      releaseLoopback()
       setAwaitingAuthorization(null)
 
       if (!state) {
@@ -690,7 +676,6 @@ export function ProvidersTab() {
       externalIntegrations,
       getIntegrationCopy,
       handleIntegrationEnabled,
-      releaseLoopback,
       showIntegrationError,
     ],
   )
@@ -744,16 +729,9 @@ export function ProvidersTab() {
 
       setIsSetupLoading(prev => ({ ...prev, [integrationId]: true }))
 
-      let loopback: LoopbackAuthorization | null = null
       try {
-        if (integrationId === CHATGPT_ID && isNativeMobile()) {
-          releaseLoopback()
-          loopback = await startLoopbackAuthorization(integrationId)
-          loopbackRef.current = loopback
-        }
         const completionUrl = OAUTH_INTEGRATIONS.has(integrationId)
-          ? (loopback?.callbackUrl ??
-            buildIntegrationCompletionUrl(integrationId))
+          ? buildIntegrationCompletionUrl(integrationId)
           : undefined
         const result = completionUrl
           ? await setupIntegration(
@@ -764,20 +742,7 @@ export function ProvidersTab() {
           : await setupIntegration(integrationId, sanitizedPayload)
         if (result?.link) {
           setAwaitingAuthorization(integrationId)
-          if (loopback) {
-            const active = loopback
-            loopback = null
-            void active
-              .wait(result.link)
-              .then(callback => {
-                if (loopbackRef.current !== active) return
-                loopbackRef.current = null
-                if (callback) {
-                  void handleIntegrationOAuthCallback(callback)
-                }
-              })
-              .catch(error => console.error(error))
-          } else if (integrationId === CHATGPT_ID) {
+          if (integrationId === CHATGPT_ID) {
             await openExternalAuthPage(result.link)
           } else {
             await openExternalAuthLink(result.link)
@@ -796,12 +761,6 @@ export function ProvidersTab() {
       } catch (error) {
         showIntegrationError(error, integrationName)
       } finally {
-        if (loopback) {
-          if (loopbackRef.current === loopback) {
-            loopbackRef.current = null
-          }
-          void loopback.cancel()
-        }
         setIsSetupLoading(prev => ({ ...prev, [integrationId]: false }))
       }
     },
@@ -809,9 +768,7 @@ export function ProvidersTab() {
       externalIntegrations,
       getIntegrationCopy,
       handleIntegrationEnabled,
-      handleIntegrationOAuthCallback,
       integrationPayloads,
-      releaseLoopback,
       showIntegrationError,
       showToast,
       t,
@@ -819,9 +776,8 @@ export function ProvidersTab() {
   )
 
   const cancelAuthorization = useCallback(() => {
-    releaseLoopback()
     setAwaitingAuthorization(null)
-  }, [releaseLoopback])
+  }, [])
 
   useEffect(() => {
     retryAuthorizationRef.current = integrationId =>
@@ -850,10 +806,9 @@ export function ProvidersTab() {
       item => item.id === awaitingAuthorization,
     )
     if (awaited?.status === ExternalIntegrationStatus.ON) {
-      releaseLoopback()
       setAwaitingAuthorization(null)
     }
-  }, [awaitingAuthorization, externalIntegrations, releaseLoopback])
+  }, [awaitingAuthorization, externalIntegrations])
 
   useEffect(() => {
     if (awaitingAuthorization !== CHATGPT_ID || !isWeb()) {

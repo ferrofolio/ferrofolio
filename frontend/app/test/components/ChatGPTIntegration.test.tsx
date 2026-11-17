@@ -13,7 +13,6 @@ import en from "@/i18n/locales/en.json"
 import {
   ExternalIntegrationStatus,
   ExternalIntegrationType,
-  PlatformType,
   type ExternalIntegration,
 } from "@/types"
 
@@ -23,14 +22,12 @@ const {
   completeIntegrationOAuth,
   disableIntegration,
   openExternalAuthPage,
-  startLoopbackAuthorization,
 } = vi.hoisted(() => ({
   state: { app: {} as Record<string, unknown> },
   setupIntegration: vi.fn(),
   completeIntegrationOAuth: vi.fn(),
   disableIntegration: vi.fn(),
   openExternalAuthPage: vi.fn(),
-  startLoopbackAuthorization: vi.fn(),
 }))
 
 vi.mock("@/i18n", () => ({ useI18n: () => ({ t: en, locale: "en-US" }) }))
@@ -46,7 +43,6 @@ vi.mock("@/services/api", async importOriginal => ({
 vi.mock("@/lib/externalAuth", async importOriginal => ({
   ...(await importOriginal<typeof import("@/lib/externalAuth")>()),
   openExternalAuthPage,
-  startLoopbackAuthorization,
 }))
 
 const NAME = "ChatGPT"
@@ -343,57 +339,6 @@ describe("ChatGPT sign-in", () => {
     expect(
       screen.getByRole("button", { name: copy.continue }),
     ).toBeInTheDocument()
-  })
-
-  it("receives the redirect through the app listener on mobile", async () => {
-    window.platform = { type: PlatformType.IOS } as typeof window.platform
-    const wait = vi.fn().mockResolvedValue({
-      integrationId: "CHATGPT",
-      state: "state-1",
-      code: "code-1",
-      error: null,
-      clientId: "oaiapp_1",
-    })
-    startLoopbackAuthorization.mockResolvedValue({
-      callbackUrl: "http://127.0.0.1:53123/auth/callback",
-      wait,
-      cancel: vi.fn(),
-    })
-    renderTab()
-
-    await continueWithChatGPT()
-
-    await waitFor(() =>
-      expect(completeIntegrationOAuth).toHaveBeenCalledWith("CHATGPT", {
-        state: "state-1",
-        code: "code-1",
-        error: null,
-        client_id: "oaiapp_1",
-      }),
-    )
-    expect(setupIntegration).toHaveBeenCalledWith(
-      "CHATGPT",
-      {},
-      "http://127.0.0.1:53123/auth/callback",
-    )
-    expect(wait).toHaveBeenCalledWith(LINK)
-    expect(openExternalAuthPage).not.toHaveBeenCalled()
-  })
-
-  it("stops the app listener when the setup fails on mobile", async () => {
-    window.platform = { type: PlatformType.ANDROID } as typeof window.platform
-    const cancel = vi.fn()
-    startLoopbackAuthorization.mockResolvedValue({
-      callbackUrl: "http://127.0.0.1:53123/auth/callback",
-      wait: vi.fn(),
-      cancel,
-    })
-    setupIntegration.mockRejectedValue({ code: "UNKNOWN" })
-    renderTab()
-
-    await continueWithChatGPT()
-
-    await waitFor(() => expect(cancel).toHaveBeenCalled())
   })
 
   it("shows the plan usage link when connected", async () => {

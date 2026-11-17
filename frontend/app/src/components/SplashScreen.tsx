@@ -2,12 +2,10 @@ import { useState, useEffect, useRef } from "react"
 import { useI18n } from "@/i18n"
 import { LoginQuickSettings } from "@/components/ui/ThemeSelector"
 import { AdvancedSettings } from "@/components/ui/AdvancedSettings"
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { useTheme } from "@/context/ThemeContext"
 import { getApiServerInfo, type ApiServerInfo } from "@/services/api"
 import { hasConfig } from "@/services/configStorage"
-import { isElectron, isNativeMobile } from "@/lib/platform"
-import { StatusBar, Style } from "@capacitor/status-bar"
+import { isElectron } from "@/lib/platform"
 import { useBackendStatus } from "@/hooks/useBackendStatus"
 import { Copy, Check } from "lucide-react"
 import { copyToClipboard } from "@/lib/clipboard"
@@ -70,15 +68,9 @@ export default function SplashScreen() {
       typeof window !== "undefined" &&
       !window.matchMedia("(prefers-color-scheme: dark)").matches)
 
-  useEffect(() => {
-    if (!isNativeMobile()) return
-    StatusBar.setStyle({ style: isLight ? Style.Light : Style.Dark })
-  }, [isLight])
   const gradientClass = isLight
     ? "from-gray-400 via-gray-700 to-gray-300"
     : "from-gray-800 via-white to-gray-700"
-  const isMobile = isNativeMobile()
-  const iconSize = 75
 
   const getStatusMessage = () => {
     if (!serverInfo) {
@@ -99,17 +91,10 @@ export default function SplashScreen() {
       <img
         src="finanze-fg.svg"
         alt={t.common.logoAlt}
-        className={
-          isMobile
-            ? `animate-breathing select-none pointer-events-none ${
-                isLight ? "invert" : ""
-              }`
-            : `w-32 h-32 ${backendFailed ? "" : "animate-breathing"} drop-shadow ${isLight ? "invert" : ""} select-none pointer-events-none`
-        }
-        style={isMobile ? { width: iconSize, height: iconSize } : undefined}
+        className={`w-32 h-32 ${backendFailed ? "" : "animate-breathing"} drop-shadow ${isLight ? "invert" : ""} select-none pointer-events-none`}
         draggable={false}
       />
-      {!isMobile && !backendFailed && (
+      {!backendFailed && (
         <div className="absolute bottom-20 flex flex-col items-center gap-3">
           <p
             className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
@@ -118,7 +103,7 @@ export default function SplashScreen() {
           </p>
         </div>
       )}
-      {!isMobile && backendFailed && (
+      {backendFailed && (
         <div className="absolute bottom-16 flex flex-col items-center gap-4 max-w-lg px-4">
           <p className="text-lg font-semibold text-red-400">
             {t.common.backendFailedToStart}
@@ -165,34 +150,6 @@ export default function SplashScreen() {
               </div>
             </div>
           )}
-        </div>
-      )}
-      {isMobile && !window.platform?.unsupportedWebView && (
-        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2">
-          <LoadingSpinner
-            size="md"
-            className={isLight ? "text-black" : "text-white"}
-          />
-        </div>
-      )}
-      {isMobile && window.platform?.unsupportedWebView && (
-        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-72 text-center">
-          <p className={`text-sm ${isLight ? "text-black" : "text-white"}`}>
-            {t.common.unsupportedWebView}
-          </p>
-          <button
-            onClick={() =>
-              window.open(
-                "market://details?id=com.google.android.webview",
-                "_system",
-              )
-            }
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              isLight ? "bg-black text-white" : "bg-white text-black"
-            }`}
-          >
-            {t.common.updateWebView}
-          </button>
         </div>
       )}
       <div

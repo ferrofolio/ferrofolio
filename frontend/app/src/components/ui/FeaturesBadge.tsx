@@ -6,7 +6,6 @@ import {
   PopoverContent,
 } from "@/components/ui/Popover"
 import { useI18n } from "@/i18n"
-import { isNativeMobile } from "@/lib/platform"
 import { Sparkles } from "lucide-react"
 import type { Feature, TransactionKind } from "@/types"
 import { ProductType } from "@/types/position"
@@ -27,7 +26,6 @@ export function FeaturesBadge({
 }: FeaturesBadgeProps) {
   const { t } = useI18n()
   const [isOpen, setIsOpen] = useState(false)
-  const isNativeApp = isNativeMobile()
   const getFeatureLabel = (feature: Feature) => {
     if (feature === "TRANSACTIONS" && transactionKinds?.length === 1) {
       return transactionKinds[0] === "ACCOUNT"
@@ -38,12 +36,10 @@ export function FeaturesBadge({
   }
 
   const handleMouseEnter = () => {
-    if (isNativeApp) return
     setIsOpen(true)
   }
 
   const handleMouseLeave = () => {
-    if (isNativeApp) return
     setIsOpen(false)
   }
 

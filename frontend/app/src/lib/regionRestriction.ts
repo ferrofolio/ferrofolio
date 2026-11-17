@@ -1,6 +1,5 @@
 import { FFStatus, type FeatureFlags } from "@/types"
-import { isElectron, isNativeMobile } from "@/lib/platform"
-import { appConsole } from "@/lib/capacitor/appConsole"
+import { isElectron } from "@/lib/platform"
 
 export const RESTRICTED_COUNTRIES_FLAG = "RESTRICTED_COUNTRIES"
 
@@ -71,18 +70,6 @@ function readLanguageCountryCodes(): string[] {
   }
 }
 
-async function readNativeCountryCodes(): Promise<string[]> {
-  if (!__MOBILE__) return []
-  const { DeviceCountry } = await import("@/lib/capacitor/plugins")
-  const result = await DeviceCountry.getCountryCodes()
-  return compactCodes([
-    result.network,
-    result.sim,
-    result.locale,
-    result.region,
-  ])
-}
-
 async function readElectronCountryCodes(): Promise<string[]> {
   const code = await window.ipcAPI?.getLocaleCountryCode?.()
   return compactCodes([code])
@@ -90,7 +77,6 @@ async function readElectronCountryCodes(): Promise<string[]> {
 
 async function readPlatformCountryCodes(): Promise<string[]> {
   try {
-    if (isNativeMobile()) return await readNativeCountryCodes()
     if (isElectron()) return await readElectronCountryCodes()
   } catch (error) {
     console.error("Failed to read device country:", error)
@@ -116,7 +102,7 @@ export async function isDeviceInRestrictedRegion(
   try {
     countryCodes = await getDeviceCountryCodes()
   } catch (error) {
-    appConsole.debug("[RegionRestriction] Failed to detect device country", {
+    console.debug("[RegionRestriction] Failed to detect device country", {
       timezone,
       error,
     })
@@ -124,7 +110,7 @@ export async function isDeviceInRestrictedRegion(
   }
 
   const restricted = isRegionRestricted(flags, timezone, countryCodes)
-  appConsole.debug("[RegionRestriction] Detected device region", {
+  console.debug("[RegionRestriction] Detected device region", {
     countryCodes,
     timezone,
     restricted,

@@ -1,16 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
-}))
-
-vi.mock("@capacitor/preferences", () => ({
-  Preferences: {
-    get: vi.fn(),
-    set: vi.fn(),
-  },
-}))
-
 const TELEMETRY_CONSENT_KEY = "telemetry_consent"
 
 async function importConsent() {

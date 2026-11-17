@@ -1,11 +1,5 @@
 import { StrictMode, useEffect, type ReactNode } from "react"
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   Link,
@@ -22,8 +16,7 @@ import {
 } from "@/hooks/useReturnNavigation"
 import { returnScrollKey } from "@/lib/returnTo"
 
-const { nativeMobile, openModal } = vi.hoisted(() => ({
-  nativeMobile: vi.fn(() => false),
+const { openModal } = vi.hoisted(() => ({
   openModal: vi.fn(() => false),
 }))
 
@@ -51,9 +44,6 @@ vi.mock("@/context/ModalRegistryContext", () => ({
 vi.mock("@/i18n", () => ({ useI18n: () => ({ t: {} }) }))
 vi.mock("@/lib/platform", () => ({
   getPlatformType: () => "WEB",
-  isAndroid: () => false,
-  isIOS: () => false,
-  isNativeMobile: nativeMobile,
   isPWAStandalone: () => false,
 }))
 vi.mock("@/components/telemetry/TelemetryConsentDialog", () => ({
@@ -129,7 +119,6 @@ describe.each([
 ])("Layout scroll on $viewport", ({ width }) => {
   beforeEach(() => {
     vi.clearAllMocks()
-    nativeMobile.mockReturnValue(false)
     openModal.mockReturnValue(false)
     vi.stubGlobal("innerWidth", width)
     sessionStorage.clear()
@@ -147,57 +136,14 @@ describe.each([
     expect(screen.getByRole("main").firstElementChild).toHaveClass("min-h-full")
   })
 
-  it("returns to the origin from a lower-screen native swipe and restores scroll", async () => {
-    nativeMobile.mockReturnValue(true)
-    render(<TestApp />)
-    const scrollRoot = screen.getByRole("main")
-    scrollRoot.scrollTop = 659
-    fireEvent.click(screen.getByRole("button", { name: "Labels" }))
-    const gestureRoot = scrollRoot.firstElementChild as HTMLElement
-
-    swipeRight(gestureRoot)
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("link", { name: "Dashboard" }),
-      ).toBeInTheDocument()
-      expect(scrollRoot.scrollTop).toBe(659)
-    })
-    expect(sessionStorage.getItem(returnScrollKey("transactions"))).toBeNull()
-  })
-
-  it.each([
-    "a non-edge start",
-    "a vertical swipe",
-    "an open modal",
-    "a horizontal scroller",
-    "a web viewport",
-  ])("does not navigate for %s", scenario => {
-    nativeMobile.mockReturnValue(scenario !== "a web viewport")
-    openModal.mockReturnValue(scenario === "an open modal")
+  it("does not navigate on an edge swipe", () => {
     render(<TestApp />)
     fireEvent.click(screen.getByRole("button", { name: "Labels" }))
     const gestureRoot = screen.getByRole("main")
       .firstElementChild as HTMLElement
-    const gestureContent = gestureRoot.lastElementChild as HTMLElement
-    let target = gestureRoot
 
-    if (scenario === "a horizontal scroller") {
-      Object.defineProperties(gestureContent, {
-        clientWidth: { configurable: true, value: 300 },
-        scrollWidth: { configurable: true, value: 600 },
-      })
-      gestureContent.style.overflowX = "auto"
-      target = gestureContent
-    }
+    swipeRight(gestureRoot)
 
-    swipeRight(
-      target,
-      scenario === "a non-edge start" ? 40 : 10,
-      scenario === "a vertical swipe",
-    )
-
-    expect(gestureContent.style.transform).toBe("")
     expect(screen.getByRole("button", { name: "Return" })).toBeInTheDocument()
   })
 
