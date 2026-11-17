@@ -272,14 +272,20 @@ repository:
 docker compose up -d --build
 ```
 
-When upgrading a setup that used the upstream compose file, the services were named `finanze-server` and
-`finanze-front`. Remove those containers in the same step, otherwise they keep ports 7592 and 8080:
+When upgrading a setup that used the upstream compose file, its services were named `finanze-server` and
+`finanze-front`, and their containers keep ports 7592 and 8080. Remove them before starting the renamed services:
 
-```sh
-docker compose up -d --build --remove-orphans
-```
+1. Before updating, run `docker compose down` in the directory of the old setup. Compose names a project after the
+   directory of its compose file, so the next step does not reach a setup in another directory.
+2. In the directory of this repository, start the renamed services and remove containers left from the old ones:
 
-The data in `./.storage` is not affected.
+   ```sh
+   docker compose up -d --build --remove-orphans
+   ```
+
+The server keeps its data in `./.storage` next to the compose file. Run the upgrade in the directory that holds the
+existing `./.storage` folder, or copy that folder into the new checkout first: a new checkout starts with an empty
+`./.storage`. The old data is not deleted.
 
 The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
 dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
