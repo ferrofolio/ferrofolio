@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { tickerIconUrl } from "@/lib/tickerIcons"
 
 describe("tickerIconUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it("loads no icon with the default configuration", async () => {
+    vi.stubEnv("VITE_TICKER_ICON_URL", "")
+    vi.resetModules()
+    const { tickerIconUrl: withDefault } = await import("@/lib/tickerIcons")
+
+    expect(withDefault("AAPL")).toBeNull()
+  })
+
   it("loads no icon without a configured source", () => {
     expect(tickerIconUrl("US0378331005", "")).toBeNull()
     expect(tickerIconUrl("AAPL", "")).toBeNull()

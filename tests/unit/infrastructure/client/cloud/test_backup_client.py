@@ -53,8 +53,13 @@ def test_configured_service_is_used(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_plain_http_service_is_rejected_before_sending_the_token(monkeypatch):
-    monkeypatch.setattr(BackupClient, "BASE_URL", "http://backups.example.com")
+@pytest.mark.parametrize(
+    "base_url", ["http://backups.example.com", "https://[backups.example.com"]
+)
+async def test_non_https_service_is_rejected_before_sending_the_token(
+    monkeypatch, base_url
+):
+    monkeypatch.setattr(BackupClient, "BASE_URL", base_url)
     client = _client()
 
     with pytest.raises(BackupTransferFailed):
@@ -117,9 +122,12 @@ async def test_info_rejects_a_malformed_response(monkeypatch, payload, error):
 
 
 @pytest.mark.asyncio
-async def test_info_skips_a_malformed_piece(monkeypatch):
+@pytest.mark.parametrize(
+    "malformed_piece", [["not", "a", "dict"], {**PIECE_INFO, "id": 123}]
+)
+async def test_info_skips_a_malformed_piece(monkeypatch, malformed_piece):
     client = _configured_client(
-        monkeypatch, {"pieces": {"DATA": PIECE_INFO, "CONFIG": ["not", "a", "dict"]}}
+        monkeypatch, {"pieces": {"DATA": PIECE_INFO, "CONFIG": malformed_piece}}
     )
 
     info = await client.get_info(SimpleNamespace(auth=AUTH))
@@ -166,7 +174,12 @@ async def test_upload_rejects_a_malformed_response(monkeypatch, payload, error):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "url",
-    ["http://storage.example.com/piece", "ftp://storage.example.com/piece", None],
+    [
+        "http://storage.example.com/piece",
+        "ftp://storage.example.com/piece",
+        "https://[storage.example.com/piece",
+        None,
+    ],
 )
 async def test_upload_refuses_a_non_https_upload_url(monkeypatch, url):
     client = _configured_client(

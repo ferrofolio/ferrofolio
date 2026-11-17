@@ -26,6 +26,15 @@ from infrastructure.client.cloud.backup.file_transfer_strategy import (
 from infrastructure.client.http.http_session import get_http_session
 
 
+def _is_https(url) -> bool:
+    if not isinstance(url, str):
+        return False
+    try:
+        return urlparse(url).scheme == "https"
+    except ValueError:
+        return False
+
+
 class BackupClient(BackupRepository):
     # The upstream backup service is not used by default; set CLOUD_URL to opt in
     BASE_URL = os.getenv("CLOUD_URL") or None
@@ -40,7 +49,7 @@ class BackupClient(BackupRepository):
         if not self.BASE_URL:
             raise BackupTransferFailed("No cloud backup service is configured")
         # Requests carry the bearer token, which must not travel unencrypted
-        if urlparse(self.BASE_URL).scheme != "https":
+        if not _is_https(self.BASE_URL):
             raise BackupTransferFailed("The cloud backup service must use HTTPS")
         return f"{self.BASE_URL}{path}"
 
@@ -122,10 +131,7 @@ class BackupClient(BackupRepository):
 
                 # The backup payload must not travel unencrypted
                 upload_url = upload_info.get("url")
-                if (
-                    not isinstance(upload_url, str)
-                    or urlparse(upload_url).scheme != "https"
-                ):
+                if not _is_https(upload_url):
                     raise BackupTransferFailed(
                         f"The upload URL for backup piece {piece.type.value} must use HTTPS"
                     )
@@ -246,8 +252,11 @@ class BackupClient(BackupRepository):
             for backup_type_str, piece_info in info_pieces.items():
                 try:
                     backup_type = BackupFileType(backup_type_str)
+                    piece_id = piece_info["id"]
+                    if not isinstance(piece_id, str):
+                        raise ValueError("Backup piece id is not a string")
                     backup_info = BackupInfo(
-                        id=UUID(piece_info["id"]),
+                        id=UUID(piece_id),
                         protocol=piece_info["protocol"],
                         date=datetime.fromisoformat(piece_info["date"]),
                         type=backup_type,
