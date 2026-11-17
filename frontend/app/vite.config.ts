@@ -10,7 +10,13 @@ const require = createRequire(import.meta.url)
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, __dirname, "")
-  rmSync("dist-electron", { recursive: true, force: true })
+  // WEB_ONLY=1 serves or builds the web app without starting Electron,
+  // e.g. for the end-to-end tests on a headless runner. It also leaves an
+  // existing Electron build in dist-electron untouched.
+  const webOnly = process.env.WEB_ONLY === "1"
+  if (!webOnly) {
+    rmSync("dist-electron", { recursive: true, force: true })
+  }
 
   const isServe = command === "serve"
   const isBuild = command === "build"
@@ -43,9 +49,6 @@ export default defineConfig(({ command, mode }) => {
 
   const electronExternals = ["electron"]
 
-  // WEB_ONLY=1 serves or builds the web app without starting Electron,
-  // e.g. for the end-to-end tests on a headless runner.
-  const webOnly = process.env.WEB_ONLY === "1"
   const electronPlugin = webOnly
     ? null
     : (require("vite-plugin-electron/simple") as { default: any }).default
