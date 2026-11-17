@@ -421,12 +421,13 @@ important ones are::
   `<address>/api/v1/entities/external/callback` after you gave consent, and that URL has to be listed as an allowed
   redirect URL in your Enable Banking application. Google Sheets redirects to `<address>/oauth/callback` after you
   authorized access, and that URL has to be listed as an authorized redirect URI of your Google OAuth client. Google
-  only accepts HTTPS addresses there, with `http://localhost` as the only exception, so for Google Sheets the server
-  has to be reachable over HTTPS even inside a trusted local network. Without
-  this variable the address is taken from the request,
-  including the `X-Forwarded-Proto` and `X-Forwarded-Host` headers of a reverse proxy. The browser carries the
-  authorization code back to the app, so serve the server over HTTPS unless it only runs in a trusted local network;
-  over plain HTTP that code is sent unencrypted.
+  only accepts such a URI with HTTPS and a domain name under a public top-level domain, with `localhost` and loopback
+  addresses as the only exception. A raw IP address such as `https://192.168.1.10` or a local-only name such as
+  `https://finance.lan` is rejected even over HTTPS, so for Google Sheets the server has to be reachable over HTTPS
+  under such a domain name even inside a trusted local network. The name only has to resolve inside that network.
+  Without this variable the address is taken from the request, including the `X-Forwarded-Proto` and
+  `X-Forwarded-Host` headers of a reverse proxy. The browser carries the authorization code back to the app, so serve
+  the server over HTTPS unless it only runs in a trusted local network; over plain HTTP that code is sent unencrypted.
 - Other Selenium related ones.
 
 ## License
