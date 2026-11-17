@@ -475,15 +475,9 @@
     "viewErrorDetails": "Technische Details anzeigen",
     "errorDetailsTitle": "Technische Details",
     "syncPasswordHint": "Verwende auf allen Geräten denselben Verschlüsselungsschlüssel, wenn die Synchronisierung aktiviert ist",
-    "enableBiometric": "{type} aktivieren",
     "rememberSession": "Angemeldet bleiben",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Fingerabdruck",
-    "biometricAuth": "Biometrie",
-    "biometricLoginReason": "Ferrofolio entsperren",
     "biometricSaved": "Biometrische Anmeldung aktiviert",
     "biometricError": "Biometrische Anmeldung konnte nicht aktiviert werden",
-    "biometricLoginFailed": "Biometrische Authentifizierung fehlgeschlagen",
     "usernameInfoTooltip": "Dies ist keine E-Mail-Adresse und kein Cloud-Konto. Nur ein lokaler Name, etwa ein Spitzname oder dein Name.",
     "invalidUsername": "Der Benutzername muss mindestens 2 Zeichen lang sein und darf nur Buchstaben, Ziffern und _ - . $ € # enthalten",
     "invalidPasswordFormat": "Der Verschlüsselungsschlüssel muss mindestens 8 Zeichen lang sein",
@@ -739,14 +733,6 @@
     },
     "userTitle": "Konto",
     "userDescription": "Verwalte dein Konto.",
-    "biometricCredentialsActionTitle": "Biometrische Anmeldung deaktivieren",
-    "biometricCredentialsNotEnabledTitle": "Biometrische Anmeldung aktivieren",
-    "biometricCredentialsNotEnabledHint": "Aktiviere die biometrische Anmeldung bei der Anmeldung oder beim Ändern deines Passworts, um dich schneller und sicher anzumelden.",
-    "biometricCredentialsAction": "Deaktivieren",
-    "biometricCredentialsTitle": "Biometrische Anmeldung",
-    "biometricCredentialsDescription": "Biometrische Anmeldung verwalten.",
-    "biometricCredentialsCleared": "Biometrische Anmeldung deaktiviert",
-    "biometricCredentialsClearError": "Biometrische Anmeldung konnte nicht deaktiviert werden",
     "applicationLanguageOptions": {
       "en-US": "Englisch",
       "es-ES": "Spanisch",
@@ -1687,8 +1673,7 @@
       "settingsLink": "Lege in den Einstellungen fest, welche KI-Modelle die Funktionen verwenden"
     },
     "aiTab": {
-      "title": "KI & MCP",
-      "titleNoMcp": "KI"
+      "title": "KI & MCP"
     },
     "aiTaskProviders": {
       "customize": "Eigene Modelle für diese Funktion verwenden",

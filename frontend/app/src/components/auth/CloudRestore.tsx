@@ -13,7 +13,6 @@ import {
 } from "lucide-react"
 import { useI18n } from "@/i18n"
 import { cn } from "@/lib/utils"
-import { isNativeMobile, isIOS } from "@/lib/platform"
 import { SupabaseAuthProvider } from "@/services/cloud/supabaseProvider"
 import type { CloudSession } from "@/services/cloud/types"
 import {
@@ -101,8 +100,8 @@ export function CloudRestore({
   const unsubscribeRef = useRef<(() => void) | null>(null)
 
   const isElectron = Boolean(window.ipcAPI)
-  const canUseGoogleSignIn = isElectron || isNativeMobile()
-  const canUseAppleSignIn = isElectron || (isNativeMobile() && isIOS())
+  const canUseGoogleSignIn = isElectron
+  const canUseAppleSignIn = isElectron
 
   const getProvider = useCallback(() => {
     if (!providerRef.current) {
@@ -203,61 +202,39 @@ export function CloudRestore({
     try {
       const provider = getProvider()
 
-      if (isNativeMobile()) {
-        const { signInWithGoogleMobile } =
-          await import("@/lib/mobile/socialLogin")
-        const result = await signInWithGoogleMobile()
-        if (!result.idToken) {
-          throw new Error("No ID token received from Google")
-        }
-        await provider.signInWithIdToken(
-          "google",
-          result.idToken,
-          result.rawNonce,
-        )
-      } else {
-        const serverInfo = await getApiServerInfo()
-        const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
+      const serverInfo = await getApiServerInfo()
+      const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
 
-        const unsubscribe = provider.onAuthStateChange(async session => {
-          if (session) {
-            unsubscribe()
-            await handleCloudLoginSuccess(session)
+      const unsubscribe = provider.onAuthStateChange(async session => {
+        if (session) {
+          unsubscribe()
+          await handleCloudLoginSuccess(session)
+        }
+      })
+      unsubscribeRef.current = unsubscribe
+
+      if (window.ipcAPI?.onOAuthCallbackUrl) {
+        const ipcUnsub = window.ipcAPI.onOAuthCallbackUrl(async payload => {
+          try {
+            await provider.handleAuthCallbackUrl(payload.url)
+          } catch (error) {
+            const urlObj = new URL(payload.url)
+            const code = urlObj.searchParams.get("code")
+            if (code) {
+              await provider.exchangeCodeForSession(code)
+            } else {
+              throw error
+            }
           }
         })
-        unsubscribeRef.current = unsubscribe
-
-        if (window.ipcAPI?.onOAuthCallbackUrl) {
-          const ipcUnsub = window.ipcAPI.onOAuthCallbackUrl(async payload => {
-            try {
-              await provider.handleAuthCallbackUrl(payload.url)
-            } catch (error) {
-              const urlObj = new URL(payload.url)
-              const code = urlObj.searchParams.get("code")
-              if (code) {
-                await provider.exchangeCodeForSession(code)
-              } else {
-                throw error
-              }
-            }
-          })
-          const prevUnsub = unsubscribeRef.current
-          unsubscribeRef.current = () => {
-            prevUnsub?.()
-            ipcUnsub?.()
-          }
+        const prevUnsub = unsubscribeRef.current
+        unsubscribeRef.current = () => {
+          prevUnsub?.()
+          ipcUnsub?.()
         }
-
-        await provider.signInWithGoogle(callbackUrl)
-        return
       }
 
-      const session = await provider.getSession()
-      if (!session) {
-        setError(t.settings.cloud.loginError)
-        return
-      }
-      await handleCloudLoginSuccess(session)
+      await provider.signInWithGoogle(callbackUrl)
     } catch (err) {
       console.error("Google sign-in error:", err)
       setError(err instanceof Error ? err.message : t.settings.cloud.loginError)
@@ -273,61 +250,39 @@ export function CloudRestore({
     try {
       const provider = getProvider()
 
-      if (isNativeMobile()) {
-        const { signInWithAppleMobile } =
-          await import("@/lib/mobile/socialLogin")
-        const result = await signInWithAppleMobile()
-        if (!result.idToken) {
-          throw new Error("No ID token received from Apple")
-        }
-        await provider.signInWithIdToken(
-          "apple",
-          result.idToken,
-          result.rawNonce,
-        )
-      } else {
-        const serverInfo = await getApiServerInfo()
-        const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
+      const serverInfo = await getApiServerInfo()
+      const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
 
-        const unsubscribe = provider.onAuthStateChange(async session => {
-          if (session) {
-            unsubscribe()
-            await handleCloudLoginSuccess(session)
+      const unsubscribe = provider.onAuthStateChange(async session => {
+        if (session) {
+          unsubscribe()
+          await handleCloudLoginSuccess(session)
+        }
+      })
+      unsubscribeRef.current = unsubscribe
+
+      if (window.ipcAPI?.onOAuthCallbackUrl) {
+        const ipcUnsub = window.ipcAPI.onOAuthCallbackUrl(async payload => {
+          try {
+            await provider.handleAuthCallbackUrl(payload.url)
+          } catch (error) {
+            const urlObj = new URL(payload.url)
+            const code = urlObj.searchParams.get("code")
+            if (code) {
+              await provider.exchangeCodeForSession(code)
+            } else {
+              throw error
+            }
           }
         })
-        unsubscribeRef.current = unsubscribe
-
-        if (window.ipcAPI?.onOAuthCallbackUrl) {
-          const ipcUnsub = window.ipcAPI.onOAuthCallbackUrl(async payload => {
-            try {
-              await provider.handleAuthCallbackUrl(payload.url)
-            } catch (error) {
-              const urlObj = new URL(payload.url)
-              const code = urlObj.searchParams.get("code")
-              if (code) {
-                await provider.exchangeCodeForSession(code)
-              } else {
-                throw error
-              }
-            }
-          })
-          const prevUnsub = unsubscribeRef.current
-          unsubscribeRef.current = () => {
-            prevUnsub?.()
-            ipcUnsub?.()
-          }
+        const prevUnsub = unsubscribeRef.current
+        unsubscribeRef.current = () => {
+          prevUnsub?.()
+          ipcUnsub?.()
         }
-
-        await provider.signInWithApple(callbackUrl)
-        return
       }
 
-      const session = await provider.getSession()
-      if (!session) {
-        setError(t.settings.cloud.loginError)
-        return
-      }
-      await handleCloudLoginSuccess(session)
+      await provider.signInWithApple(callbackUrl)
     } catch (err) {
       console.error("Apple sign-in error:", err)
       setError(err instanceof Error ? err.message : t.settings.cloud.loginError)

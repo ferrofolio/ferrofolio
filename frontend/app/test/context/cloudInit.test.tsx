@@ -49,13 +49,7 @@ vi.mock("@/services/api", () => ({
 }))
 
 vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
   isElectron: () => false,
-}))
-
-vi.mock("@/lib/mobile/socialLogin", () => ({
-  signInWithGoogleMobile: vi.fn(),
-  signInWithAppleMobile: vi.fn(),
 }))
 
 let observed: { isInitialized: boolean } = { isInitialized: false }

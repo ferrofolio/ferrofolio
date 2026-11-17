@@ -475,15 +475,9 @@
     "viewErrorDetails": "View technical details",
     "errorDetailsTitle": "Technical details",
     "syncPasswordHint": "Use the same encryption key across devices if sync is enabled",
-    "enableBiometric": "Enable {type}",
     "rememberSession": "Remember me",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Fingerprint",
-    "biometricAuth": "Biometric",
-    "biometricLoginReason": "Unlock Ferrofolio",
     "biometricSaved": "Biometric login enabled",
     "biometricError": "Could not enable biometric login",
-    "biometricLoginFailed": "Biometric authentication failed",
     "usernameInfoTooltip": "This is not an email or cloud account. Just a local name like a nickname or your name.",
     "invalidUsername": "Username must be at least 2 characters and can only contain letters, numbers, and _ - . $ € #",
     "invalidPasswordFormat": "Encryption key must be at least 8 characters",
@@ -739,14 +733,6 @@
     },
     "userTitle": "Account",
     "userDescription": "Manage your account.",
-    "biometricCredentialsActionTitle": "Disable biometric login",
-    "biometricCredentialsNotEnabledTitle": "Enable biometric login",
-    "biometricCredentialsNotEnabledHint": "Enable biometric login for faster and secure from login or when changing your password.",
-    "biometricCredentialsAction": "Disable",
-    "biometricCredentialsTitle": "Biometric login",
-    "biometricCredentialsDescription": "Manage biometric login.",
-    "biometricCredentialsCleared": "Biometric login disabled",
-    "biometricCredentialsClearError": "Failed to disable biometric login",
     "applicationLanguageOptions": {
       "en-US": "English",
       "es-ES": "Spanish",
@@ -1687,8 +1673,7 @@
       "settingsLink": "Choose which AI models features use, in Settings"
     },
     "aiTab": {
-      "title": "AI & MCP",
-      "titleNoMcp": "AI"
+      "title": "AI & MCP"
     },
     "aiTaskProviders": {
       "customize": "Use custom models for this feature",
