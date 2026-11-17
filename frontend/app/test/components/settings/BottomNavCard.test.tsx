@@ -116,12 +116,12 @@ describe("BottomNavCard", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("adds to the menu when full, filters unavailable features, and resets", () => {
+  it("adds to the menu when full, offers every shortcut, and resets", () => {
     renderCard()
     fireEvent.click(screen.getByRole("button", { name: "Add shortcut" }))
     expect(
-      screen.queryByRole("button", { name: /Add Market Forecast/ }),
-    ).not.toBeInTheDocument()
+      screen.getByRole("button", { name: /Add Market Forecast/ }),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Add Crypto shortcut" }))
     expect(
       within(

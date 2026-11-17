@@ -147,9 +147,6 @@ vi.mock("@/utils/autoRefreshUtils", async importOriginal => {
   }
 })
 
-// @ts-expect-error -- global define
-globalThis.__CONNECTIONS__ = true
-
 // --- Render helpers ---
 
 let capturedContext: ReturnType<typeof useEntityWorkflow> | null = null

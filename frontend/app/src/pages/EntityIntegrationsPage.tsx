@@ -1,5 +1,4 @@
 import { useAppContext } from "@/context/AppContext"
-import { SOURCE_CODE_LABEL, SOURCE_CODE_URL } from "@/lib/project"
 import { useEntityWorkflow } from "@/context/EntityWorkflowContext"
 import { EntityCard } from "@/components/EntityCard"
 import { LoginForm } from "@/components/LoginForm"
@@ -448,23 +447,6 @@ export default function EntityIntegrationsPage() {
           onChange={setTab}
           layoutId="integration-tabs"
         />
-
-        {!__CONNECTIONS__ && tab === "entities" && (
-          <motion.div variants={fadeListItem}>
-            <p className="text-sm text-muted-foreground">
-              {t.entities.storeNotice.split("{link}")[0]}
-              <a
-                href={SOURCE_CODE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                {SOURCE_CODE_LABEL}
-              </a>
-              {t.entities.storeNotice.split("{link}")[1]}
-            </p>
-          </motion.div>
-        )}
 
         <motion.div
           variants={fadeListItem}

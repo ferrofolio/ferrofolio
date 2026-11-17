@@ -48,7 +48,7 @@ describe("BottomNavContext", () => {
       STORAGE_KEY,
       JSON.stringify({
         version: 1,
-        bar: ["crypto", "crypto", "unknown", "market-forecast", 3],
+        bar: ["crypto", "crypto", "unknown", "removed-page", 3],
         menu: ["crypto", "settings"],
       }),
     )
@@ -137,6 +137,7 @@ describe("BottomNavContext", () => {
       "settings",
       "export",
       "banking",
+      "market-forecast",
       "calculations",
     ])
     act(() => result.current.removeShortcut("banking"))
