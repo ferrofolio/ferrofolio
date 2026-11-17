@@ -473,15 +473,9 @@
     "viewErrorDetails": "Ver detalles técnicos",
     "errorDetailsTitle": "Detalles técnicos",
     "syncPasswordHint": "Usa la misma clave de cifrado en todos tus dispositivos si tienes la sincronización activada",
-    "enableBiometric": "Activar {type}",
     "rememberSession": "Recordarme",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Huella",
-    "biometricAuth": "Biometría",
-    "biometricLoginReason": "Desbloquear Ferrofolio",
     "biometricSaved": "Inicio de sesión biométrico activado",
     "biometricError": "No se pudo activar el inicio de sesión biométrico",
-    "biometricLoginFailed": "La autenticación biométrica falló",
     "usernameInfoTooltip": "Esto no es un email ni una cuenta en la nube. Solo un nombre local como un apodo o tu nombre.",
     "invalidUsername": "El nombre de usuario debe tener al menos 2 caracteres y solo puede contener letras, números y _ - . $ € #",
     "invalidPasswordFormat": "La clave de cifrado debe tener al menos 8 caracteres",
@@ -737,14 +731,6 @@
     },
     "userTitle": "Cuenta",
     "userDescription": "Gestiona tu cuenta.",
-    "biometricCredentialsTitle": "Inicio biométrico",
-    "biometricCredentialsNotEnabledTitle": "Habilitar inicio biométrico",
-    "biometricCredentialsDescription": "Gestiona el inicio de sesión biométrico.",
-    "biometricCredentialsAction": "Desactivar",
-    "biometricCredentialsCleared": "Credenciales biométricas eliminadas",
-    "biometricCredentialsClearError": "No se pudo deshabilitar el inicio biométrico",
-    "biometricCredentialsNotEnabledHint": "Habilita el inicio biométrico para un acceso más rápido y seguro al iniciar sesión o al cambiar tu contraseña.",
-    "biometricCredentialsActionTitle": "Desactivar inicio biométrico",
     "applicationLanguageOptions": {
       "en-US": "Inglés",
       "es-ES": "Español",
@@ -1685,8 +1671,7 @@
       "settingsLink": "Elige qué modelos de IA usan las funciones, en Ajustes"
     },
     "aiTab": {
-      "title": "IA y MCP",
-      "titleNoMcp": "IA"
+      "title": "IA y MCP"
     },
     "aiTaskProviders": {
       "customize": "Usar modelos personalizados en esta función",
