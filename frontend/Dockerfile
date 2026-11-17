@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS build
+FROM --platform=$BUILDPLATFORM node:24.22.3-alpine AS build
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY ./app/ ./
 
 RUN pnpm run build
 
-FROM nginx:1.30.6-alpine
+FROM nginx:1.31.8-alpine
 
 RUN rm -rf /usr/share/nginx/html/*
 
