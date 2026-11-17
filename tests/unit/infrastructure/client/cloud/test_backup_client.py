@@ -112,7 +112,7 @@ def _upload_request():
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "payload, error",
-    [(None, INVALID_JSON), ([], None), ({"pieces": []}, None)],
+    [(None, INVALID_JSON), ([], None), ({}, None), ({"pieces": []}, None)],
 )
 async def test_info_rejects_a_malformed_response(monkeypatch, payload, error):
     client = _configured_client(monkeypatch, payload, error)
@@ -122,12 +122,36 @@ async def test_info_rejects_a_malformed_response(monkeypatch, payload, error):
 
 
 @pytest.mark.asyncio
+async def test_info_accepts_an_empty_pieces_object(monkeypatch):
+    client = _configured_client(monkeypatch, {"pieces": {}})
+
+    info = await client.get_info(SimpleNamespace(auth=AUTH))
+
+    assert info.pieces == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backup_type", ["DATA", "CONFIG"])
 @pytest.mark.parametrize(
-    "malformed_piece", [["not", "a", "dict"], {**PIECE_INFO, "id": 123}]
+    "malformed_piece",
+    [["not", "a", "dict"], {**PIECE_INFO, "id": 123}, {"protocol": 1}],
 )
-async def test_info_skips_a_malformed_piece(monkeypatch, malformed_piece):
+async def test_info_rejects_a_malformed_piece(
+    monkeypatch, backup_type, malformed_piece
+):
+    # Reporting a malformed piece as absent would let an upload skip the
+    # conflict check and overwrite the remote backup
+    pieces = {"DATA": PIECE_INFO, "CONFIG": PIECE_INFO, backup_type: malformed_piece}
+    client = _configured_client(monkeypatch, {"pieces": pieces})
+
+    with pytest.raises(BackupTransferFailed):
+        await client.get_info(SimpleNamespace(auth=AUTH))
+
+
+@pytest.mark.asyncio
+async def test_info_ignores_an_unknown_backup_type(monkeypatch):
     client = _configured_client(
-        monkeypatch, {"pieces": {"DATA": PIECE_INFO, "CONFIG": malformed_piece}}
+        monkeypatch, {"pieces": {"DATA": PIECE_INFO, "UNKNOWN": ["not", "a", "dict"]}}
     )
 
     info = await client.get_info(SimpleNamespace(auth=AUTH))
@@ -139,7 +163,7 @@ async def test_info_skips_a_malformed_piece(monkeypatch, malformed_piece):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "payload, error",
-    [(None, INVALID_JSON), ([], None), ({"pieces": []}, None)],
+    [(None, INVALID_JSON), ([], None), ({}, None), ({"pieces": []}, None)],
 )
 async def test_download_rejects_a_malformed_response(monkeypatch, payload, error):
     client = _configured_client(monkeypatch, payload, error)
@@ -157,6 +181,7 @@ async def test_download_rejects_a_malformed_response(monkeypatch, payload, error
     [
         (None, INVALID_JSON),
         ([], None),
+        ({}, None),
         ({"uploads": {}}, None),
         ({"uploads": ["DATA"]}, None),
         ({"uploads": [{"url": "https://storage.example.com"}]}, None),
