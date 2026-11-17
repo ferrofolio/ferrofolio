@@ -35,8 +35,9 @@ class FakeOAuthIntegration(OAuthConnectableIntegration):
         self.started = []
         self.completed = []
 
-    async def start_authorization(self, payload, completion_url):
+    async def start_authorization(self, payload, completion_url, redirect_host=None):
         self.started.append((payload, completion_url))
+        self.redirect_host = redirect_host
         if self.error:
             raise self.error
         return LINK
@@ -74,6 +75,22 @@ class TestConnectOAuthIntegration:
         assert result.link == LINK
         assert integration.started == [(PAYLOAD, COMPLETION_URL)]
         port.activate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_passes_the_redirect_host_to_the_integration(self):
+        integration = FakeOAuthIntegration()
+        await ConnectExternalIntegrationImpl(
+            AsyncMock(), {SHEETS: integration}
+        ).execute(
+            ConnectedExternalIntegrationRequest(
+                SHEETS,
+                PAYLOAD,
+                COMPLETION_URL,
+                redirect_host="https://finance.example.com",
+            )
+        )
+
+        assert integration.redirect_host == "https://finance.example.com"
 
     @pytest.mark.asyncio
     async def test_setup_errors_are_propagated(self):

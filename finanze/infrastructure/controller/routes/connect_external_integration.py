@@ -7,6 +7,7 @@ from domain.external_integration import (
     ExternalIntegrationId,
 )
 from domain.use_cases.connect_external_integration import ConnectExternalIntegration
+from infrastructure.controller.public_url import public_base_url
 from quart import jsonify, request
 
 INTEGRATION_COMPLETE_DEEPLINK = "finanze://integration/complete"
@@ -45,7 +46,10 @@ async def connect_external_integration(
         return jsonify({"message": "Error: invalid completion_url"}), 400
 
     req = ConnectedExternalIntegrationRequest(
-        external_integration_id, payload, completion_url
+        external_integration_id,
+        payload,
+        completion_url,
+        redirect_host=public_base_url(),
     )
     result = await connect_external_integrations_uc.execute(req)
 

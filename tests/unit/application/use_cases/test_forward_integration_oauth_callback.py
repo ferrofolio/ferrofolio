@@ -30,7 +30,7 @@ class FakeLoopbackIntegration(OAuthConnectableIntegration):
         self.destinations = destinations
         self.teardowns = []
 
-    async def start_authorization(self, payload, completion_url):
+    async def start_authorization(self, payload, completion_url, redirect_host=None):
         return "https://auth.example/authorize"
 
     async def complete_authorization(self, request):
