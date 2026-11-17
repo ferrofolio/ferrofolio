@@ -105,7 +105,7 @@ export function AboutWindow() {
     window.open(url, "_blank")
   }
 
-  const appName = info?.appName ?? "Ferrofolio"
+  const appName = info?.appName ?? t.common.appName
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">

@@ -1,5 +1,7 @@
 {
   "common": {
+    "appName": "Ferrofolio",
+    "logoAlt": "Ferrofolio logo",
     "back": "Back",
     "backTo": "Back to {page}",
     "backToTop": "Back to top",
