@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import logging
 import os
+import shlex
 import shutil
 import sys
+from pathlib import Path, PureWindowsPath
+from types import SimpleNamespace
 
 import pytest
 
 import args as app_args_module
 import data_dir
-from data_dir import STAGING_SUFFIX, migrate_legacy_data_dir
+from data_dir import STAGING_SUFFIX, DataDirMigration, migrate_legacy_data_dir
 
 
 def _legacy_with_db(tmp_path):
@@ -194,3 +197,29 @@ def test_conflict_is_logged_after_logging_is_configured(monkeypatch, tmp_path, c
     assert configured == [parsed]
     assert parsed.data_dir == target
     assert "Found data of a previous installation" in caplog.text
+
+
+def _conflict_instruction(caplog, conflict):
+    with caplog.at_level(logging.WARNING):
+        app_args_module._log_migration(
+            DataDirMigration(Path("/data/Ferrofolio"), conflict=conflict)
+        )
+    return caplog.text.split("pass ", 1)[1].split(" to keep using", 1)[0]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell quoting")
+def test_conflict_instruction_quotes_the_previous_directory(caplog):
+    conflict = Path("/Users/ada/Library/Application Support/Finanze")
+
+    instruction = _conflict_instruction(caplog, conflict)
+
+    assert shlex.split(instruction) == ["--data-dir", str(conflict)]
+
+
+def test_conflict_instruction_uses_windows_quoting_on_windows(monkeypatch, caplog):
+    monkeypatch.setattr(app_args_module, "os", SimpleNamespace(name="nt"))
+    conflict = PureWindowsPath(r"C:\Users\Ada Lovelace\AppData\Local\Finanze")
+
+    instruction = _conflict_instruction(caplog, conflict)
+
+    assert instruction == f'--data-dir "{conflict}"'

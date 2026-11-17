@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+import shlex
+import subprocess
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional
@@ -109,13 +111,20 @@ def _log_migration(migration: DataDirMigration) -> None:
         logging.warning(
             f"Found data of a previous installation in {migration.conflict}, but "
             f"{migration.data_dir} is not empty. Leaving both untouched; pass "
-            f"--data-dir {migration.conflict} to keep using the previous data."
+            f"--data-dir {_shell_quote(migration.conflict)} to keep using the previous data."
         )
     elif migration.error is not None:
         logging.error(
             f"Could not move the data of a previous installation "
             f"({migration.error}); using {migration.data_dir} for now."
         )
+
+
+def _shell_quote(path: Path) -> str:
+    """Quote a path so it can be pasted as a single command line argument."""
+    if os.name == "nt":
+        return subprocess.list2cmdline([str(path)])
+    return shlex.quote(str(path))
 
 
 def _remember_ttl(raw: Optional[str]) -> Optional[timedelta]:
