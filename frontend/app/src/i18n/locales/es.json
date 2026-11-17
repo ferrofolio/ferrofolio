@@ -1205,8 +1205,8 @@
               "Añade esta URL a los **URI de redireccionamiento autorizados** ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/oauth/v1/integration/callback/",
-                "url": "https://finanze.me/oauth/v1/integration/callback/"
+                "label": "{{integrationCallbackUrl}}",
+                "url": "{{integrationCallbackUrl}}"
               },
               ". Este campo es **muy importante**."
             ],

@@ -1207,8 +1207,8 @@
               "Füge diese URL zu den **Autorisierten Weiterleitungs-URIs** hinzu: ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/oauth/v1/integration/callback/",
-                "url": "https://finanze.me/oauth/v1/integration/callback/"
+                "label": "{{integrationCallbackUrl}}",
+                "url": "{{integrationCallbackUrl}}"
               },
               ". Dieses Feld ist **besonders wichtig**."
             ],

@@ -64,7 +64,9 @@ class ConnectExternalIntegrationImpl(ConnectExternalIntegration):
 
             if isinstance(integration, OAuthConnectableIntegration):
                 link = await integration.start_authorization(
-                    payload, request.completion_url
+                    payload,
+                    request.completion_url,
+                    redirect_host=request.redirect_host,
                 )
                 return ExternalIntegrationConnectionResult(link=link)
 

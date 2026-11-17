@@ -199,8 +199,12 @@ class ChatGPTClient(HttpAIClient, OAuthConnectableIntegration):
         }
 
     async def start_authorization(
-        self, payload: ExternalIntegrationPayload, completion_url: Optional[str]
+        self,
+        payload: ExternalIntegrationPayload,
+        completion_url: Optional[str],
+        redirect_host: Optional[str] = None,
     ) -> str:
+        # The ChatGPT sign-in redirects to a loopback listener, not to this server
         previous = await self._external_integration_port.get_payload(
             CHATGPT, include_expired=True
         )
