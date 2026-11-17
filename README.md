@@ -424,9 +424,6 @@ For the frontend use `pnpm`, and `node 24`.
 
     cd e2e/standard
     pnpm test           # Web based E2E
-
-    cd e2e/mobile
-    pnpm local:both     # Mobile based basic E2E
     ```
 
 ### Environment Variables
