@@ -5,14 +5,12 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
-from data_dir import default_data_dir, migrate_legacy_data_dir
+from data_dir import DataDirMigration, default_data_dir, migrate_legacy_data_dir
 from logs import configure_logging
 
 
 def app_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Ferrofolio Server")
-
-    default_logs_dir = default_data_dir() / "logs"
 
     parser.add_argument(
         "--data-dir",
@@ -42,7 +40,7 @@ def app_args() -> argparse.ArgumentParser:
         "--log-dir",
         help="Path to log directory (default: <default-app-data-dir>/logs).",
         type=str,
-        default=default_logs_dir,
+        default=None,
     )
     parser.add_argument(
         "--log-file-level",
@@ -69,12 +67,16 @@ def parse_args() -> argparse.Namespace:
     parser = app_args()
     args = parser.parse_args()
 
-    migrated_from = None
+    migration = None
     if args.data_dir is None:
-        args.data_dir = default_data_dir()
-        migrated_from = migrate_legacy_data_dir(args.data_dir)
+        migration = migrate_legacy_data_dir(default_data_dir())
+        args.data_dir = migration.data_dir
     else:
         args.data_dir = Path(args.data_dir)
+    if args.log_dir is None:
+        # Logs follow the default data directory, also while it is the legacy one
+        base = migration.data_dir if migration is not None else default_data_dir()
+        args.log_dir = base / "logs"
     os.makedirs(args.data_dir, exist_ok=True)
     args.llama_server_path = (
         Path(args.llama_server_path) if args.llama_server_path else None
@@ -87,8 +89,8 @@ def parse_args() -> argparse.Namespace:
     ).strip().lower() not in ("0", "false", "no", "off")
 
     configure_logging(args)
-    if migrated_from is not None:
-        logging.info(f"Moved data of a previous installation from {migrated_from}")
+    if migration is not None:
+        _log_migration(migration)
     logging.info(f"Using data directory: {args.data_dir}")
 
     args.api_session_remember_ttl = _remember_ttl(
@@ -96,6 +98,24 @@ def parse_args() -> argparse.Namespace:
     )
 
     return args
+
+
+def _log_migration(migration: DataDirMigration) -> None:
+    if migration.moved_from is not None:
+        logging.info(
+            f"Moved data of a previous installation from {migration.moved_from}"
+        )
+    elif migration.conflict is not None:
+        logging.warning(
+            f"Found data of a previous installation in {migration.conflict}, but "
+            f"{migration.data_dir} is not empty. Leaving both untouched; pass "
+            f"--data-dir {migration.conflict} to keep using the previous data."
+        )
+    elif migration.error is not None:
+        logging.error(
+            f"Could not move the data of a previous installation "
+            f"({migration.error}); using {migration.data_dir} for now."
+        )
 
 
 def _remember_ttl(raw: Optional[str]) -> Optional[timedelta]:
