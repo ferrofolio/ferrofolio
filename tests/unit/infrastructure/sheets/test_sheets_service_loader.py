@@ -18,10 +18,10 @@ from google_auth_oauthlib.flow import Flow
 from infrastructure.sheets import sheets_service_loader
 from infrastructure.sheets.sheets_service_loader import (
     DEFAULT_COMPLETION_URL,
-    RELAY_REDIRECT_URI,
     SCOPES,
     TOKEN_FILENAME,
     SheetsServiceLoader,
+    build_redirect_uri,
 )
 from oauthlib.oauth2.rfc6749.errors import InvalidClientError, InvalidGrantError
 
@@ -79,13 +79,17 @@ async def _expect_error(call, code: IntegrationSetupErrorCode):
 
 class TestStartAuthorization:
     @pytest.mark.asyncio
-    async def test_link_targets_relay_with_offline_consent_and_pkce(self, loader):
-        link = await loader.start_authorization(PAYLOAD, COMPLETION_URL)
+    async def test_link_targets_own_instance_with_offline_consent_and_pkce(
+        self, loader
+    ):
+        link = await loader.start_authorization(
+            PAYLOAD, COMPLETION_URL, redirect_host="https://finance.example.com/"
+        )
         query = _query(link)
 
         assert link.startswith("https://accounts.google.com/o/oauth2/auth?")
         assert query["client_id"] == "client-id"
-        assert query["redirect_uri"] == RELAY_REDIRECT_URI
+        assert query["redirect_uri"] == "https://finance.example.com/oauth/callback"
         assert query["response_type"] == "code"
         assert query["scope"] == SCOPES[0]
         assert query["access_type"] == "offline"
@@ -110,6 +114,68 @@ class TestStartAuthorization:
             loader.start_authorization({"client_id": "client-id"}, None),
             IntegrationSetupErrorCode.INVALID_CREDENTIALS,
         )
+
+
+class TestRedirectUri:
+    @pytest.mark.parametrize(
+        "redirect_host, expected",
+        [
+            (None, "http://localhost:7592/oauth/callback"),
+            ("", "http://localhost:7592/oauth/callback"),
+            ("finance.local:7592", "http://finance.local:7592/oauth/callback"),
+            (
+                "https://finance.example.com",
+                "https://finance.example.com/oauth/callback",
+            ),
+        ],
+    )
+    def test_is_built_from_the_redirect_host(self, redirect_host, expected):
+        assert build_redirect_uri(redirect_host) == expected
+
+    @pytest.mark.asyncio
+    async def test_never_points_to_the_upstream_relay(self, loader):
+        link = await loader.start_authorization(PAYLOAD, COMPLETION_URL)
+
+        assert "finanze.me" not in link
+        assert _query(link)["redirect_uri"] == "http://localhost:7592/oauth/callback"
+
+
+class TestCallbackDestination:
+    @pytest.mark.asyncio
+    async def test_returns_the_completion_url_of_a_pending_state(self, loader):
+        state = await _start(loader)
+
+        assert await loader.callback_destination(state) == COMPLETION_URL
+        # Looking up the destination does not consume the state
+        assert await loader.callback_destination(state) == COMPLETION_URL
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_the_app_deeplink(self, loader):
+        state = await _start(loader, completion_url=None)
+
+        assert await loader.callback_destination(state) == DEFAULT_COMPLETION_URL
+
+    @pytest.mark.asyncio
+    async def test_rejects_unknown_states(self, loader):
+        await _start(loader)
+
+        assert await loader.callback_destination("unknown") is None
+
+    @pytest.mark.asyncio
+    async def test_rejects_expired_states(self, loader):
+        state = await _start(loader)
+        flow, _, destination = loader._pending[state]
+        loader._pending[state] = (flow, 0, destination)
+
+        assert await loader.callback_destination(state) is None
+
+    @pytest.mark.asyncio
+    async def test_rejects_used_states(self, loader):
+        state = await _start(loader)
+        with patch.object(Flow, "fetch_token", return_value=TOKEN):
+            await loader.complete_authorization(_request(state))
+
+        assert await loader.callback_destination(state) is None
 
 
 class TestCompleteAuthorization:
@@ -145,8 +211,8 @@ class TestCompleteAuthorization:
     @pytest.mark.asyncio
     async def test_stale_state_is_expired(self, loader):
         state = await _start(loader)
-        flow, _ = loader._pending[state]
-        loader._pending[state] = (flow, 0)
+        flow, _, destination = loader._pending[state]
+        loader._pending[state] = (flow, 0, destination)
         await _expect_error(
             loader.complete_authorization(_request(state)),
             IntegrationSetupErrorCode.AUTHORIZATION_EXPIRED,

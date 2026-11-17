@@ -115,6 +115,7 @@ class ConnectedExternalIntegrationRequest:
     integration_id: ExternalIntegrationId
     payload: ExternalIntegrationPayload
     completion_url: Optional[str] = None
+    redirect_host: Optional[str] = None
 
 
 @dataclass

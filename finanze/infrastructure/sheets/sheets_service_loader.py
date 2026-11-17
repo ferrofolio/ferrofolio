@@ -33,7 +33,8 @@ TOKEN_FILENAME = "token.json"
 
 AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
-RELAY_REDIRECT_URI = "https://finanze.me/oauth/v1/integration/callback/"
+CALLBACK_PATH = "/oauth/callback"
+DEFAULT_REDIRECT_BASE = "http://localhost:7592"
 DEFAULT_COMPLETION_URL = (
     "ferrofolio://integration/complete?integration_oauth="
     + ExternalIntegrationId.GOOGLE_SHEETS.value
@@ -41,7 +42,18 @@ DEFAULT_COMPLETION_URL = (
 PENDING_AUTHORIZATION_TTL_SECONDS = 15 * 60
 
 
-def _client_config(credentials: ExternalIntegrationPayload) -> dict:
+def build_redirect_uri(redirect_host: Optional[str]) -> str:
+    """Callback of this server that Google redirects to after the user consented.
+
+    It has to be registered as an authorized redirect URI of the user's OAuth client.
+    """
+    base = (redirect_host or DEFAULT_REDIRECT_BASE).rstrip("/")
+    if not base.startswith(("http://", "https://")):
+        base = f"http://{base}"
+    return f"{base}{CALLBACK_PATH}"
+
+
+def _client_config(credentials: ExternalIntegrationPayload, redirect_uri: str) -> dict:
     client_id, client_secret = (
         credentials.get("client_id"),
         credentials.get("client_secret"),
@@ -55,7 +67,7 @@ def _client_config(credentials: ExternalIntegrationPayload) -> dict:
             "client_secret": client_secret,
             "auth_uri": AUTH_URI,
             "token_uri": TOKEN_URI,
-            "redirect_uris": [RELAY_REDIRECT_URI],
+            "redirect_uris": [redirect_uri],
         }
     }
 
@@ -74,7 +86,7 @@ class SheetsServiceLoader(SheetsInitiator):
         self._base_path = None
         self._service = None
         self._service_key = None
-        self._pending: dict[str, tuple[Flow, float]] = {}
+        self._pending: dict[str, tuple[Flow, float, str]] = {}
         self._lock = Lock()
         self._log = logging.getLogger(__name__)
 
@@ -99,12 +111,17 @@ class SheetsServiceLoader(SheetsInitiator):
             self._pending.clear()
 
     async def start_authorization(
-        self, payload: ExternalIntegrationPayload, completion_url: Optional[str]
+        self,
+        payload: ExternalIntegrationPayload,
+        completion_url: Optional[str],
+        redirect_host: Optional[str] = None,
     ) -> str:
+        redirect_uri = build_redirect_uri(redirect_host)
         flow = Flow.from_client_config(
-            _client_config(payload), SCOPES, redirect_uri=RELAY_REDIRECT_URI
+            _client_config(payload, redirect_uri), SCOPES, redirect_uri=redirect_uri
         )
-        state = _build_state(completion_url or DEFAULT_COMPLETION_URL)
+        destination = completion_url or DEFAULT_COMPLETION_URL
+        state = _build_state(destination)
         link, _ = flow.authorization_url(
             state=state, access_type="offline", prompt="consent"
         )
@@ -116,9 +133,25 @@ class SheetsServiceLoader(SheetsInitiator):
                 for key, pending in self._pending.items()
                 if pending[1] > now
             }
-            self._pending[state] = (flow, now + PENDING_AUTHORIZATION_TTL_SECONDS)
+            self._pending[state] = (
+                flow,
+                now + PENDING_AUTHORIZATION_TTL_SECONDS,
+                destination,
+            )
 
         return link
+
+    async def callback_destination(self, state: str) -> Optional[str]:
+        """Where the browser goes after Google redirected to this server.
+
+        Only states this loader issued and that have not expired are accepted, so
+        the callback cannot be used to redirect to arbitrary URLs.
+        """
+        with self._lock:
+            pending = self._pending.get(state)
+        if pending is None or pending[1] <= time.monotonic():
+            return None
+        return pending[2]
 
     async def complete_authorization(
         self, request: CompleteExternalIntegrationConnectionRequest

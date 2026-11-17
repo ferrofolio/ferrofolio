@@ -52,10 +52,14 @@ import { cn } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/clipboard"
 import {
   buildExternalEntityCallbackUrl,
+  buildIntegrationCallbackUrl,
+  EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER,
   getIntegrationFamilyName,
   getIntegrationMethodName,
   getIntegrationName,
-  resolveIntegrationHintUrl,
+  INTEGRATION_CALLBACK_PLACEHOLDER,
+  type IntegrationHintUrls,
+  resolveIntegrationHintPlaceholders,
 } from "@/lib/integrations"
 import {
   ExternalIntegrationStatus,
@@ -433,21 +437,26 @@ export function ProvidersTab() {
     })
   }, [])
 
-  const [externalEntityCallbackUrl, setExternalEntityCallbackUrl] = useState<
-    string | null
-  >(null)
+  const [hintUrls, setHintUrls] = useState<IntegrationHintUrls>({
+    [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]: null,
+    [INTEGRATION_CALLBACK_PLACEHOLDER]: null,
+  })
 
   useEffect(() => {
     let active = true
     checkStatus()
       .then(status => {
         if (!active) return
-        setExternalEntityCallbackUrl(
-          buildExternalEntityCallbackUrl(
-            status.server.publicUrl ?? "",
-            window.location.origin,
+        const serverUrl = status.server.publicUrl ?? ""
+        const origin = window.location.origin
+        setHintUrls({
+          [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]:
+            buildExternalEntityCallbackUrl(serverUrl, origin),
+          [INTEGRATION_CALLBACK_PLACEHOLDER]: buildIntegrationCallbackUrl(
+            serverUrl,
+            origin,
           ),
-        )
+        })
       })
       .catch(() => {
         // The setup instructions keep showing a placeholder
@@ -463,19 +472,13 @@ export function ProvidersTab() {
         if (part.type !== "copylink") {
           return part
         }
-        const url = resolveIntegrationHintUrl(
-          part.url,
-          externalEntityCallbackUrl,
-        )
-        const label = resolveIntegrationHintUrl(
-          part.label,
-          externalEntityCallbackUrl,
-        )
+        const url = resolveIntegrationHintPlaceholders(part.url, hintUrls)
+        const label = resolveIntegrationHintPlaceholders(part.label, hintUrls)
         return url && label
           ? { ...part, url, label }
           : ({ type: "text", value: "…" } as const)
       }),
-    [externalEntityCallbackUrl],
+    [hintUrls],
   )
 
   const getIntegrationCopy = useCallback(

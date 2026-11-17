@@ -14,8 +14,16 @@ class OAuthConnectableIntegration(ConnectableIntegration, metaclass=abc.ABCMeta)
 
     @abc.abstractmethod
     async def start_authorization(
-        self, payload: ExternalIntegrationPayload, completion_url: Optional[str]
+        self,
+        payload: ExternalIntegrationPayload,
+        completion_url: Optional[str],
+        redirect_host: Optional[str] = None,
     ) -> str:
+        """Return the link where the user authorizes access.
+
+        redirect_host is the base URL under which this server is reachable from
+        the user's browser, for providers that redirect back to the server.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod

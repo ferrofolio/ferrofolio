@@ -5,10 +5,13 @@ import itTranslations from "@/i18n/locales/it.json"
 import de from "@/i18n/locales/de.json"
 import {
   buildExternalEntityCallbackUrl,
+  buildIntegrationCallbackUrl,
   EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER,
   getIntegrationFamilyName,
   getIntegrationMethodName,
   getIntegrationName,
+  INTEGRATION_CALLBACK_PLACEHOLDER,
+  resolveIntegrationHintPlaceholders,
   resolveIntegrationHintUrl,
 } from "@/lib/integrations"
 
@@ -193,5 +196,61 @@ describe("external entity callback URL", () => {
 
     expect(text).not.toContain("finanze.me/eb/")
     expect(text).toContain(EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER)
+  })
+})
+
+describe("integration callback URL", () => {
+  const origin = "https://app.example.com"
+
+  it("is built from an absolute server address", () => {
+    expect(
+      buildIntegrationCallbackUrl("https://finance.example.com/", origin),
+    ).toBe("https://finance.example.com/oauth/callback")
+  })
+
+  it("falls back to the page origin for a relative server address", () => {
+    expect(buildIntegrationCallbackUrl("", origin)).toBe(
+      "https://app.example.com/oauth/callback",
+    )
+  })
+
+  it("resolves every known placeholder", () => {
+    const urls = {
+      [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]: "https://a.example/eb",
+      [INTEGRATION_CALLBACK_PLACEHOLDER]: "https://a.example/oauth",
+    }
+
+    expect(
+      resolveIntegrationHintPlaceholders(
+        INTEGRATION_CALLBACK_PLACEHOLDER,
+        urls,
+      ),
+    ).toBe("https://a.example/oauth")
+    expect(
+      resolveIntegrationHintPlaceholders(
+        EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER,
+        urls,
+      ),
+    ).toBe("https://a.example/eb")
+  })
+
+  it("does not resolve a placeholder whose URL is unknown", () => {
+    expect(
+      resolveIntegrationHintPlaceholders(INTEGRATION_CALLBACK_PLACEHOLDER, {
+        [INTEGRATION_CALLBACK_PLACEHOLDER]: null,
+      }),
+    ).toBeNull()
+  })
+
+  it.each([
+    ["en", en],
+    ["es", es],
+    ["it", itTranslations],
+    ["de", de],
+  ])("no longer points %s users to the upstream OAuth relay", (_, locale) => {
+    const text = JSON.stringify(locale)
+
+    expect(text).not.toContain("finanze.me/oauth/")
+    expect(text).toContain(INTEGRATION_CALLBACK_PLACEHOLDER)
   })
 })
