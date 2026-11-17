@@ -1,5 +1,8 @@
 import logging
+import os
 from datetime import datetime
+
+from typing import Optional
 
 from aiocache import cached, Cache
 from dateutil.tz import tzlocal
@@ -8,14 +11,16 @@ from application.ports.public_keychain_fetcher_port import PublicKeychainFetcher
 from domain.public_keychain import PublicKeyEntry
 from infrastructure.client.http.http_session import get_http_session
 
-KEYCHAIN_URL = "https://features.api.finanze.me/keys"
+KEYCHAIN_URL_ENV = "PUBLIC_KEYCHAIN_URL"
 CACHE_TTL = 21600
 
 
 class PublicKeychainClient(PublicKeychainFetcherPort):
-    def __init__(self):
+    def __init__(self, url: Optional[str] = None):
         self._log = logging.getLogger(__name__)
         self._session = None
+        # Opt-in; without a URL the keys already stored in the database are used
+        self._url = url if url is not None else os.getenv(KEYCHAIN_URL_ENV) or None
 
     def _get_session(self):
         if not self._session:
@@ -24,8 +29,10 @@ class PublicKeychainClient(PublicKeychainFetcherPort):
 
     @cached(cache=Cache.MEMORY, ttl=CACHE_TTL)
     async def fetch(self) -> list[PublicKeyEntry]:
+        if not self._url:
+            return []
         try:
-            response = await self._get_session().get(KEYCHAIN_URL, timeout=2)
+            response = await self._get_session().get(self._url, timeout=2)
             data = await response.json()
         except Exception as e:
             self._log.error(
