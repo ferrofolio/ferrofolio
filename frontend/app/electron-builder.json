@@ -20,8 +20,8 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "finanze",
-      "repo": "finanze",
+      "owner": "ferrofolio",
+      "repo": "ferrofolio",
       "releaseType": "release"
     }
   ],
@@ -41,8 +41,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "finanze",
-        "repo": "finanze",
+        "owner": "ferrofolio",
+        "repo": "ferrofolio",
         "releaseType": "release",
         "channel": "latest-${arch}"
       }

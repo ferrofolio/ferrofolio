@@ -49,7 +49,11 @@ function sendToAllWindows(channel: string, ...args: unknown[]) {
 }
 
 export function setupAutoUpdater(appConfig: AppConfig): void {
-  supportsNativeAutoUpdate = !appConfig.isDev
+  // Ferrofolio publishes no desktop releases, and the publish configuration must
+  // never update a Ferrofolio build to an upstream release. Updates are only
+  // checked when a feed is configured explicitly.
+  const customFeedUrl = process.env.AUTO_UPDATE_FEED_URL
+  supportsNativeAutoUpdate = !appConfig.isDev && Boolean(customFeedUrl)
 
   let defaultChannel = "latest"
   if (appConfig.os === OS.MAC && appConfig.arch !== "arm64") {
@@ -59,7 +63,6 @@ export function setupAutoUpdater(appConfig: AppConfig): void {
   autoUpdateChannel = process.env.AUTO_UPDATE_CHANNEL || defaultChannel
   autoUpdater.channel = autoUpdateChannel
 
-  const customFeedUrl = process.env.AUTO_UPDATE_FEED_URL
   if (customFeedUrl && supportsNativeAutoUpdate) {
     ElectronUpdater.autoUpdater.setFeedURL({
       provider: "generic",
