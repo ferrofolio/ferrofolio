@@ -239,7 +239,6 @@ from infrastructure.client.entity.exchange.polymarket.polymarket_fetcher import 
 from infrastructure.client.entity.financial.cajamar.cajamar_fetcher import (
     CajamarFetcher,
 )
-from infrastructure.client.entity.financial.b100.b100_fetcher import B100Fetcher
 from infrastructure.client.entity.financial.crescenta.crescenta_fetcher import (
     CrescentaFetcher,
 )
@@ -254,22 +253,17 @@ from infrastructure.client.entity.financial.indexa_capital.indexa_capital_fetche
 )
 from infrastructure.client.entity.financial.ing.ing_fetcher import INGFetcher
 from infrastructure.client.entity.financial.mintos.mintos_fetcher import MintosFetcher
-from infrastructure.client.entity.financial.myinvestor import MyInvestorScraper
 from infrastructure.client.entity.financial.psd2.enablebanking_fetcher import (
     EnableBankingFetcher,
 )
 from infrastructure.client.entity.financial.psd2.gocardless_fetcher import (
     GoCardlessFetcher,
 )
-from infrastructure.client.entity.financial.sego.sego_fetcher import SegoFetcher
 from infrastructure.client.entity.financial.tr.trade_republic_fetcher import (
     TradeRepublicFetcher,
 )
 from infrastructure.client.entity.financial.unicaja.unicaja_fetcher import (
     UnicajaFetcher,
-)
-from infrastructure.client.entity.financial.urbanitae.urbanitae_fetcher import (
-    UrbanitaeFetcher,
 )
 from infrastructure.client.entity.financial.wecity.wecity_fetcher import WecityFetcher
 from infrastructure.client.features.feature_flag_client import FeatureFlagClient
@@ -610,12 +604,9 @@ class FinanzeServer:
             financial_entity_fetchers = get_e2e_financial_fetchers()
         else:
             financial_entity_fetchers = {
-                domain.native_entities.MY_INVESTOR: MyInvestorScraper(),
                 domain.native_entities.TRADE_REPUBLIC: TradeRepublicFetcher(),
                 domain.native_entities.UNICAJA: UnicajaFetcher(),
-                domain.native_entities.URBANITAE: UrbanitaeFetcher(),
                 domain.native_entities.WECITY: WecityFetcher(),
-                domain.native_entities.SEGO: SegoFetcher(),
                 domain.native_entities.MINTOS: MintosFetcher(),
                 domain.native_entities.F24: F24Fetcher(),
                 domain.native_entities.INDEXA_CAPITAL: IndexaCapitalFetcher(),
@@ -623,7 +614,6 @@ class FinanzeServer:
                 domain.native_entities.CAJAMAR: CajamarFetcher(),
                 domain.native_entities.DEGIRO: DegiroFetcher(),
                 domain.native_entities.IBKR: IBKRFetcher(),
-                domain.native_entities.B100: B100Fetcher(),
                 domain.native_entities.CRESCENTA: CrescentaFetcher(),
                 domain.native_entities.TRADING212: Trading212Fetcher(),
                 domain.native_entities.BINANCE: BinanceFetcher(),

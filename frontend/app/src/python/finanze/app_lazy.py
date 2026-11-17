@@ -51,15 +51,6 @@ class LazyComponents:
             from infrastructure.client.entity.financial.indexa_capital.indexa_capital_fetcher import (
                 IndexaCapitalFetcher,
             )
-            from infrastructure.client.entity.financial.myinvestor import (
-                MyInvestorScraper,
-            )
-            from infrastructure.client.entity.financial.sego.sego_fetcher import (
-                SegoFetcher,
-            )
-            from infrastructure.client.entity.financial.urbanitae.urbanitae_fetcher import (
-                UrbanitaeFetcher,
-            )
             from infrastructure.client.entity.financial.unicaja.unicaja_fetcher import (
                 UnicajaFetcher,
             )
@@ -74,9 +65,6 @@ class LazyComponents:
             )
             from infrastructure.client.entity.financial.ibkr.ibkr_fetcher import (
                 IBKRFetcher,
-            )
-            from infrastructure.client.entity.financial.b100.b100_fetcher import (
-                B100Fetcher,
             )
             from infrastructure.client.entity.financial.crescenta.crescenta_fetcher import (
                 CrescentaFetcher,
@@ -371,11 +359,8 @@ class LazyComponents:
                 domain.native_entities.ZERION: ZerionFetcher(zerion_client),
             }
             financial_entity_fetchers = {
-                domain.native_entities.MY_INVESTOR: MyInvestorScraper(),
                 domain.native_entities.TRADE_REPUBLIC: TradeRepublicFetcher(),
-                domain.native_entities.URBANITAE: UrbanitaeFetcher(),
                 domain.native_entities.WECITY: WecityFetcher(),
-                domain.native_entities.SEGO: SegoFetcher(),
                 domain.native_entities.MINTOS: MintosFetcher(),
                 domain.native_entities.F24: F24Fetcher(),
                 domain.native_entities.INDEXA_CAPITAL: IndexaCapitalFetcher(),
@@ -383,7 +368,6 @@ class LazyComponents:
                 domain.native_entities.CAJAMAR: CajamarFetcher(),
                 domain.native_entities.UNICAJA: UnicajaFetcher(use_mobile_client=True),
                 domain.native_entities.IBKR: IBKRFetcher(),
-                domain.native_entities.B100: B100Fetcher(),
                 domain.native_entities.CRESCENTA: CrescentaFetcher(),
                 domain.native_entities.TRADING212: Trading212Fetcher(),
                 domain.native_entities.BINANCE: BinanceFetcher(),
