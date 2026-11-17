@@ -576,7 +576,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         }
 
         if (
-          urlObj.protocol === "finanze:" &&
+          urlObj.protocol === "ferrofolio:" &&
           urlObj.hostname === "auth" &&
           urlObj.pathname === "/callback"
         ) {
