@@ -223,3 +223,12 @@ def test_conflict_instruction_uses_windows_quoting_on_windows(monkeypatch, caplo
     instruction = _conflict_instruction(caplog, conflict)
 
     assert instruction == f'--data-dir "{conflict}"'
+
+
+def test_conflict_instruction_quotes_cmd_metacharacters_on_windows(monkeypatch, caplog):
+    monkeypatch.setattr(app_args_module, "os", SimpleNamespace(name="nt"))
+    conflict = PureWindowsPath(r"C:\Users\Ada&Bob\AppData\Local\Finanze")
+
+    instruction = _conflict_instruction(caplog, conflict)
+
+    assert instruction == f'--data-dir "{conflict}"'

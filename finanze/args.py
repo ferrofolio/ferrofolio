@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import shlex
-import subprocess
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional
@@ -121,9 +120,14 @@ def _log_migration(migration: DataDirMigration) -> None:
 
 
 def _shell_quote(path: Path) -> str:
-    """Quote a path so it can be pasted as a single command line argument."""
+    """Quote a path so it can be pasted as a single command line argument.
+
+    On Windows the instruction targets the Command Prompt (cmd.exe). The path is
+    always wrapped in double quotes, which keeps metacharacters such as & | < > ^
+    literal; a Windows path cannot contain a double quote itself.
+    """
     if os.name == "nt":
-        return subprocess.list2cmdline([str(path)])
+        return f'"{path}"'
     return shlex.quote(str(path))
 
 
