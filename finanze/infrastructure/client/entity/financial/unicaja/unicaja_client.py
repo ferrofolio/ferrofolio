@@ -52,37 +52,11 @@ def _encrypt_password(key: str, password: str) -> str:
     raise ValueError("Unsupported key length for encryption")
 
 
-def _create_mobile_client(retrying: bool):
-    from infrastructure.client.http.http_session import new_impersonated_http_session
-
-    if retrying:
-        session = new_impersonated_http_session(impersonate="firefox135")
-        session.headers["User-Agent"] = (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) "
-            "Gecko/20100101 Firefox/135.0"
-        )
-        return session
-
-    session = new_impersonated_http_session(impersonate="chrome146")
-    session.headers["User-Agent"] = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
-    )
-    return session
-
-
 def _create_desktop_client(retrying: bool):
     from infrastructure.client.http.http_session import new_impersonated_http_session
 
     browser = "chrome" if retrying else "firefox135"
     return new_impersonated_http_session(impersonate=browser)
-
-
-def _create_client(mobile: bool, retrying: bool):
-    if mobile:
-        return _create_mobile_client(retrying)
-    else:
-        return _create_desktop_client(retrying)
 
 
 class UnicajaClient:
@@ -91,10 +65,9 @@ class UnicajaClient:
     TOKEN_PATH = "/apis/externo/unicaja/univia/oauth2/token"
     MOVEMENTS_REFERER = BASE_URL + "/mfe-integration/cuentas/{ppp}/movimientos"
 
-    def __init__(self, use_mobile_client: bool = False):
+    def __init__(self):
         self._log = logging.getLogger(__name__)
         self._session = None
-        self._use_mobile_client = use_mobile_client
         self._username: Optional[str] = None
         self._token_confirmation: Optional[str] = None
         self._token_expires_at: Optional[float] = None
@@ -141,7 +114,7 @@ class UnicajaClient:
             )
 
         retrying = kwargs.get("retrying", False)
-        self._session = _create_client(self._use_mobile_client, retrying)
+        self._session = _create_desktop_client(retrying)
 
         ck = await self._ck()
 
