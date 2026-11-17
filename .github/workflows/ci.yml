@@ -62,7 +62,14 @@ jobs:
             echo "Could not list changed files; running every job."
             files=(".github/workflows/ci.yml")
           fi
+
+          # File names come from the pull request. A line starting with "::" would be
+          # run as a workflow command (::add-mask:: could hide this job's outputs and
+          # skip the required jobs), so command processing is off while they are logged.
+          stop_token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+          echo "::stop-commands::$stop_token"
           printf '%s\n' "${files[@]}"
+          echo "::$stop_token::"
 
           # A change to this workflow runs every job.
           workflow='^\.github/workflows/ci\.yml$'
