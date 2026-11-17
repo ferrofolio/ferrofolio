@@ -37,9 +37,8 @@ PENDING = {
     "frontend/app/src/pages/EntityIntegrationsPage.tsx": "#24",
     # Google Sheets redirect (#30)
     "finanze/infrastructure/sheets/sheets_service_loader.py": "#30",
-    # Feature flags and public keychain (#31)
+    # Feature flags (#31)
     "finanze/infrastructure/client/features/feature_flag_client.py": "#31",
-    "finanze/infrastructure/client/keychain/public_keychain_client.py": "#31",
     # Static data, ticker icons and cloud backups (#32)
     "finanze/infrastructure/client/cloud/backup/backup_client.py": "#32",
     "finanze/infrastructure/client/rates/crypto/crypto_dataset_client.py": "#32",

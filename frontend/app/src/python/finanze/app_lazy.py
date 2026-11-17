@@ -200,15 +200,6 @@ class LazyComponents:
         )
 
         if INCLUDE_CONNECTIONS:
-            from infrastructure.repository.keychain.public_keychain_repository import (
-                PublicKeychainRepository,
-            )
-            from infrastructure.client.keychain.public_keychain_client import (
-                PublicKeychainClient,
-            )
-            from infrastructure.keychain.public_keychain_adapter import (
-                PublicKeychainAdapter,
-            )
             from infrastructure.repository.sessions.sessions_repository import (
                 SessionsRepository,
             )
@@ -421,12 +412,6 @@ class LazyComponents:
         backup_processor = CapacitorBackupProcessorAdapter()
 
         if INCLUDE_CONNECTIONS:
-            public_keychain_data_repo = PublicKeychainRepository(client=db_client)
-            public_keychain_fetcher = PublicKeychainClient()
-            public_keychain = PublicKeychainAdapter(
-                data_port=public_keychain_data_repo,
-                fetcher_port=public_keychain_fetcher,
-            )
             sessions_repo = SessionsRepository(client=db_client)
 
         historic_repo = HistoricRepository(client=db_client)
@@ -454,7 +439,6 @@ class LazyComponents:
                 d.creds_repo,
                 sessions_repo,
                 d.tx_handler,
-                public_keychain,
                 d.entity_account_repo,
                 self._core.ff_client,
             )
@@ -472,7 +456,6 @@ class LazyComponents:
                 crypto_asset_repo,
                 d.crypto_info,
                 d.tx_handler,
-                public_keychain,
                 d.entity_account_repo,
                 d.loan_calculator,
                 d.re_repo,

@@ -6,7 +6,6 @@ import pytest
 from domain.entity_login import EntityLoginParams, EntityLoginResult, LoginResultCode
 from domain.dezimal import Dezimal
 from domain.global_position import ProductType
-from domain.public_keychain import PublicKeychain
 from infrastructure.client.entity.exchange.polymarket.polymarket_fetcher import (
     PolymarketFetcher,
 )
@@ -16,7 +15,6 @@ from infrastructure.client.entity.exchange.polymarket.polymarket_fetcher import 
 def login_params():
     return EntityLoginParams(
         credentials={"identifier": "wallet"},
-        keychain=PublicKeychain({}),
     )
 
 
@@ -262,12 +260,8 @@ async def test_global_position_keeps_client_isolated_between_concurrent_logins()
         return client
 
     params = [
-        EntityLoginParams(
-            credentials={"identifier": "first"}, keychain=PublicKeychain({})
-        ),
-        EntityLoginParams(
-            credentials={"identifier": "second"}, keychain=PublicKeychain({})
-        ),
+        EntityLoginParams(credentials={"identifier": "first"}),
+        EntityLoginParams(credentials={"identifier": "second"}),
     ]
 
     with patch(

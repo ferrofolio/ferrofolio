@@ -268,7 +268,6 @@ from infrastructure.client.entity.financial.unicaja.unicaja_fetcher import (
 from infrastructure.client.entity.financial.wecity.wecity_fetcher import WecityFetcher
 from infrastructure.client.features.feature_flag_client import FeatureFlagClient
 from infrastructure.client.interests.ecb_client import ECBClient
-from infrastructure.client.keychain.public_keychain_client import PublicKeychainClient
 from infrastructure.client.financial.gocardless.gocardless_client import (
     GoCardlessClient,
 )
@@ -312,7 +311,6 @@ from infrastructure.crypto.public_key_derivation_adapter import (
     PublicKeyDerivationAdapter,
 )
 from infrastructure.features.env_feature_flag_adapter import EnvFeatureFlagAdapter
-from infrastructure.keychain.public_keychain_adapter import PublicKeychainAdapter
 from infrastructure.client.ai.ai_model_presets import AI_MODEL_PRESETS
 from infrastructure.labeling.ai_labeling_presets import (
     LABELING_BATCH_SIZES,
@@ -377,9 +375,6 @@ from infrastructure.repository.fetch.last_fetches_repository import (
 )
 from infrastructure.repository.fetch.fetch_pointers_repository import (
     FetchPointersRepository,
-)
-from infrastructure.repository.keychain.public_keychain_repository import (
-    PublicKeychainRepository,
 )
 from infrastructure.repository.labeling.label_repository import LabelRepository
 from infrastructure.repository.mcp.mcp_config_repository import McpConfigRepository
@@ -696,13 +691,6 @@ class FinanzeServer:
             client=db_client
         )
 
-        public_keychain_data_repository = PublicKeychainRepository(client=db_client)
-        public_keychain_fetcher_client = PublicKeychainClient()
-        public_keychain = PublicKeychainAdapter(
-            data_port=public_keychain_data_repository,
-            fetcher_port=public_keychain_fetcher_client,
-        )
-
         file_storage_repository = LocalFileStorage(
             upload_dir=static_upload_dir, static_url_prefix="/static"
         )
@@ -819,7 +807,6 @@ class FinanzeServer:
             crypto_asset_repository,
             crypto_asset_info_client,
             transaction_handler,
-            public_keychain,
             entity_account_repository,
             loan_calculator,
             real_estate_repository,
@@ -909,7 +896,6 @@ class FinanzeServer:
             credentials_port,
             sessions_repository,
             transaction_handler,
-            public_keychain,
             entity_account_repository,
             feature_flag_port,
         )
