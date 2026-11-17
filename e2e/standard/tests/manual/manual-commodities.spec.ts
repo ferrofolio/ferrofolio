@@ -120,7 +120,7 @@ test.describe('Manual Commodities', () => {
     })
 
     test('create a commodity', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToCommodities(page)
 
         // Empty state should show initially
@@ -134,7 +134,7 @@ test.describe('Manual Commodities', () => {
     })
 
     test('edit a commodity', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToCommodities(page)
 
         // Create a commodity first to ensure self-contained test
@@ -174,7 +174,7 @@ test.describe('Manual Commodities', () => {
     })
 
     test('delete a commodity', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToCommodities(page)
 
         // Create a commodity first to ensure self-contained test
@@ -258,7 +258,7 @@ test.describe('Manual Commodities', () => {
             })
         })
 
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToCommodities(page)
 
         const hasCommodity = await page

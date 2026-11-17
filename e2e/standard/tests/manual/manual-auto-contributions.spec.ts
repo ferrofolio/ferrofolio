@@ -59,7 +59,7 @@ test.describe('Manual Contributions - QUICK mode', () => {
     test('persists manual contribution changes immediately', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae')
+        await connectEntityIfNeeded(page, 'E2E Invest')
         await navigateToContributions(page)
 
         const contributionName = 'E2E Quick Contribution'
@@ -86,7 +86,7 @@ test.describe('Manual Contributions - QUICK mode', () => {
         await expect(monthlyFrequency).toHaveAttribute('aria-pressed', 'false')
         await monthlyFrequency.click()
         await expect(monthlyFrequency).toHaveAttribute('aria-pressed', 'true')
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await dialog.locator('#name').fill(contributionName)
         await dialog.locator('#target').fill('IE00B4L5Y983')
         await dialog.getByRole('button', { name: 'Optional fields' }).click()

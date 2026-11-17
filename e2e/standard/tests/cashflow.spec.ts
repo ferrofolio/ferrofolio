@@ -56,14 +56,14 @@ async function navigateToTransactions(page: Page) {
     ).toBeVisible({ timeout: 10_000 })
 }
 
-async function connectUrbanitaeIfNeeded(page: Page) {
+async function connectInvestIfNeeded(page: Page) {
     await page.getByRole('button', { name: 'Integrations' }).click()
     await expect(
         page.getByRole('heading', { name: 'Integrations' }).first(),
     ).toBeVisible({ timeout: 15_000 })
 
     const entityCard = page
-        .locator('h3', { hasText: 'Urbanitae' })
+        .locator('h3', { hasText: 'E2E Invest' })
         .first()
         .locator('../..')
     const fetchButton = entityCard.getByRole('button', { name: 'Fetch' })
@@ -72,7 +72,7 @@ async function connectUrbanitaeIfNeeded(page: Page) {
         .catch(() => false)
 
     if (!isConnected) {
-        await page.getByText('Urbanitae').first().click()
+        await page.getByText('E2E Invest').first().click()
         await page
             .getByText('Enter credentials for')
             .waitFor({ timeout: 10_000 })
@@ -80,7 +80,7 @@ async function connectUrbanitaeIfNeeded(page: Page) {
         await page.locator('#password').fill('MockPassword123')
         await page.getByRole('button', { name: 'Submit' }).click()
         await expect(
-            page.getByText('Successfully logged in to Urbanitae'),
+            page.getByText('Successfully logged in to E2E Invest'),
         ).toBeVisible({ timeout: 15_000 })
         createdConnections.add(page)
 
@@ -190,7 +190,7 @@ async function createManualTransaction(
         timeout: 5_000,
     })
 
-    await selectEntity(page, 'Urbanitae', { inDialog: true })
+    await selectEntity(page, 'E2E Invest', { inDialog: true })
     await dialog.locator('#transaction-name').fill(name)
 
     await dialog.locator('#transaction-product').click()
@@ -373,7 +373,7 @@ test.describe('Cashflow', () => {
             .getByRole('button', { name: 'Integrations', exact: true })
             .click()
         const entityCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
         await entityCard
@@ -500,7 +500,7 @@ test.describe('Cashflow', () => {
     }) => {
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
 
         const transactionName = 'E2E Cashflow Rule Workflow Outflow'
@@ -640,7 +640,7 @@ test.describe('Cashflow', () => {
     }) => {
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
 
         const runId = alphabeticRunId(Date.now())
@@ -801,14 +801,14 @@ test.describe('Cashflow', () => {
     }) => {
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         const entityCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
         await entityCard.getByRole('button', { name: 'Fetch' }).click()
         const fetchTitle = page.getByText(
-            'Select features to fetch from Urbanitae',
+            'Select features to fetch from E2E Invest',
         )
         await expect(fetchTitle).toBeVisible()
         await page
@@ -817,7 +817,7 @@ test.describe('Cashflow', () => {
             .getByRole('button', { name: 'Fetch', exact: true })
             .click()
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible()
         await expect(fetchTitle).toBeHidden()
         await navigateToCashflow(page)
@@ -917,7 +917,7 @@ test.describe('Cashflow', () => {
         test.setTimeout(120_000)
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'QUICK')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
         const actualName = `E2E Budget Grocery Actual ${RECURRING_RUN_ID}`
         await createManualTransaction(
@@ -996,7 +996,7 @@ test.describe('Cashflow', () => {
         await page.getByTestId('return-to-origin').click()
         await expect(page).toHaveURL(/\/management\/cashflow\?period=thisMonth/)
         await expect(section).toBeVisible()
-        await selectEntity(page, 'Urbanitae')
+        await selectEntity(page, 'E2E Invest')
         await expect(section).toHaveCount(0)
         await page.setViewportSize({ width: 1440, height: 1000 })
         await navigateToMyMoneyPage(page, 'Budget')
@@ -1044,7 +1044,7 @@ test.describe('Cashflow', () => {
     }) => {
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
 
         const transactionName = 'E2E Cashflow Heatmap Outflow'
@@ -1131,7 +1131,7 @@ test.describe('Cashflow', () => {
     }) => {
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
 
         const transactionName = 'E2E Cashflow Return Outflow'
@@ -1239,7 +1239,7 @@ test.describe('Cashflow', () => {
         test.setTimeout(180_000)
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'DRAFT')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
 
         for (const days of [61, 31, 1]) {
@@ -1484,7 +1484,7 @@ test.describe('Cashflow', () => {
         test.setTimeout(180_000)
         await page.setViewportSize({ width: 1440, height: 1000 })
         await ensureEditMode(page, 'QUICK')
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
         await navigateToTransactions(page)
         const cases = [
             {

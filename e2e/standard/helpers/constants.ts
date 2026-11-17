@@ -5,13 +5,13 @@ export const TEST_USER = 'testuser'
 export const TEST_PASSWORD = 'TestPassword123!'
 export const TEST_NEW_PASSWORD = 'NewPassword456!'
 
-export const URBANITAE_ID = 'e0000000-0000-0000-0000-000000000004'
+export const E2E_INVEST_ID = 'e2e00000-0000-0000-0000-000000000001'
 export const WECITY_ID = 'e0000000-0000-0000-0000-000000000005'
 export const TRADE_REPUBLIC_ID = 'e0000000-0000-0000-0000-000000000003'
 export const UNICAJA_ID = 'e0000000-0000-0000-0000-000000000002'
 export const ING_ID = 'e0000000-0000-0000-0000-000000000010'
 export const BINANCE_ID = 'ce000000-0000-0000-0000-000000000001'
-export const MYINVESTOR_ID = 'e0000000-0000-0000-0000-000000000001'
+export const E2E_BROKER_ID = 'e2e00000-0000-0000-0000-000000000002'
 
 export const MOCK_PIN_CODE = '123456'
 
@@ -30,7 +30,7 @@ export const UNICAJA_CREDENTIALS = {
     password: 'MockPassword123',
 }
 
-export const MYINVESTOR_CREDENTIALS = {
+export const E2E_BROKER_CREDENTIALS = {
     user: 'test@example.com',
     password: 'MockPassword123',
 }

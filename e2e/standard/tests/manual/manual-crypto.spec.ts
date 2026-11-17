@@ -8,7 +8,7 @@ const BINANCE_CREDENTIALS = {
     secretKey: 'mock-secret-key',
 }
 
-const URBANITAE_CREDENTIALS = {
+const E2E_INVEST_CREDENTIALS = {
     user: 'test@example.com',
     password: 'MockPassword123',
 }
@@ -234,7 +234,7 @@ async function addManualCryptoPosition(page: Page) {
     await searchAndSelectCryptoAsset(page)
 
     // Select an existing entity for the manual position
-    await selectEntity(page, 'Urbanitae', { inDialog: true })
+    await selectEntity(page, 'E2E Invest', { inDialog: true })
 
     // Fill amount
     await page.locator('#amount').fill('5')
@@ -256,9 +256,9 @@ test.describe('Manual Crypto Positions', () => {
     test('create a manual crypto position', async ({
         authenticatedPage: page,
     }) => {
-        // Connect Binance for fetched crypto data + Urbanitae for manual positions
+        // Connect Binance for fetched crypto data + E2E Invest for manual positions
         await connectAndFetchBinance(page)
-        await connectEntityIfNeeded(page, 'Urbanitae', URBANITAE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', E2E_INVEST_CREDENTIALS)
 
         await setupCryptoMocks(page)
         await navigateToCrypto(page)
@@ -268,7 +268,7 @@ test.describe('Manual Crypto Positions', () => {
             timeout: 10_000,
         })
 
-        // Add manual LTC position under Urbanitae entity
+        // Add manual LTC position under E2E Invest entity
         await addManualCryptoPosition(page)
 
         // Verify Binance fetched BTC/ETH still visible
@@ -280,7 +280,7 @@ test.describe('Manual Crypto Positions', () => {
     }) => {
         // Must connect+fetch Binance so crypto page has data
         await connectAndFetchBinance(page)
-        await connectEntityIfNeeded(page, 'Urbanitae', URBANITAE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', E2E_INVEST_CREDENTIALS)
 
         await setupCryptoMocks(page)
         await navigateToCrypto(page)
@@ -321,7 +321,7 @@ test.describe('Manual Crypto Positions', () => {
     }) => {
         // Must connect+fetch Binance so crypto page has data
         await connectAndFetchBinance(page)
-        await connectEntityIfNeeded(page, 'Urbanitae', URBANITAE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', E2E_INVEST_CREDENTIALS)
 
         await setupCryptoMocks(page)
         await navigateToCrypto(page)
@@ -368,7 +368,7 @@ test.describe('Manual Crypto Positions', () => {
     }) => {
         // Must connect+fetch Binance so crypto page has data
         await connectAndFetchBinance(page)
-        await connectEntityIfNeeded(page, 'Urbanitae', URBANITAE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', E2E_INVEST_CREDENTIALS)
 
         await setupCryptoMocks(page)
         await navigateToCrypto(page)

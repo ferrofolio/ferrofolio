@@ -52,7 +52,7 @@ async function connectWecityAndReload(page: import('@playwright/test').Page) {
     await page.waitForLoadState('networkidle')
 }
 
-test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
+test.describe('Fetch Entity Data - Simple (E2E Invest)', () => {
     test('fetch data from connected entity via Integrations page', async ({
         authenticatedPage: page,
     }) => {
@@ -69,17 +69,17 @@ test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
             await page.waitForTimeout(500)
         }
 
-        const urbanitaeCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investCard = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
-        const fetchBtn = urbanitaeCard.getByRole('button', { name: 'Fetch' })
-        const urbanitaeIsConnected = await fetchBtn
+        const fetchBtn = investCard.getByRole('button', { name: 'Fetch' })
+        const investIsConnected = await fetchBtn
             .isVisible({ timeout: 2_000 })
             .catch(() => false)
 
-        if (!urbanitaeIsConnected) {
-            await connectAndReload(page, 'Urbanitae', {
+        if (!investIsConnected) {
+            await connectAndReload(page, 'E2E Invest', {
                 user: 'test@example.com',
                 password: 'MockPassword123',
             })
@@ -90,15 +90,15 @@ test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
                 .waitFor({ timeout: 15_000 })
         }
 
-        const urbanitaeFetch = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investFetch = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
             .getByRole('button', { name: 'Fetch' })
-        await urbanitaeFetch.click()
+        await investFetch.click()
 
         await expect(
-            page.getByText('Select features to fetch from Urbanitae'),
+            page.getByText('Select features to fetch from E2E Invest'),
         ).toBeVisible({ timeout: 5_000 })
 
         await page
@@ -107,7 +107,7 @@ test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
             .click()
 
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
     })
 
@@ -127,17 +127,17 @@ test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
             await page.waitForTimeout(500)
         }
 
-        const urbanitaeCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investCard = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
-        const fetchBtn = urbanitaeCard.getByRole('button', { name: 'Fetch' })
-        const urbanitaeIsConnected = await fetchBtn
+        const fetchBtn = investCard.getByRole('button', { name: 'Fetch' })
+        const investIsConnected = await fetchBtn
             .isVisible({ timeout: 2_000 })
             .catch(() => false)
 
-        if (!urbanitaeIsConnected) {
-            await connectAndReload(page, 'Urbanitae', {
+        if (!investIsConnected) {
+            await connectAndReload(page, 'E2E Invest', {
                 user: 'test@example.com',
                 password: 'MockPassword123',
             })
@@ -151,12 +151,12 @@ test.describe('Fetch Entity Data - Simple (Urbanitae)', () => {
         await page.getByRole('button', { name: 'Update' }).click()
 
         await page
-            .locator('button[aria-label="Refresh Urbanitae"]')
+            .locator('button[aria-label="Refresh E2E Invest"]')
             .waitFor({ timeout: 5_000 })
-        await page.locator('button[aria-label="Refresh Urbanitae"]').click()
+        await page.locator('button[aria-label="Refresh E2E Invest"]').click()
 
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
     })
 })

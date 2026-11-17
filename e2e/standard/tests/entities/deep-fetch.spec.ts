@@ -3,9 +3,9 @@ import { test } from '../../fixtures/auth'
 import { selectEntity } from '../../helpers/entity-selector'
 
 /**
- * Helper: connect Urbanitae and reload the page to populate entity accounts.
+ * Helper: connect E2E Invest and reload the page to populate entity accounts.
  */
-async function connectUrbanitaeIfNeeded(page: import('@playwright/test').Page) {
+async function connectInvestIfNeeded(page: import('@playwright/test').Page) {
     await page.getByRole('button', { name: 'Integrations' }).click()
     await page
         .getByRole('heading', { name: 'Integrations' })
@@ -18,17 +18,17 @@ async function connectUrbanitaeIfNeeded(page: import('@playwright/test').Page) {
         await page.waitForTimeout(500)
     }
 
-    const urbanitaeCard = page
-        .locator('h3', { hasText: 'Urbanitae' })
+    const investCard = page
+        .locator('h3', { hasText: 'E2E Invest' })
         .first()
         .locator('../..')
-    const fetchBtn = urbanitaeCard.getByRole('button', { name: 'Fetch' })
+    const fetchBtn = investCard.getByRole('button', { name: 'Fetch' })
     const isConnected = await fetchBtn
         .isVisible({ timeout: 2_000 })
         .catch(() => false)
 
     if (!isConnected) {
-        await page.getByText('Urbanitae').first().click()
+        await page.getByText('E2E Invest').first().click()
         await page
             .getByText('Enter credentials for')
             .waitFor({ timeout: 5_000 })
@@ -36,7 +36,7 @@ async function connectUrbanitaeIfNeeded(page: import('@playwright/test').Page) {
         await page.locator('#password').fill('MockPassword123')
         await page.getByRole('button', { name: 'Submit' }).click()
         await expect(
-            page.getByText('Successfully logged in to Urbanitae'),
+            page.getByText('Successfully logged in to E2E Invest'),
         ).toBeVisible({ timeout: 15_000 })
 
         await page.reload()
@@ -53,16 +53,16 @@ test.describe('Deep Fetch / Force Refetch', () => {
     test('deep fetch retrieves additional older transactions', async ({
         authenticatedPage: page,
     }) => {
-        await connectUrbanitaeIfNeeded(page)
+        await connectInvestIfNeeded(page)
 
         // First, do a normal fetch (all features, no deep mode)
-        const urbanitaeCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investCard = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
-        await urbanitaeCard.getByRole('button', { name: 'Fetch' }).click()
+        await investCard.getByRole('button', { name: 'Fetch' }).click()
         await expect(
-            page.getByText('Select features to fetch from Urbanitae'),
+            page.getByText('Select features to fetch from E2E Invest'),
         ).toBeVisible({ timeout: 5_000 })
 
         // Wait for features to be auto-selected
@@ -75,7 +75,7 @@ test.describe('Deep Fetch / Force Refetch', () => {
 
         await modalFetch1.click()
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
 
         // Close the FeatureSelector overlay
@@ -97,7 +97,7 @@ test.describe('Deep Fetch / Force Refetch', () => {
         await page
             .getByRole('radio', { name: 'Investments', exact: true })
             .click()
-        await selectEntity(page, 'Urbanitae')
+        await selectEntity(page, 'E2E Invest')
         await page.keyboard.press('Escape')
         await page.getByRole('button', { name: 'Search', exact: true }).click()
         await expect(page.getByText('Mock Stock A').first()).toBeVisible({
@@ -116,13 +116,13 @@ test.describe('Deep Fetch / Force Refetch', () => {
             .waitFor({ timeout: 15_000 })
 
         // Open FeatureSelector and enable deep fetch
-        const urbanitaeCard2 = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investCard2 = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
-        await urbanitaeCard2.getByRole('button', { name: 'Fetch' }).click()
+        await investCard2.getByRole('button', { name: 'Fetch' }).click()
         await expect(
-            page.getByText('Select features to fetch from Urbanitae'),
+            page.getByText('Select features to fetch from E2E Invest'),
         ).toBeVisible({ timeout: 5_000 })
 
         // Wait for features to be auto-selected
@@ -146,7 +146,7 @@ test.describe('Deep Fetch / Force Refetch', () => {
         // Fetch with deep mode
         await modalFetch2.click()
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
 
         // Close the FeatureSelector overlay
@@ -168,7 +168,7 @@ test.describe('Deep Fetch / Force Refetch', () => {
         await page
             .getByRole('radio', { name: 'Investments', exact: true })
             .click()
-        await selectEntity(page, 'Urbanitae')
+        await selectEntity(page, 'E2E Invest')
         await page.keyboard.press('Escape')
         await page.getByRole('button', { name: 'Search', exact: true }).click()
         await expect(page.getByText('Mock Stock A').first()).toBeVisible({

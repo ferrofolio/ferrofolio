@@ -211,7 +211,7 @@ test.describe('Manual Positions - Deposits', () => {
     })
 
     test('create a manual deposit', async ({ authenticatedPage: page }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Deposits')
 
         // Click Add
@@ -221,7 +221,7 @@ test.describe('Manual Positions - Deposits', () => {
         })
 
         // Fill form
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#name').fill('E2E Manual Deposit')
         await page.locator('#amount').fill('10000')
         await page.locator('#interest_rate').fill('3.5')
@@ -290,7 +290,7 @@ test.describe('Manual Positions - Deposits', () => {
     test('manual and fetched deposits coexist', async ({
         authenticatedPage: page,
     }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Deposits')
 
         // Add manual deposit
@@ -298,7 +298,7 @@ test.describe('Manual Positions - Deposits', () => {
         await expect(page.getByText('Add deposit')).toBeVisible({
             timeout: 5_000,
         })
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#name').fill('Coexistence Deposit')
         await page.locator('#amount').fill('7500')
         await page.locator('#interest_rate').fill('2.5')
@@ -327,7 +327,7 @@ test.describe('Manual Positions - Real Estate CF', () => {
     test('create a manual real estate CF position', async ({
         authenticatedPage: page,
     }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Real Estate CF')
 
         await page.getByRole('button', { name: 'Add' }).click()
@@ -335,7 +335,7 @@ test.describe('Manual Positions - Real Estate CF', () => {
             timeout: 5_000,
         })
 
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#name').fill('E2E RE Project')
         await page.locator('#amount').fill('5000')
         await page.locator('#interest_rate').fill('7')
@@ -354,13 +354,13 @@ test.describe('Manual Positions - Real Estate CF', () => {
     test('manual and fetched real estate CF coexist', async ({
         authenticatedPage: page,
     }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Real Estate CF')
 
         // Wait longer for fetched data to render
         await page.waitForTimeout(2_000)
 
-        // Fetched from mock (Urbanitae supports REAL_ESTATE_CF)
+        // Fetched from mock (E2E Invest supports REAL_ESTATE_CF)
         await expect(page.getByText('Mock RE Project').first()).toBeVisible({
             timeout: 20_000,
         })
@@ -376,7 +376,7 @@ test.describe('Manual Positions - Real Estate CF', () => {
             await expect(page.getByText('Add real estate CF')).toBeVisible({
                 timeout: 5_000,
             })
-            await selectEntity(page, 'Urbanitae', { inDialog: true })
+            await selectEntity(page, 'E2E Invest', { inDialog: true })
             await page.locator('#name').fill('E2E RE Project')
             await page.locator('#amount').fill('5000')
             await page.locator('#interest_rate').fill('7')
@@ -409,7 +409,7 @@ test.describe('Manual Positions - QUICK mode', () => {
     test('persists manual deposit changes immediately', async ({
         authenticatedPage: page,
     }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Deposits')
 
         const depositName = 'E2E Quick Deposit'
@@ -417,7 +417,7 @@ test.describe('Manual Positions - QUICK mode', () => {
         await expect(page.getByText('Add deposit')).toBeVisible({
             timeout: 5_000,
         })
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#name').fill(depositName)
         await page.locator('#amount').fill('12000')
         await page.locator('#interest_rate').fill('3.5')
@@ -532,7 +532,7 @@ test.describe('Manual Positions - Factoring', () => {
     test('create and verify a manual factoring position', async ({
         authenticatedPage: page,
     }) => {
-        await connectAndFetchEntity(page, 'Urbanitae', CREDENTIALS)
+        await connectAndFetchEntity(page, 'E2E Invest', CREDENTIALS)
         await navigateTo(page, 'Factoring')
 
         await page.getByRole('button', { name: 'Add' }).click()
@@ -540,7 +540,7 @@ test.describe('Manual Positions - Factoring', () => {
             timeout: 5_000,
         })
 
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#name').fill('E2E Factoring Invoice')
         await page.locator('#amount').fill('3000')
         await page.locator('#interest_rate').fill('10')

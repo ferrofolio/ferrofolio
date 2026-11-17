@@ -124,7 +124,7 @@ async function createManualTransaction(
         timeout: 5_000,
     })
 
-    await selectEntity(page, 'Urbanitae', { inDialog: true })
+    await selectEntity(page, 'E2E Invest', { inDialog: true })
     await page.locator('#transaction-name').fill(name)
     // Keep the default date (today) — no need to pick a specific day
     await selectCustomDropdown(page, 'transaction-product', 'Account')
@@ -153,7 +153,7 @@ async function openManualSplitForm(
         timeout: 5_000,
     })
 
-    await selectEntity(page, 'Urbanitae', { inDialog: true })
+    await selectEntity(page, 'E2E Invest', { inDialog: true })
     await page.locator('#transaction-name').fill(name)
     await selectCustomDropdown(page, 'transaction-product', product)
     await selectCustomDropdown(page, 'transaction-type', 'Split')
@@ -166,7 +166,7 @@ test.describe('Manual Transactions', () => {
     })
 
     test('add a manual transaction', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         await createManualTransaction(page, 'E2E Manual Tx', '500.75')
@@ -175,7 +175,7 @@ test.describe('Manual Transactions', () => {
     test('manual account movement shows its IBAN in the details', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         await createManualTransaction(
@@ -206,7 +206,7 @@ test.describe('Manual Transactions', () => {
     })
 
     test('edit a manual transaction', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         // Create a transaction to edit (self-contained test)
@@ -275,7 +275,7 @@ test.describe('Manual Transactions', () => {
     })
 
     test('delete a manual transaction', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         // Create a transaction to delete (self-contained test)
@@ -350,7 +350,7 @@ test.describe('Manual Transactions', () => {
             timeout: 5_000,
         })
 
-        await selectEntity(page, 'Urbanitae', { inDialog: true })
+        await selectEntity(page, 'E2E Invest', { inDialog: true })
         await page.locator('#transaction-name').fill('Decimal Test Tx')
         // Keep the default date (today)
         await selectCustomDropdown(page, 'transaction-product', 'Account')
@@ -390,7 +390,7 @@ test.describe('Manual Transactions', () => {
     test('create a fund transfer with both legs', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         await page.getByRole('button', { name: 'Add' }).click()
@@ -405,7 +405,7 @@ test.describe('Manual Transactions', () => {
         await page
             .locator('[data-radix-popper-content-wrapper]')
             .last()
-            .getByRole('button', { name: 'Urbanitae' })
+            .getByRole('button', { name: 'E2E Invest' })
             .click()
         await page.locator('#origin-name').fill('E2E Fund Transfer Origin')
         await page.locator('#origin-isin').fill('LU0000000999')
@@ -437,7 +437,7 @@ test.describe('Manual Transactions', () => {
     test('create a fund transfer origin only', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         await page.getByRole('button', { name: 'Add' }).click()
@@ -453,7 +453,7 @@ test.describe('Manual Transactions', () => {
         await page
             .locator('[data-radix-popper-content-wrapper]')
             .last()
-            .getByRole('button', { name: 'Urbanitae' })
+            .getByRole('button', { name: 'E2E Invest' })
             .click()
         await page.locator('#origin-name').fill('E2E Fund Origin Only')
         await page.locator('#origin-isin').fill('LU0000000777')
@@ -475,7 +475,7 @@ test.describe('Manual Transactions', () => {
     })
 
     test('create a stock swap', async ({ authenticatedPage: page }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         await page.getByRole('button', { name: 'Add' }).click()
@@ -490,7 +490,7 @@ test.describe('Manual Transactions', () => {
         await page
             .locator('[data-radix-popper-content-wrapper]')
             .last()
-            .getByRole('button', { name: 'Urbanitae' })
+            .getByRole('button', { name: 'E2E Invest' })
             .click()
         await page.locator('#origin-name').fill('E2E Swap Origin')
         await page.locator('#origin-ticker').fill('ORIG')
@@ -522,7 +522,7 @@ test.describe('Manual Transactions', () => {
     test('create and edit a manual stock split', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         const name = `E2E Stock Split ${Date.now()}`
@@ -588,7 +588,7 @@ test.describe('Manual Transactions', () => {
     test('create a manual fund reverse split with cash in lieu', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', CREDENTIALS)
         await navigateToTransactions(page)
 
         const name = `E2E Fund Reverse Split ${Date.now()}`

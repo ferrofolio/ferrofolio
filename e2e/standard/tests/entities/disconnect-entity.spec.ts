@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/auth'
 
-test.describe('Disconnect Entity (Urbanitae)', () => {
+test.describe('Disconnect Entity (E2E Invest)', () => {
     test('disconnect entity removes it from connected list', async ({
         authenticatedPage: page,
     }) => {
@@ -11,11 +11,11 @@ test.describe('Disconnect Entity (Urbanitae)', () => {
             .getByRole('heading', { name: 'Integrations' })
             .waitFor({ timeout: 15_000 })
 
-        const urbanitaeCard = page
-            .locator('h3', { hasText: 'Urbanitae' })
+        const investCard = page
+            .locator('h3', { hasText: 'E2E Invest' })
             .first()
             .locator('../..')
-        const fetchButton = urbanitaeCard.getByRole('button', {
+        const fetchButton = investCard.getByRole('button', {
             name: 'Fetch',
         })
         const isAlreadyConnected = await fetchButton
@@ -23,8 +23,8 @@ test.describe('Disconnect Entity (Urbanitae)', () => {
             .catch(() => false)
 
         if (!isAlreadyConnected) {
-            // Connect Urbanitae first
-            await page.getByText('Urbanitae').first().click()
+            // Connect E2E Invest first
+            await page.getByText('E2E Invest').first().click()
             await page
                 .getByText('Enter credentials for')
                 .waitFor({ timeout: 5_000 })
@@ -32,7 +32,7 @@ test.describe('Disconnect Entity (Urbanitae)', () => {
             await page.locator('#password').fill('MockPassword123')
             await page.getByRole('button', { name: 'Submit' }).click()
             await expect(
-                page.getByText('Successfully logged in to Urbanitae'),
+                page.getByText('Successfully logged in to E2E Invest'),
             ).toBeVisible({ timeout: 15_000 })
 
             // Reload to ensure entity accounts are populated from the backend
@@ -51,8 +51,8 @@ test.describe('Disconnect Entity (Urbanitae)', () => {
             timeout: 5_000,
         })
 
-        // Click the disconnect button (red Unplug icon) on Urbanitae card
-        const disconnectButton = urbanitaeCard.locator(
+        // Click the disconnect button (red Unplug icon) on E2E Invest card
+        const disconnectButton = investCard.locator(
             'button.text-red-600, button.text-red-500',
         )
         await disconnectButton.click()
@@ -70,7 +70,7 @@ test.describe('Disconnect Entity (Urbanitae)', () => {
             page.getByText('Entity disconnected successfully'),
         ).toBeVisible({ timeout: 10_000 })
 
-        // Urbanitae should now be in "Available Entities" (disconnected state)
+        // E2E Invest should now be in "Available Entities" (disconnected state)
         await expect(page.getByText('Available Entities')).toBeVisible({
             timeout: 5_000,
         })

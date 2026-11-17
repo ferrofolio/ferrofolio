@@ -8,6 +8,7 @@ from e2e.mock_fetcher import (
     MockManualLoginReloginOldTxsFetcher,
     MockPinEntityFetcher,
 )
+from e2e.test_entities import E2E_BROKER, E2E_FACTORING, E2E_INVEST
 
 
 def get_e2e_financial_fetchers() -> dict:
@@ -23,11 +24,9 @@ def get_e2e_financial_fetchers() -> dict:
     ]
 
     fetchers = {entity: MockFinancialEntityFetcher(entity) for entity in simple}
-    fetchers[native_entities.URBANITAE] = MockFinancialEntityFetcher(
-        native_entities.URBANITAE
-    )
+    fetchers[E2E_INVEST] = MockFinancialEntityFetcher(E2E_INVEST)
     fetchers[native_entities.WECITY] = MockPinEntityFetcher(native_entities.WECITY)
-    fetchers[native_entities.SEGO] = MockPinEntityFetcher(native_entities.SEGO)
+    fetchers[E2E_FACTORING] = MockPinEntityFetcher(E2E_FACTORING)
     fetchers[native_entities.TRADE_REPUBLIC] = MockManualLoginFetcher(
         native_entities.TRADE_REPUBLIC
     )
@@ -43,7 +42,5 @@ def get_e2e_financial_fetchers() -> dict:
     fetchers[native_entities.POLYMARKET] = MockFinancialEntityFetcher(
         native_entities.POLYMARKET
     )
-    fetchers[native_entities.MY_INVESTOR] = MockChallengeEntityFetcher(
-        native_entities.MY_INVESTOR
-    )
+    fetchers[E2E_BROKER] = MockChallengeEntityFetcher(E2E_BROKER)
     return fetchers

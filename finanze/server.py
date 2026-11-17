@@ -593,9 +593,11 @@ class FinanzeServer:
         }
 
         if os.getenv("E2E_TEST_MODE", "").strip() == "1":
+            from e2e.test_entities import install_e2e_entities
             from e2e.test_mode import get_e2e_financial_fetchers
 
             self._log.warning("E2E TEST MODE ACTIVE - using mock fetchers")
+            install_e2e_entities()
             financial_entity_fetchers = get_e2e_financial_fetchers()
         else:
             financial_entity_fetchers = {

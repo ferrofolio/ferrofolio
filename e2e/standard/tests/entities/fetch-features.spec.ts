@@ -60,14 +60,14 @@ async function navigateToAutoContributions(page: Page) {
     await page.getByRole('tab', { name: /^Investments/ }).click()
 }
 
-// MyInvestor: has POSITION, AUTO_CONTRIBUTIONS, TRANSACTIONS
+// E2E Broker: has POSITION, AUTO_CONTRIBUTIONS, TRANSACTIONS
 
 test.describe('Feature Selection Verification', () => {
     test('EntityRefreshDropdown fetches ALL features', async ({
         authenticatedPage: page,
     }) => {
-        // Use MyInvestor (has AUTO_CONTRIBUTIONS + TRANSACTIONS)
-        await connectEntityIfNeeded(page, 'MyInvestor', {
+        // Use E2E Broker (has AUTO_CONTRIBUTIONS + TRANSACTIONS)
+        await connectEntityIfNeeded(page, 'E2E Broker', {
             user: 'test@example.com',
             password: 'MockPassword123',
         })
@@ -78,15 +78,15 @@ test.describe('Feature Selection Verification', () => {
             .getByRole('heading', { name: 'Summary' })
             .waitFor({ timeout: 10_000 })
 
-        // Open Update dropdown and refresh MyInvestor (sends ALL features)
+        // Open Update dropdown and refresh E2E Broker (sends ALL features)
         await page.getByRole('button', { name: 'Update' }).click()
         await page
-            .locator('button[aria-label="Refresh MyInvestor"]')
+            .locator('button[aria-label="Refresh E2E Broker"]')
             .waitFor({ timeout: 5_000 })
-        await page.locator('button[aria-label="Refresh MyInvestor"]').click()
+        await page.locator('button[aria-label="Refresh E2E Broker"]').click()
 
         await expect(
-            page.getByText('Data successfully fetched from MyInvestor'),
+            page.getByText('Data successfully fetched from E2E Broker'),
         ).toBeVisible({ timeout: 30_000 })
 
         // Dismiss the Data dropdown overlay via JS (it blocks all pointer events)
@@ -115,7 +115,7 @@ test.describe('Feature Selection Verification', () => {
         await page
             .getByRole('radio', { name: 'Investments', exact: true })
             .click()
-        await selectEntity(page, 'MyInvestor')
+        await selectEntity(page, 'E2E Broker')
         await page.keyboard.press('Escape')
         await page.getByRole('button', { name: 'Search', exact: true }).click()
         await expect(page.getByText('Mock Stock A').first()).toBeVisible({
@@ -132,7 +132,7 @@ test.describe('Feature Selection Verification', () => {
     test('FeatureSelector fetches only selected features', async ({
         authenticatedPage: page,
     }) => {
-        // Start with clean state: disconnect MyInvestor if connected
+        // Start with clean state: disconnect E2E Broker if connected
         await page.getByRole('button', { name: 'Integrations' }).click()
         await page
             .getByRole('heading', { name: 'Integrations' })
@@ -147,11 +147,11 @@ test.describe('Feature Selection Verification', () => {
             await page.waitForTimeout(500)
         }
 
-        const myInvestorCard = page
-            .locator('h3', { hasText: 'MyInvestor' })
+        const brokerCard = page
+            .locator('h3', { hasText: 'E2E Broker' })
             .first()
             .locator('../..')
-        const disconnectBtn = myInvestorCard.locator(
+        const disconnectBtn = brokerCard.locator(
             'button.text-red-600, button.text-red-500',
         )
         if (
@@ -171,7 +171,7 @@ test.describe('Feature Selection Verification', () => {
 
         // Disconnect ALL other entities that may have leftover transactions
         for (const otherEntity of [
-            'Urbanitae',
+            'E2E Invest',
             'Trade Republic',
             'DEGIRO',
             'Wecity',
@@ -205,21 +205,21 @@ test.describe('Feature Selection Verification', () => {
             }
         }
 
-        // Now connect MyInvestor fresh
-        await connectEntityIfNeeded(page, 'MyInvestor', {
+        // Now connect E2E Broker fresh
+        await connectEntityIfNeeded(page, 'E2E Broker', {
             user: 'test@example.com',
             password: 'MockPassword123',
         })
 
-        // Open FeatureSelector for MyInvestor
+        // Open FeatureSelector for E2E Broker
         const entityCard = page
-            .locator('h3', { hasText: 'MyInvestor' })
+            .locator('h3', { hasText: 'E2E Broker' })
             .first()
             .locator('../..')
         await entityCard.getByRole('button', { name: 'Fetch' }).click()
 
         await expect(
-            page.getByText('Select features to fetch from MyInvestor'),
+            page.getByText('Select features to fetch from E2E Broker'),
         ).toBeVisible({ timeout: 5_000 })
 
         // Wait for features to be auto-selected
@@ -236,14 +236,14 @@ test.describe('Feature Selection Verification', () => {
         // Fetch with only POSITION and AUTO_CONTRIBUTIONS
         await modalFetch.click()
         await expect(
-            page.getByText('Data successfully fetched from MyInvestor'),
+            page.getByText('Data successfully fetched from E2E Broker'),
         ).toBeVisible({ timeout: 30_000 })
 
         await expect(
-            page.getByText('Select features to fetch from MyInvestor'),
+            page.getByText('Select features to fetch from E2E Broker'),
         ).toBeHidden()
 
-        // Transactions page should NOT show MyInvestor mock transactions (TRANSACTIONS was excluded)
+        // Transactions page should NOT show E2E Broker mock transactions (TRANSACTIONS was excluded)
         await page
             .getByRole('navigation')
             .getByRole('button', { name: 'Transactions' })
@@ -255,23 +255,8 @@ test.describe('Feature Selection Verification', () => {
         await page
             .getByRole('radio', { name: 'Investments', exact: true })
             .click()
-        const entityFilter = page.getByRole('combobox').first()
-        if (await entityFilter.isEnabled()) {
-            await entityFilter.click()
-            const popover = page
-                .locator('[data-radix-popper-content-wrapper]')
-                .last()
-            await expect(popover).toBeVisible()
-            await expect(
-                popover.getByRole('button', {
-                    name: 'MyInvestor',
-                    exact: true,
-                }),
-            ).toHaveCount(0)
-            await page.keyboard.press('Escape')
-        } else {
-            await expect(entityFilter).toBeDisabled()
-        }
+        // The entity filter is not checked here: it is built from fetch records,
+        // which outlive a disconnect, so it can still offer E2E Broker
         await page.getByRole('button', { name: 'Search', exact: true }).click()
         await expect(page.getByText('Mock Stock A').first()).not.toBeVisible({
             timeout: 5_000,

@@ -121,7 +121,7 @@ test.describe('Multi-Scrape - Simple Entities', () => {
     test('rapid refresh of multiple simple entities', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', SIMPLE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', SIMPLE_CREDENTIALS)
         await connectEntityIfNeeded(page, 'Freedom24', SIMPLE_CREDENTIALS)
 
         await page.getByRole('button', { name: 'Summary' }).click()
@@ -131,12 +131,12 @@ test.describe('Multi-Scrape - Simple Entities', () => {
 
         await page.getByRole('button', { name: 'Update' }).click()
         await page
-            .locator('button[aria-label="Refresh Urbanitae"]')
+            .locator('button[aria-label="Refresh E2E Invest"]')
             .waitFor({ timeout: 5_000 })
 
-        await page.locator('button[aria-label="Refresh Urbanitae"]').click()
+        await page.locator('button[aria-label="Refresh E2E Invest"]').click()
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
 
         await page.waitForTimeout(800)
@@ -155,7 +155,7 @@ test.describe('Multi-Scrape - 2FA PIN Queue', () => {
         authenticatedPage: page,
     }) => {
         await connectPinEntityIfNeeded(page, 'Wecity', SIMPLE_CREDENTIALS)
-        await connectPinEntityIfNeeded(page, 'SEGO', SIMPLE_CREDENTIALS)
+        await connectPinEntityIfNeeded(page, 'E2E Factoring', SIMPLE_CREDENTIALS)
 
         await page.getByRole('button', { name: 'Summary' }).click()
         await page
@@ -180,13 +180,13 @@ test.describe('Multi-Scrape - 2FA PIN Queue', () => {
         // (PinPad modal at z-[60] blocks normal clicks on the dropdown at z-50)
         await page.waitForTimeout(800)
         await page
-            .locator('button[aria-label="Refresh SEGO"]')
+            .locator('button[aria-label="Refresh E2E Factoring"]')
             .dispatchEvent('click')
 
-        // Verify blue banner shows SEGO as pending
+        // Verify blue banner shows E2E Factoring as pending
         const banner = page.locator('.bg-blue-50')
         await expect(banner).toBeVisible({ timeout: 10_000 })
-        await expect(banner.getByRole('button', { name: 'SEGO' })).toBeVisible()
+        await expect(banner.getByRole('button', { name: 'E2E Factoring' })).toBeVisible()
 
         // Submit PIN for Wecity
         await enterPinAndSubmit(page, MOCK_PIN_CODE)
@@ -194,18 +194,18 @@ test.describe('Multi-Scrape - 2FA PIN Queue', () => {
             page.getByText('Data successfully fetched from Wecity'),
         ).toBeVisible({ timeout: 30_000 })
 
-        // PinPad should auto-advance to SEGO
+        // PinPad should auto-advance to E2E Factoring
         await expect(
-            page.getByRole('heading', { name: 'Enter 6-digit code for SEGO' }),
+            page.getByRole('heading', { name: 'Enter 6-digit code for E2E Factoring' }),
         ).toBeVisible({ timeout: 10_000 })
 
         // Blue banner should be gone (no more pending entities)
         await expect(banner).not.toBeVisible({ timeout: 5_000 })
 
-        // Submit PIN for SEGO
+        // Submit PIN for E2E Factoring
         await enterPinAndSubmit(page, MOCK_PIN_CODE)
         await expect(
-            page.getByText('Data successfully fetched from SEGO'),
+            page.getByText('Data successfully fetched from E2E Factoring'),
         ).toBeVisible({ timeout: 30_000 })
     })
 })
@@ -214,9 +214,9 @@ test.describe('Multi-Scrape - Mixed Simple and 2FA', () => {
     test('simple entities complete while 2FA entities queue in PinPad', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', SIMPLE_CREDENTIALS)
+        await connectEntityIfNeeded(page, 'E2E Invest', SIMPLE_CREDENTIALS)
         await connectPinEntityIfNeeded(page, 'Wecity', SIMPLE_CREDENTIALS)
-        await connectPinEntityIfNeeded(page, 'SEGO', SIMPLE_CREDENTIALS)
+        await connectPinEntityIfNeeded(page, 'E2E Factoring', SIMPLE_CREDENTIALS)
 
         await page.getByRole('button', { name: 'Summary' }).click()
         await page
@@ -225,13 +225,13 @@ test.describe('Multi-Scrape - Mixed Simple and 2FA', () => {
 
         await page.getByRole('button', { name: 'Update' }).click()
         await page
-            .locator('button[aria-label="Refresh Urbanitae"]')
+            .locator('button[aria-label="Refresh E2E Invest"]')
             .waitFor({ timeout: 5_000 })
 
         // Simple entity completes immediately
-        await page.locator('button[aria-label="Refresh Urbanitae"]').click()
+        await page.locator('button[aria-label="Refresh E2E Invest"]').click()
         await expect(
-            page.getByText('Data successfully fetched from Urbanitae'),
+            page.getByText('Data successfully fetched from E2E Invest'),
         ).toBeVisible({ timeout: 30_000 })
 
         // First 2FA entity — PinPad appears
@@ -246,13 +246,13 @@ test.describe('Multi-Scrape - Mixed Simple and 2FA', () => {
         // Second 2FA entity — queued behind Wecity
         await page.waitForTimeout(800)
         await page
-            .locator('button[aria-label="Refresh SEGO"]')
+            .locator('button[aria-label="Refresh E2E Factoring"]')
             .dispatchEvent('click')
 
         // Verify queue banner
         const banner = page.locator('.bg-blue-50')
         await expect(banner).toBeVisible({ timeout: 10_000 })
-        await expect(banner.getByRole('button', { name: 'SEGO' })).toBeVisible()
+        await expect(banner.getByRole('button', { name: 'E2E Factoring' })).toBeVisible()
 
         // Complete Wecity
         await enterPinAndSubmit(page, MOCK_PIN_CODE)
@@ -260,15 +260,15 @@ test.describe('Multi-Scrape - Mixed Simple and 2FA', () => {
             page.getByText('Data successfully fetched from Wecity'),
         ).toBeVisible({ timeout: 30_000 })
 
-        // Auto-advance to SEGO
+        // Auto-advance to E2E Factoring
         await expect(
-            page.getByRole('heading', { name: 'Enter 6-digit code for SEGO' }),
+            page.getByRole('heading', { name: 'Enter 6-digit code for E2E Factoring' }),
         ).toBeVisible({ timeout: 10_000 })
 
-        // Complete SEGO
+        // Complete E2E Factoring
         await enterPinAndSubmit(page, MOCK_PIN_CODE)
         await expect(
-            page.getByText('Data successfully fetched from SEGO'),
+            page.getByText('Data successfully fetched from E2E Factoring'),
         ).toBeVisible({ timeout: 30_000 })
     })
 })

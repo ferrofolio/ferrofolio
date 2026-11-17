@@ -101,18 +101,18 @@ async function navigateToAutoContributions(page: Page) {
     await page.getByRole('tab', { name: /^Investments/ }).click()
 }
 
-// Urbanitae: has POSITION, TRANSACTIONS, HISTORIC (no AUTO_CONTRIBUTIONS)
-// MyInvestor: has POSITION, AUTO_CONTRIBUTIONS, TRANSACTIONS
+// E2E Invest: has POSITION, TRANSACTIONS, HISTORIC (no AUTO_CONTRIBUTIONS)
+// E2E Broker: has POSITION, AUTO_CONTRIBUTIONS, TRANSACTIONS
 
 test.describe('Fetch Entity Data - Transactions', () => {
     test('fetched transactions appear in TransactionsPage', async ({
         authenticatedPage: page,
     }) => {
-        await connectEntityIfNeeded(page, 'Urbanitae', {
+        await connectEntityIfNeeded(page, 'E2E Invest', {
             user: 'test@example.com',
             password: 'MockPassword123',
         })
-        await fetchEntityAllFeatures(page, 'Urbanitae')
+        await fetchEntityAllFeatures(page, 'E2E Invest')
 
         // Navigate to Transactions page
         await page
@@ -126,7 +126,7 @@ test.describe('Fetch Entity Data - Transactions', () => {
         await page
             .getByRole('radio', { name: 'Investments', exact: true })
             .click()
-        await selectEntity(page, 'Urbanitae')
+        await selectEntity(page, 'E2E Invest')
         await page.keyboard.press('Escape')
         await page.getByRole('button', { name: 'Search', exact: true }).click()
 
@@ -144,12 +144,12 @@ test.describe('Fetch Entity Data - Auto Contributions', () => {
     test('fetched auto-contributions appear in AutoContributionsPage', async ({
         authenticatedPage: page,
     }) => {
-        // MyInvestor has AUTO_CONTRIBUTIONS feature
-        await connectEntityIfNeeded(page, 'MyInvestor', {
+        // E2E Broker has AUTO_CONTRIBUTIONS feature
+        await connectEntityIfNeeded(page, 'E2E Broker', {
             user: 'test@example.com',
             password: 'MockPassword123',
         })
-        await fetchEntityAllFeatures(page, 'MyInvestor')
+        await fetchEntityAllFeatures(page, 'E2E Broker')
 
         await navigateToAutoContributions(page)
 
@@ -164,12 +164,12 @@ test.describe('Fetch Entity Data - Disconnect Cleanup', () => {
     test('disconnect removes transactions and contributions', async ({
         authenticatedPage: page,
     }) => {
-        // Connect and fetch MyInvestor (has both TRANSACTIONS and AUTO_CONTRIBUTIONS)
-        await connectEntityIfNeeded(page, 'MyInvestor', {
+        // Connect and fetch E2E Broker (has both TRANSACTIONS and AUTO_CONTRIBUTIONS)
+        await connectEntityIfNeeded(page, 'E2E Broker', {
             user: 'test@example.com',
             password: 'MockPassword123',
         })
-        await fetchEntityAllFeatures(page, 'MyInvestor')
+        await fetchEntityAllFeatures(page, 'E2E Broker')
 
         // Verify data exists before disconnect
         await navigateToAutoContributions(page)
@@ -177,14 +177,14 @@ test.describe('Fetch Entity Data - Disconnect Cleanup', () => {
             timeout: 5_000,
         })
 
-        // Disconnect MyInvestor
+        // Disconnect E2E Broker
         await page.getByRole('button', { name: 'Integrations' }).click()
         await page
             .getByRole('heading', { name: 'Integrations' })
             .waitFor({ timeout: 15_000 })
 
         const entityCard = page
-            .locator('h3', { hasText: 'MyInvestor' })
+            .locator('h3', { hasText: 'E2E Broker' })
             .first()
             .locator('../..')
         const disconnectButton = entityCard.locator(
@@ -202,7 +202,7 @@ test.describe('Fetch Entity Data - Disconnect Cleanup', () => {
 
         // Disconnect all other entities that may be connected from prior specs in same worker
         for (const otherEntity of [
-            'Urbanitae',
+            'E2E Invest',
             'Trade Republic',
             'ING',
             'Unicaja',
@@ -237,7 +237,7 @@ test.describe('Fetch Entity Data - Disconnect Cleanup', () => {
             }
         }
 
-        // Verify MyInvestor and Urbanitae transactions are gone
+        // Verify E2E Broker and E2E Invest transactions are gone
         await page
             .getByRole('navigation')
             .getByRole('button', { name: 'Transactions' })
