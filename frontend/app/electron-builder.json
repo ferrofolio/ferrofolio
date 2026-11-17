@@ -15,7 +15,7 @@
   },
   "protocols": {
     "name": "Finanze",
-    "schemes": ["finanze"]
+    "schemes": ["ferrofolio"]
   },
   "publish": [
     {

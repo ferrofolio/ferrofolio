@@ -189,7 +189,7 @@ async def oauth_callback() -> Response:
 
   <script>
     (function() {
-      var DEEP_LINK_PROTOCOL = 'finanze://auth/callback';
+      var DEEP_LINK_PROTOCOL = 'ferrofolio://auth/callback';
 
       function getQueryParams() {
         var search = window.location.search;

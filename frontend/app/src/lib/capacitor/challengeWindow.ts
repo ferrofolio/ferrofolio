@@ -40,7 +40,7 @@ export async function requestChallengeWindow(
     await LoginWebView.addListener(
       "requestIntercepted",
       (data: { url: string }) => {
-        if (data.url.startsWith("finanze://challenge-token")) {
+        if (data.url.startsWith("ferrofolio://challenge-token")) {
           try {
             const url = new URL(data.url)
             const token = url.searchParams.get("token")
@@ -81,7 +81,7 @@ export async function requestChallengeWindow(
                 grecaptcha.render('recaptcha-container', {
                   sitekey: ${JSON.stringify(siteKey)},
                   callback: function(token) {
-                    window.location.href = 'finanze://challenge-token?token=' + encodeURIComponent(token);
+                    window.location.href = 'ferrofolio://challenge-token?token=' + encodeURIComponent(token);
                   },
                 });
               };
@@ -108,7 +108,7 @@ export async function requestChallengeWindow(
       url: `https://${domain}`,
       title: "Security Challenge",
       clearSession: false,
-      interceptUrlPatterns: ["finanze://challenge-token"],
+      interceptUrlPatterns: ["ferrofolio://challenge-token"],
     })
 
     return { success: true }

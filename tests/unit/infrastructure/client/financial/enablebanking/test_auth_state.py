@@ -22,7 +22,7 @@ class TestRoundTrip:
         assert parse_auth_state(state) == (ENTITY_ID, COMPLETION_URL)
 
     def test_with_deep_link(self):
-        deep_link = "finanze://external/complete"
+        deep_link = "ferrofolio://external/complete"
 
         state = build_auth_state(ENTITY_ID, deep_link)
 
@@ -81,7 +81,7 @@ class TestAllowedCompletionUrl:
         [
             "https://my-host.example/#/entities",
             "http://localhost:8080/",
-            "finanze://external/complete",
+            "ferrofolio://external/complete",
         ],
     )
     def test_allows(self, url):
