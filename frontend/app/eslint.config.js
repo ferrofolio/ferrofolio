@@ -16,8 +16,6 @@ export default defineConfig([
       "dist/**",
       "dist-electron/**",
       "dist-pyodide/**",
-      "**/android/**",
-      "**/ios/**",
     ],
   },
   {

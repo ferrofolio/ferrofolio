@@ -32,13 +32,3 @@ replace = 'version = "{new_version}"'
 filename = "finanze/version.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "frontend/app/ios/App/App.xcodeproj/project.pbxproj"
-search = 'MARKETING_VERSION = {current_version}00;'
-replace = 'MARKETING_VERSION = {new_version}00;'
-
-[[tool.bumpversion.files]]
-filename = "frontend/app/android/app/build.gradle"
-search = 'versionName "{current_version}"'
-replace = 'versionName "{new_version}"'
