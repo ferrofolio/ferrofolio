@@ -1,3 +1,6 @@
+# Upgrading from the upstream compose file (services finanze-server and finanze-front):
+#   docker compose up -d --build --remove-orphans
+# removes the old containers so the renamed services can bind their ports.
 services:
   ferrofolio-server:
     restart: unless-stopped
