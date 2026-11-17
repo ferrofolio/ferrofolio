@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import asdict
 from datetime import datetime
 from uuid import UUID
@@ -27,7 +28,7 @@ from domain.external_entity import (
 )
 from domain.external_integration import ExternalIntegrationType
 from domain.global_position import ProductType
-from domain.native_entities import NATIVE_ENTITIES
+from domain.native_entities import NATIVE_ENTITIES, RETIRED_ENTITY_IDS
 from domain.use_cases.get_available_entities import GetAvailableEntities
 from domain.virtual_data import VirtualDataImport
 
@@ -111,6 +112,13 @@ class GetAvailableEntitiesImpl(GetAvailableEntities):
             if entity.type not in self.LISTED_ENTITY_TYPES:
                 continue
             native_entity = native_entities_by_id.get(entity.id)
+            if await self._is_unused_retired_entity(
+                entity,
+                native_entity,
+                logged_by_entity_id,
+                last_virtual_imported_entities,
+            ):
+                continue
             status = None
             wallets = None
             external_entity_id = None
@@ -245,6 +253,24 @@ class GetAvailableEntitiesImpl(GetAvailableEntities):
             )
 
         return AvailableSources(entities=entities)
+
+    async def _is_unused_retired_entity(
+        self,
+        entity: Entity,
+        native_entity: Optional[Entity],
+        logged_by_entity_id: dict,
+        virtual_imports_by_entity_id: dict,
+    ) -> bool:
+        if entity.id not in RETIRED_ENTITY_IDS:
+            return False
+        if native_entity and self._entity_fetchers.get(native_entity) is not None:
+            return False
+        if logged_by_entity_id.get(entity.id):
+            return False
+        if virtual_imports_by_entity_id.get(entity.id):
+            return False
+        # Fetch records survive a disconnect, so they mark entities with stored data
+        return not await self._last_fetches_port.get_by_entity_id(entity.id)
 
     async def get_last_virtual_imports_by_entity(
         self,
