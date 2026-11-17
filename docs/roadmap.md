@@ -394,9 +394,9 @@ flowchart LR
 |---|---|---|
 | Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5); verification with a real consent outstanding |
 | Google Sheets redirect | Same | In review (#30) |
-| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Off by default (#31, #32); removing the code needs a decision, because it deletes `/api/v1` routes |
-| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | In review (#31); the public keychain for four scraping connectors is opt-in as well |
-| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | Configurable, off by default (#32); also the crypto snapshot and historic metal prices |
+| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | In review: off by default after #31 and #32; removing the code needs a decision, because it deletes `/api/v1` routes |
+| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | In review (#31); the upstream host is still the default until it is merged. After #31 the public keychain for four scraping connectors is opt-in as well |
+| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | In review (#32); the icon URLs are still hard-coded until it is merged. After #32 the source is configurable and off by default; the crypto snapshot and historic metal prices as well |
 | Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |
 | Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2; disabled until then | In review (#33) |
 
