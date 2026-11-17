@@ -1,4 +1,3 @@
-import { isNativeMobile } from "@/lib/platform"
 import { ApiServerInfo } from "./api"
 
 export interface HelperOptions {
@@ -42,15 +41,9 @@ export function setApiClient(client: ApiClient) {
 
 export async function getApiClient(): Promise<ApiClient> {
   if (!apiClientInstance) {
-    if (__MOBILE__ && isNativeMobile()) {
-      const module = await import("@/lib/pyodide/apiClient")
-      apiClientInstance = new module.PyodideApiClient()
-      console.log("Initialized Pyodide API client")
-    } else {
-      const module = await import("./httpApiClient")
-      apiClientInstance = new module.HttpApiClient()
-      console.log("Initialized HTTP API client")
-    }
+    const module = await import("./httpApiClient")
+    apiClientInstance = new module.HttpApiClient()
+    console.log("Initialized HTTP API client")
   }
   return apiClientInstance!
 }
