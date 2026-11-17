@@ -14,7 +14,6 @@ import {
 } from "@/services/api"
 import { AuthResultCode, type User } from "@/types"
 import { getFeatureFlags, setFeatureFlags } from "@/context/featureFlagsStore"
-import { hideSplashScreen } from "@/lib/mobile"
 import { isDeviceInRestrictedRegion } from "@/lib/regionRestriction"
 import { resetBackupStatusCache } from "@/hooks/useBackupStatus"
 
@@ -86,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      hideSplashScreen()
       const retryDelay = 1500
 
       while (true) {

@@ -10,13 +10,8 @@ const require = createRequire(import.meta.url)
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, __dirname, "")
-  const isMobileDev = mode === "mobile" || process.env.MOBILE_DEV === "1"
-  const isMobileBuild = process.env.MOBILE_BUILD === "1"
-  const isMobile = isMobileDev || isMobileBuild
   const includeConnections = process.env.INCLUDE_CONNECTIONS !== "0"
-  if (!isMobile) {
-    rmSync("dist-electron", { recursive: true, force: true })
-  }
+  rmSync("dist-electron", { recursive: true, force: true })
 
   const isServe = command === "serve"
   const isBuild = command === "build"
@@ -43,18 +38,15 @@ export default defineConfig(({ command, mode }) => {
     }
   }
 
-  const mobileServer =
-    isMobileDev && isServe ? serverFromUrl(env.VITE_DEV_SERVER_URL) : undefined
-
   const vscodeServer = process.env.VSCODE_DEBUG
     ? serverFromUrl((pkg as any)?.debug?.env?.VITE_DEV_SERVER_URL)
     : undefined
 
   const electronExternals = ["electron"]
 
-  const electronPlugin = !isMobile
-    ? (require("vite-plugin-electron/simple") as { default: any }).default
-    : null
+  const electronPlugin = (
+    require("vite-plugin-electron/simple") as { default: any }
+  ).default
 
   // npm_package_version is unset under `pnpm exec`, which package.py uses.
   const appVersion: string = JSON.parse(
@@ -75,7 +67,6 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     define: {
-      __MOBILE__: JSON.stringify(isMobile),
       __CONNECTIONS__: JSON.stringify(includeConnections),
       __APP_VERSION__: JSON.stringify(appVersion),
     },
@@ -86,7 +77,7 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [
       react(),
-      ...(!isMobileDev && electronPlugin
+      ...(electronPlugin
         ? [
             electronPlugin({
               main: {
@@ -175,16 +166,9 @@ export default defineConfig(({ command, mode }) => {
           main: resolve(__dirname, "index.html"),
           about: resolve(__dirname, "about.html"),
         },
-        external: isMobile
-          ? [
-              "electron",
-              "electron-updater",
-              "electron-window-state",
-              "electron-is-dev",
-            ]
-          : [],
+        external: [],
       },
     },
-    server: mobileServer || vscodeServer,
+    server: vscodeServer,
   }
 })

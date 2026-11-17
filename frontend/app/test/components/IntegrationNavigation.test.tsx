@@ -18,7 +18,6 @@ import { FFStatus, PlatformType } from "@/types"
 const { state, setupIntegration, disableIntegration } = vi.hoisted(() => ({
   state: {
     app: {} as Record<string, unknown>,
-    native: false,
     locale: "en-US" as "en-US" | "es-ES" | "it-IT" | "de-DE",
   },
   setupIntegration: vi.fn(),
@@ -64,7 +63,6 @@ vi.mock("@/components/settings/CloudTab", () => ({ CloudTab: () => null }))
 vi.mock("@/components/settings/McpTab", () => ({ McpTab: () => null }))
 vi.mock("@/lib/platform", async importOriginal => ({
   ...(await importOriginal<typeof import("@/lib/platform")>()),
-  isNativeMobile: () => state.native,
   getPlatformType: () => PlatformType.WEB,
 }))
 vi.mock("@/services/api", async importOriginal => ({
@@ -99,7 +97,6 @@ function renderRoute(route = "/entities") {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(window, "scrollTo").mockImplementation(() => {})
-  state.native = false
   state.locale = "en-US"
   state.app = {
     entities: [],
@@ -343,7 +340,6 @@ describe("Settings integration migration", () => {
   )
 
   it("opens the AI & MCP settings tab from the legacy MCP link", () => {
-    state.native = false
     state.app.featureFlags = { CLOUD: FFStatus.OFF }
     renderRoute("/settings?tab=mcp")
     expect(

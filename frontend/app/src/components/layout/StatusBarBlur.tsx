@@ -1,9 +1,7 @@
 import { useLayoutScroll } from "@/context/LayoutScrollContext"
 import { useTheme } from "@/context/ThemeContext"
-import { isNativeMobile, isPWAStandalone } from "@/lib/platform"
-import { StatusBar, Style } from "@capacitor/status-bar"
+import { isPWAStandalone } from "@/lib/platform"
 import { motion } from "framer-motion"
-import { useEffect } from "react"
 
 const BLUR_LAYERS = [
   {
@@ -27,22 +25,11 @@ const BLUR_LAYERS = [
 export function StatusBarBlur() {
   const { atTop } = useLayoutScroll()
   const { resolvedTheme } = useTheme()
-  const isMobile = isNativeMobile()
   const isPWA = isPWAStandalone()
-
-  useEffect(() => {
-    if (!isMobile) return
-    const style = !atTop
-      ? Style.Dark
-      : resolvedTheme === "dark"
-        ? Style.Dark
-        : Style.Light
-    StatusBar.setStyle({ style })
-  }, [atTop, resolvedTheme, isMobile])
 
   const isDark = resolvedTheme === "dark"
 
-  if (!isMobile && !isPWA) return null
+  if (!isPWA) return null
 
   const darkGradient = isDark
     ? "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 5%, rgba(0,0,0,0.96) 10%, rgba(0,0,0,0.94) 15%, rgba(0,0,0,0.90) 20%, rgba(0,0,0,0.84) 25%, rgba(0,0,0,0.76) 30%, rgba(0,0,0,0.67) 35%, rgba(0,0,0,0.56) 40%, rgba(0,0,0,0.45) 45%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.26) 55%, rgba(0,0,0,0.18) 60%, rgba(0,0,0,0.12) 65%, rgba(0,0,0,0.07) 70%, rgba(0,0,0,0.04) 75%, rgba(0,0,0,0.01) 80%, rgba(0,0,0,0.005) 85%, transparent 90%)"

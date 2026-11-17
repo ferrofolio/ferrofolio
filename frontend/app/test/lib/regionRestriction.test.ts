@@ -14,7 +14,6 @@ import { FFStatus, type FeatureFlags } from "@/types"
 const platform = vi.hoisted(() => ({ electron: false }))
 
 vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
   isElectron: () => platform.electron,
 }))
 

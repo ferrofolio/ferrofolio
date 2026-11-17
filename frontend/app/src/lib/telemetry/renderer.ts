@@ -1,5 +1,5 @@
 import { BS_ENVIRONMENT, BS_FRONTEND_DSN } from "@/env"
-import { getPlatformInfo, isNativeMobile } from "@/lib/platform"
+import { getPlatformInfo } from "@/lib/platform"
 import { PlatformType } from "@/types"
 
 import { getCachedConsent, loadConsent } from "./consent"
@@ -64,7 +64,6 @@ export function setTelemetryContext(context: {
 
 function distribution(): string {
   if (window.ipcAPI) return "desktop"
-  if (isNativeMobile()) return "mobile"
   return "web"
 }
 
