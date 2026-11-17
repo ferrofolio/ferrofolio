@@ -5,9 +5,11 @@ import pytest
 
 from infrastructure.client.keychain.public_keychain_client import PublicKeychainClient
 
+KEYCHAIN_URL = "https://keys.example.com/keys"
+
 
 def _make_client_with_mock_session(response_json: dict, ok: bool = True):
-    client = PublicKeychainClient()
+    client = PublicKeychainClient(KEYCHAIN_URL)
     mock_response = MagicMock()
     mock_response.ok = ok
     mock_response.json = AsyncMock(return_value=response_json)
@@ -74,6 +76,22 @@ class TestFetchCallsCorrectUrl:
 
         await client.fetch()
 
-        mock_session.get.assert_called_once_with(
-            "https://features.api.finanze.me/keys", timeout=2
-        )
+        mock_session.get.assert_called_once_with(KEYCHAIN_URL, timeout=2)
+
+
+class TestWithoutConfiguredUrl:
+    @pytest.mark.asyncio
+    async def test_makes_no_request_and_returns_nothing(self, monkeypatch):
+        monkeypatch.delenv("PUBLIC_KEYCHAIN_URL", raising=False)
+        client = PublicKeychainClient()
+        client._session = MagicMock()
+        client._session.get = AsyncMock()
+
+        assert await client.fetch() == []
+
+        client._session.get.assert_not_called()
+
+    def test_reads_the_url_from_the_environment(self, monkeypatch):
+        monkeypatch.setenv("PUBLIC_KEYCHAIN_URL", KEYCHAIN_URL)
+
+        assert PublicKeychainClient()._url == KEYCHAIN_URL

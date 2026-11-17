@@ -423,6 +423,11 @@ important ones are::
   including the `X-Forwarded-Proto` and `X-Forwarded-Host` headers of a reverse proxy. The browser carries the
   authorization code back to the app, so serve the server over HTTPS unless it only runs in a trusted local network;
   over plain HTTP that code is sent unencrypted.
+- `FF_<NAME>` optional, sets a feature flag, for example `FF_TR_V2_AUTH_API=OFF` to use the previous Trade Republic
+  sign-in. Feature flags are local configuration; the upstream cloud (`FF_CLOUD`) is off by default.
+- `FEATURE_FLAG_URL` and `PUBLIC_KEYCHAIN_URL` optional, remote sources for feature flags and for the public keys some
+  connectors need. Neither is set by default, so no request leaves the server for them; keys that were fetched before
+  stay stored in the database.
 - Other Selenium related ones.
 
 ## License

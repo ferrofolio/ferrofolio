@@ -774,7 +774,8 @@ class FinanzeServer:
             db_manager, data_manager, settings_repository
         )
         server_options_port = ServerDetailsAdapter(args)
-        if os.getenv("ENV_FF"):
+        if not os.getenv("FEATURE_FLAG_URL"):
+            # Feature flags are local configuration unless a remote source is set
             feature_flag_port = EnvFeatureFlagAdapter()
         else:
             users = await data_manager.get_users()
