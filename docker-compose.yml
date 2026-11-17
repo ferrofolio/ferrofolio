@@ -1,12 +1,12 @@
 services:
-  finanze-server:
+  ferrofolio-server:
     restart: unless-stopped
-    # build:
-    #  context: .
-    #  args:
-    #    SELENIUM_SUPPORT: "false"
-    # image: finanze/finanze:latest-selenium
-    image: finanze/finanze:latest
+    # Ferrofolio does not publish images yet, so the image is built from this repository.
+    build:
+      context: .
+      args:
+        SELENIUM_SUPPORT: "false"                      # Set to "true" for Selenium support (Mintos)
+    image: ghcr.io/ferrofolio/ferrofolio:latest
     ports:
       - '7592:7592'
     # environment:
@@ -15,10 +15,10 @@ services:
       # FINANZE_API_SESSION: "false"                 # Not recommended, disables per-client API sessions, any client reaching the server can use the API once unlocked
       # FINANZE_API_SESSION_REMEMBER_DAYS: "30"      # Optional, days until "Remember me" sessions expire, they never expire by default
       # FINANZE_PUBLIC_URL: https://finance.example.com  # Optional, address of this server as seen from your browser, used for the bank consent redirect
-      # Selenium related envs, only if you want to use Selenium with finanze/finanze:latest-selenium
+      # Selenium related envs, only if the image is built with SELENIUM_SUPPORT "true"
       # WEBDRIVER_ADDRESS: http://selenium:4444
-      # Local AI models, only if you enable the finanze-llama service below
-      # FINANZE_LLAMA_SERVER_URL: http://finanze-llama:8080
+      # Local AI models, only if you enable the ferrofolio-llama service below
+      # FINANZE_LLAMA_SERVER_URL: http://ferrofolio-llama:8080
       # FINANZE_LLAMA_SERVER_API_KEY: ${FINANZE_LLAMA_API_KEY}
     # env_file:
     #   - .env                                         # Load environment variables from .env file in case you want to provide USERNAME and PASSWORD this way
@@ -32,7 +32,7 @@ services:
       --log-dir /.storage/logs
       --log-level DEBUG
 
-#  Optional, only if you want to use Selenium with finanze/finanze:latest-selenium (for Mintos)
+#  Optional, only if the server image is built with SELENIUM_SUPPORT "true" (for Mintos)
 #  selenium:
 #    image: selenium/standalone-firefox:latest
 #    restart: unless-stopped
@@ -41,18 +41,18 @@ services:
 #      - "7900:7900"
 #    shm_size: "2g"
 
-#  Optional, local AI model runtime for Finanze (Settings > Integrations > Local models)
-#  Runs llama.cpp in router mode so models can be downloaded, loaded and removed from Finanze.
-#  - FINANZE_LLAMA_SERVER_URL / FINANZE_LLAMA_SERVER_API_KEY (finanze-server above) are only recommended
-#    when Finanze and llama.cpp run in this same compose file: private network and one key in .env
+#  Optional, local AI model runtime for Ferrofolio (Settings > Integrations > Local models)
+#  Runs llama.cpp in router mode so models can be downloaded, loaded and removed from Ferrofolio.
+#  - FINANZE_LLAMA_SERVER_URL / FINANZE_LLAMA_SERVER_API_KEY (ferrofolio-server above) are only recommended
+#    when Ferrofolio and llama.cpp run in this same compose file: private network and one key in .env
 #    (FINANZE_LLAMA_API_KEY=some-long-random-value).
 #  - For an external or self-managed llama.cpp server, leave them unset and set its URL and key in
 #    Settings > Integrations > Local models.
 #  - Values entered in the UI override these environment variables.
 #  - A single-model llama-server (started with -m) or Ollama uses the Custom AI provider instead.
-#  - GGUF files dropped in ./.storage/models/local are listed after pressing Refresh in Finanze.
+#  - GGUF files dropped in ./.storage/models/local are listed after pressing Refresh in Ferrofolio.
 #  - For GPU use ghcr.io/ggml-org/llama.cpp:server-cuda-b12359 or server-vulkan-b12359 with the device setup.
-#  finanze-llama:
+#  ferrofolio-llama:
 #    image: ghcr.io/ggml-org/llama.cpp:server-b12359
 #    restart: unless-stopped
 #    environment:
@@ -80,10 +80,10 @@ services:
 #    volumes:
 #      - ./.storage/ollama:/root/.ollama
 
-  finanze-front:
+  ferrofolio-front:
     restart: unless-stopped
-    # build: frontend                                 # Use the Dockerfile in the current directory
-    image: finanze/finanze-frontend:latest
+    build: frontend                                   # Built from frontend/Dockerfile in this repository
+    image: ghcr.io/ferrofolio/ferrofolio-frontend:latest
     ports:
       - "8080:80"
     environment:
