@@ -474,15 +474,9 @@
     "viewErrorDetails": "Vedi dettagli tecnici",
     "errorDetailsTitle": "Dettagli tecnici",
     "syncPasswordHint": "Usa la stessa chiave di crittografia su tutti i dispositivi se la sincronizzazione è abilitata",
-    "enableBiometric": "Abilita {type}",
     "rememberSession": "Ricordami",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Impronta digitale",
-    "biometricAuth": "Biometria",
-    "biometricLoginReason": "Sblocca Ferrofolio",
     "biometricSaved": "Accesso biometrico abilitato",
     "biometricError": "Impossibile abilitare l'accesso biometrico",
-    "biometricLoginFailed": "Autenticazione biometrica non riuscita",
     "usernameInfoTooltip": "Non è un'email né un account cloud. È solo un nome locale, come un soprannome o il tuo nome.",
     "invalidUsername": "Il nome utente deve contenere almeno 2 caratteri e può contenere solo lettere, numeri e _ - . $ € #",
     "invalidPasswordFormat": "La chiave di crittografia deve contenere almeno 8 caratteri",
@@ -738,14 +732,6 @@
     },
     "userTitle": "Account",
     "userDescription": "Gestisci il tuo account.",
-    "biometricCredentialsActionTitle": "Disabilita accesso biometrico",
-    "biometricCredentialsNotEnabledTitle": "Abilita accesso biometrico",
-    "biometricCredentialsNotEnabledHint": "Abilita l'accesso biometrico per un accesso più rapido e sicuro, sia in fase di login sia quando cambi la password.",
-    "biometricCredentialsAction": "Disabilita",
-    "biometricCredentialsTitle": "Accesso biometrico",
-    "biometricCredentialsDescription": "Gestisci l'accesso biometrico.",
-    "biometricCredentialsCleared": "Accesso biometrico disabilitato",
-    "biometricCredentialsClearError": "Impossibile disabilitare l'accesso biometrico",
     "applicationLanguageOptions": {
       "en-US": "Inglese",
       "es-ES": "Spagnolo",
@@ -1686,8 +1672,7 @@
       "settingsLink": "Scegli quali modelli di IA usano le funzioni, nelle Impostazioni"
     },
     "aiTab": {
-      "title": "IA e MCP",
-      "titleNoMcp": "IA"
+      "title": "IA e MCP"
     },
     "aiTaskProviders": {
       "customize": "Usa modelli personalizzati per questa funzione",

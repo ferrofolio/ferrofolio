@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Navigate, useSearchParams } from "react-router-dom"
 import { useI18n, type Locale } from "@/i18n"
 import {
@@ -8,14 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card"
-import { Button } from "@/components/ui/Button"
 import { Label } from "@/components/ui/Label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs"
 import { motion } from "framer-motion"
 import {
   ChevronDown,
   ChevronUp,
-  Unlink,
   AlertTriangle,
   Cloud,
   Sun,
@@ -27,7 +25,6 @@ import {
   Bug,
   Languages,
   Palette,
-  Fingerprint,
   Bot,
 } from "lucide-react"
 import { useAppContext, type SettingsKey } from "@/context/AppContext"
@@ -43,13 +40,6 @@ import { McpTab } from "@/components/settings/McpTab"
 import { AIModelsCard } from "@/components/ai/AIModelsCard"
 import { AI_SETTINGS_TAB } from "@/components/ai/TaskAIProviders"
 import { BottomNavCard } from "@/components/settings/BottomNavCard"
-import { isNativeMobile } from "@/lib/platform"
-import {
-  checkBiometricAvailability,
-  deleteCredentials,
-  hasStoredCredentials as checkHasStoredBiometricCredentials,
-} from "@/lib/mobile/biometric"
-import type { BiometricAvailability } from "@/lib/mobile/biometric"
 import { cn } from "@/lib/utils"
 import { useDataDisplayMode } from "@/context/DataDisplayModeContext"
 import { DataDisplayMode } from "@/types"
@@ -82,15 +72,8 @@ export default function SettingsPage() {
     const tab = searchParams.get("tab") || "general"
     return tab === LEGACY_MCP_TAB ? AI_SETTINGS_TAB : tab
   })
-  const [biometricAvailability, setBiometricAvailability] =
-    useState<BiometricAvailability | null>(null)
-  const [hasStoredBiometricCredentials, setHasStoredBiometricCredentials] =
-    useState(false)
-  const [isClearingBiometricCredentials, setIsClearingBiometricCredentials] =
-    useState(false)
 
   const isCloudEnabled = featureFlags.CLOUD === FFStatus.ON
-  const isMcpAvailable = !isNativeMobile()
   const tabCount = 3 + Number(isCloudEnabled)
 
   const [expandedSections, setExpandedSections] = useState<
@@ -110,47 +93,6 @@ export default function SettingsPage() {
     fetchSettings(GENERAL_TAB_SETTINGS)
     fetchExternalIntegrations()
   }, [])
-
-  const refreshBiometricStatus = useCallback(async () => {
-    if (!__MOBILE__ || !isNativeMobile()) return
-
-    const availability = await checkBiometricAvailability()
-    setBiometricAvailability(availability)
-
-    if (availability.isAvailable) {
-      const saved = await checkHasStoredBiometricCredentials()
-      setHasStoredBiometricCredentials(saved)
-    } else {
-      setHasStoredBiometricCredentials(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    refreshBiometricStatus()
-  }, [refreshBiometricStatus])
-
-  const handleClearBiometricCredentials = useCallback(async () => {
-    if (!__MOBILE__ || !isNativeMobile()) return
-    if (!biometricAvailability?.isAvailable) return
-    if (!hasStoredBiometricCredentials) return
-
-    try {
-      setIsClearingBiometricCredentials(true)
-      await deleteCredentials()
-      setHasStoredBiometricCredentials(false)
-      showToast(t.settings.biometricCredentialsCleared, "success")
-    } catch {
-      showToast(t.settings.biometricCredentialsClearError, "error")
-    } finally {
-      setIsClearingBiometricCredentials(false)
-    }
-  }, [
-    biometricAvailability?.isAvailable,
-    hasStoredBiometricCredentials,
-    showToast,
-    t.settings.biometricCredentialsClearError,
-    t.settings.biometricCredentialsCleared,
-  ])
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
@@ -237,9 +179,7 @@ export default function SettingsPage() {
               className="text-xs sm:text-sm px-1 sm:px-2 py-2 whitespace-normal text-center leading-tight min-h-[2.5rem] flex items-center justify-center gap-1"
             >
               <Bot className="h-4 w-4 shrink-0" />
-              {isMcpAvailable
-                ? t.settings.aiTab.title
-                : t.settings.aiTab.titleNoMcp}
+              {t.settings.aiTab.title}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -408,62 +348,6 @@ export default function SettingsPage() {
 
               <BottomNavCard />
 
-              {isNativeMobile() && (
-                <Card className="-mx-6 md:mx-0 rounded-none md:rounded-lg border-x-0 md:border-x">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Fingerprint className="h-5 w-5 text-primary" />
-                      <CardTitle>
-                        {t.settings.biometricCredentialsTitle}
-                      </CardTitle>
-                    </div>
-                    <CardDescription>
-                      {t.settings.biometricCredentialsDescription}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {hasStoredBiometricCredentials
-                            ? t.settings.biometricCredentialsActionTitle
-                            : t.settings.biometricCredentialsNotEnabledTitle}
-                        </p>
-                        {!hasStoredBiometricCredentials && (
-                          <p className="text-xs text-muted-foreground">
-                            {t.settings.biometricCredentialsNotEnabledHint}
-                          </p>
-                        )}
-                      </div>
-                      {hasStoredBiometricCredentials && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-auto px-3"
-                          onClick={handleClearBiometricCredentials}
-                          disabled={
-                            isClearingBiometricCredentials ||
-                            !biometricAvailability?.isAvailable
-                          }
-                        >
-                          {isClearingBiometricCredentials ? (
-                            <>
-                              <LoadingSpinner size="sm" className="mr-2" />
-                              {t.common.loading}
-                            </>
-                          ) : (
-                            <>
-                              <Unlink className="mr-2 h-4 w-4" />
-                              {t.settings.biometricCredentialsAction}
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Advanced Settings Section (Desktop only) */}
               {isDesktopApp && (
                 <Card className="-mx-6 md:mx-0 rounded-none md:rounded-lg border-x-0 md:border-x">
@@ -518,7 +402,7 @@ export default function SettingsPage() {
 
         <TabsContent value={AI_SETTINGS_TAB} className="space-y-4 mt-4">
           <AIModelsCard />
-          {isMcpAvailable && <McpTab />}
+          <McpTab />
         </TabsContent>
       </Tabs>
     </div>

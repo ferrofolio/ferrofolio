@@ -323,24 +323,11 @@ describe("Settings integration migration", () => {
   )
 
   it.each([
-    {
-      native: true,
-      cloud: false,
-      count: 3,
-      aiTab: en.settings.aiTab.titleNoMcp,
-    },
-    {
-      native: true,
-      cloud: true,
-      count: 4,
-      aiTab: en.settings.aiTab.titleNoMcp,
-    },
-    { native: false, cloud: false, count: 3, aiTab: en.settings.aiTab.title },
-    { native: false, cloud: true, count: 4, aiTab: en.settings.aiTab.title },
+    { cloud: false, count: 3, aiTab: en.settings.aiTab.title },
+    { cloud: true, count: 4, aiTab: en.settings.aiTab.title },
   ])(
-    "keeps $count settings tabs with native=$native and cloud=$cloud",
-    ({ native, cloud, count, aiTab }) => {
-      state.native = native
+    "keeps $count settings tabs with cloud=$cloud",
+    ({ cloud, count, aiTab }) => {
       state.app.featureFlags = { CLOUD: cloud ? FFStatus.ON : FFStatus.OFF }
       renderRoute("/settings")
       expect(screen.getAllByRole("tab")).toHaveLength(count)

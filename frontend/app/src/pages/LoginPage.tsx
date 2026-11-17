@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/Button"
 import { Label } from "@/components/ui/Label"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
@@ -9,8 +9,6 @@ import { motion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import {
   Wrench,
-  ScanFace,
-  Fingerprint,
   ArrowLeft,
   Copy,
   Check,
@@ -34,19 +32,8 @@ import {
 import { AdvancedSettings } from "@/components/ui/AdvancedSettings"
 import { getApiServerInfo, checkStatus } from "@/services/api"
 import { setFeatureFlags } from "@/context/featureFlagsStore"
-import { isNativeMobile, isAndroid, isElectron } from "@/lib/platform"
-import { StatusBar, Style } from "@capacitor/status-bar"
+import { isElectron } from "@/lib/platform"
 import { useTheme } from "@/context/ThemeContext"
-import {
-  authenticateWithBiometric,
-  checkBiometricAvailability,
-  deleteCredentials,
-  getCredentials,
-  hasStoredCredentials as hasStoredBiometricCredentials,
-  saveCredentials,
-  BiometricType,
-} from "@/lib/mobile/biometric"
-import type { BiometricAvailability } from "@/lib/mobile/biometric"
 import { useModalBackHandler } from "@/hooks/useModalBackHandler"
 import { generateFloatingLogos } from "@/lib/floatingLogos"
 import { copyToClipboard } from "@/lib/clipboard"
@@ -90,11 +77,6 @@ export default function LoginPage() {
   )
   const [versionMismatch, setVersionMismatch] =
     useState<VersionMismatchInfo | null>(null)
-  const [biometricAvailability, setBiometricAvailability] =
-    useState<BiometricAvailability | null>(null)
-  const [enableBiometric, setEnableBiometric] = useState(false)
-  const [hasStoredCredentials, setHasStoredCredentials] = useState(false)
-  const [isBiometricLoading, setIsBiometricLoading] = useState(false)
   const {
     login,
     signup,
@@ -113,13 +95,7 @@ export default function LoginPage() {
   const { enabled: errorReportingEnabled, refresh: refreshConsent } =
     useErrorReportingConsent()
 
-  const isMobile = isNativeMobile()
   const isLight = isLightTheme(theme)
-
-  useEffect(() => {
-    if (!isNativeMobile()) return
-    StatusBar.setStyle({ style: isLight ? Style.Light : Style.Dark })
-  }, [isLight])
 
   const floatingLogos = useMemo(() => {
     const isWide = window.innerWidth >= 900
@@ -127,16 +103,10 @@ export default function LoginPage() {
     return generateFloatingLogos(count, count * 12, isWide ? 0.55 : 1.2)
   }, [])
 
-  const initialHeightRef = useRef<number | null>(null)
-  if (isMobile && isAndroid() && initialHeightRef.current === null) {
-    initialHeightRef.current = window.innerHeight
-  }
-
   const isLoginMode = !isSignupMode && !isChangingPassword
 
   const showRememberOption =
     apiSessionEnabled &&
-    !isMobile &&
     !isChangingPassword &&
     (!isElectron() || isCustomServer)
   const remember = showRememberOption && rememberSession
@@ -145,91 +115,6 @@ export default function LoginPage() {
     setRememberSession(checked)
     localStorage.setItem(REMEMBER_SESSION_KEY, String(checked))
   }
-
-  const biometricTypeForDisplay = biometricAvailability?.biometricType
-
-  const checkBiometricStatus = useCallback(async () => {
-    if (!__MOBILE__ || !isNativeMobile()) return
-
-    const availability = await checkBiometricAvailability()
-    setBiometricAvailability(availability)
-
-    if (availability.isAvailable) {
-      const hasCredentials = await hasStoredBiometricCredentials()
-      setHasStoredCredentials(hasCredentials)
-      if (hasCredentials) {
-        setEnableBiometric(true)
-      }
-    } else {
-      setHasStoredCredentials(false)
-      setEnableBiometric(false)
-    }
-  }, [])
-
-  const handleBiometricLogin = useCallback(async () => {
-    if (!__MOBILE__ || !isNativeMobile()) return
-    if (!hasStoredCredentials) return
-
-    setIsBiometricLoading(true)
-    try {
-      const authenticated = await authenticateWithBiometric(
-        t.login.biometricLoginReason,
-      )
-      if (!authenticated) {
-        showToast(t.login.biometricLoginFailed, "error", { reportable: false })
-        return
-      }
-
-      const credentials = await getCredentials()
-      if (!credentials) {
-        showToast(t.login.biometricLoginFailed, "error", { reportable: false })
-        return
-      }
-
-      const { code, message } = await login(
-        credentials.username,
-        credentials.password,
-      )
-      if (code !== AuthResultCode.SUCCESS) {
-        if (code === AuthResultCode.INVALID_CREDENTIALS) {
-          await deleteCredentials()
-          setHasStoredCredentials(false)
-        }
-        setError(
-          code === AuthResultCode.INVALID_CREDENTIALS
-            ? t.login.invalidCredentials
-            : code === AuthResultCode.USER_NOT_FOUND
-              ? t.login.userNotFound
-              : t.login.unexpectedErrorContact,
-        )
-        setErrorCode(code)
-        if (message) setErrorDetails(message)
-      }
-    } finally {
-      setIsBiometricLoading(false)
-    }
-  }, [hasStoredCredentials, login, showToast, t])
-
-  useEffect(() => {
-    checkBiometricStatus()
-  }, [checkBiometricStatus])
-
-  useEffect(() => {
-    if (!__MOBILE__ || !isNativeMobile()) return
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        checkBiometricStatus()
-      }
-    }
-
-    window.addEventListener("focus", checkBiometricStatus)
-    document.addEventListener("visibilitychange", onVisibility)
-    return () => {
-      window.removeEventListener("focus", checkBiometricStatus)
-      document.removeEventListener("visibilitychange", onVisibility)
-    }
-  }, [checkBiometricStatus])
 
   useEffect(() => {
     if (isChangingPassword) {
@@ -317,32 +202,6 @@ export default function LoginPage() {
       return
     }
 
-    const saveCredentialsIfEnabled = async () => {
-      if (!__MOBILE__ || !isNativeMobile()) return
-
-      if (enableBiometric && biometricAvailability?.isAvailable) {
-        try {
-          await saveCredentials({ username, password })
-        } catch {
-          // Silently fail; biometric storage is optional
-        }
-      }
-    }
-
-    const deleteStoredCredentialsIfDisabled = async () => {
-      if (!__MOBILE__ || !isNativeMobile()) return
-      if (!biometricAvailability?.isAvailable) return
-      if (enableBiometric) return
-      if (!hasStoredCredentials) return
-
-      try {
-        await deleteCredentials()
-      } catch {
-        // Silently fail; credential deletion is best-effort
-      }
-      setHasStoredCredentials(false)
-    }
-
     try {
       if (isChangingPassword) {
         const result = await changePassword(oldPassword, password)
@@ -352,21 +211,16 @@ export default function LoginPage() {
           setPassword("")
           setRepeatPassword("")
           setError(null)
-          await saveCredentialsIfEnabled()
-          await deleteStoredCredentialsIfDisabled()
         }
       } else if (isSignupMode) {
         const signupResult = await signup(username, password, remember)
         if (!signupResult) {
           setError(t.login.invalidCredentials)
-        } else {
-          await saveCredentialsIfEnabled()
         }
       } else {
         const { code, message } = await login(username, password, remember)
         switch (code) {
           case AuthResultCode.SUCCESS:
-            await saveCredentialsIfEnabled()
             break
           case AuthResultCode.INVALID_CREDENTIALS:
             setError(t.login.invalidCredentials)
@@ -469,393 +323,6 @@ export default function LoginPage() {
       reason="manual"
     />
   )
-
-  if (isMobile) {
-    return (
-      <div
-        className={`select-none ${isLight ? "bg-white" : "bg-black"}`}
-        style={{
-          height: "100dvh",
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        <div
-          className="relative flex flex-col items-center justify-center"
-          style={{
-            minHeight: initialHeightRef.current
-              ? `${initialHeightRef.current}px`
-              : "100vh",
-            paddingTop: "max(24px, env(safe-area-inset-top, 0px))",
-            paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.1, ease: "easeOut" }}
-            className="absolute inset-x-0 top-0 pointer-events-none overflow-hidden"
-            style={{
-              height: "55vh",
-              maskImage:
-                "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)",
-              WebkitMaskImage:
-                "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)",
-            }}
-          >
-            {floatingLogos.map((pos, i) => (
-              <img
-                key={i}
-                src="finanze-fg.svg"
-                alt=""
-                className={`absolute select-none pointer-events-none ${isLight ? "invert" : ""}`}
-                style={{
-                  left: `${pos.x}%`,
-                  top: `${pos.y}%`,
-                  width: pos.size,
-                  height: pos.size,
-                  opacity: pos.opacity,
-                  transform: `rotate(${pos.rotation}deg)`,
-                }}
-                draggable={false}
-              />
-            ))}
-          </motion.div>
-
-          <div
-            className="absolute left-6 flex items-center gap-2"
-            style={{
-              bottom:
-                "calc(24px + max(calc(var(--safe-area-inset-bottom, 0px) - 24px), 0px))",
-            }}
-          >
-            <LoginQuickSettings
-              isDesktop={false}
-              onOpenAdvancedSettings={() => setShowAdvancedSettings(true)}
-              versionMismatch={versionMismatch}
-            />
-            {renderConsentQuickAction()}
-          </div>
-
-          {isChangingPassword && (
-            <button
-              type="button"
-              className={`absolute left-6 p-2 z-10 ${isLight ? "text-black" : "text-white"}`}
-              onClick={handleCancelPasswordChange}
-              disabled={isLoading}
-              aria-label={t.common.cancel}
-              style={{ top: "max(16px, env(safe-area-inset-top, 0px))" }}
-            >
-              <ArrowLeft className="h-6 w-6" strokeWidth={2.75} />
-            </button>
-          )}
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="w-full max-w-sm flex flex-col items-center px-10 z-10"
-          >
-            <img
-              src="finanze-fg.svg"
-              alt={t.common.logoAlt}
-              className={`select-none pointer-events-none mb-5 ${isLight ? "invert" : ""}`}
-              style={{ width: 56, height: 56 }}
-              draggable={false}
-            />
-
-            <h1
-              className={`text-xl font-medium text-center mb-10 tracking-tight ${isLight ? "text-black" : "text-white"}`}
-            >
-              {cloudRestoreMode ? t.login.cloudRestore.title : getTitle()}
-            </h1>
-
-            {!cloudRestoreMode && (
-              <form
-                onSubmit={handleSubmit}
-                className="w-full space-y-5"
-                noValidate={isChangingPassword}
-              >
-                {!isChangingPassword && (isSignupMode || !lastLoggedUser) && (
-                  <div className="relative">
-                    <input
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      placeholder={t.login.namePlaceholder}
-                      required={!isChangingPassword}
-                      autoCapitalize="off"
-                      disabled={pendingRegister}
-                      className={inputClass}
-                    />
-                    {isSignupMode && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className={`absolute right-0 top-1/2 -translate-y-1/2 p-2 ${isLight ? "text-black/30" : "text-white/30"}`}
-                            aria-label={t.login.usernameInfoTooltip}
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 text-sm" sideOffset={8}>
-                          <p className="text-muted-foreground">
-                            {t.login.usernameInfoTooltip}
-                          </p>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </div>
-                )}
-
-                {isChangingPassword && (
-                  <input
-                    id="oldPassword"
-                    type="password"
-                    value={oldPassword}
-                    onChange={e => setOldPassword(e.target.value)}
-                    placeholder={t.login.oldPasswordPlaceholder}
-                    required
-                    className={cn(inputClass, passwordValueClass)}
-                  />
-                )}
-
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={
-                    isChangingPassword
-                      ? t.login.newPasswordPlaceholder
-                      : t.login.passwordPlaceholder
-                  }
-                  required
-                  className={cn(inputClass, passwordValueClass)}
-                />
-
-                {(isSignupMode || isChangingPassword) &&
-                  password.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <input
-                        id="repeatPassword"
-                        type="password"
-                        value={repeatPassword}
-                        onChange={e => setRepeatPassword(e.target.value)}
-                        placeholder={t.login.repeatPasswordPlaceholder}
-                        required
-                        className={cn(inputClass, passwordValueClass)}
-                      />
-                    </motion.div>
-                  )}
-
-                {biometricAvailability?.isAvailable &&
-                  (!isLoginMode || !hasStoredCredentials) && (
-                    <div className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-2">
-                        {biometricTypeForDisplay === BiometricType.FACE ? (
-                          <ScanFace
-                            className={`h-5 w-5 ${isLight ? "text-black/40" : "text-white/40"}`}
-                          />
-                        ) : (
-                          <Fingerprint
-                            className={`h-5 w-5 ${isLight ? "text-black/40" : "text-white/40"}`}
-                          />
-                        )}
-                        <span
-                          className={`text-sm ${isLight ? "text-black/50" : "text-white/50"}`}
-                        >
-                          {t.login.enableBiometric.replace(
-                            "{type}",
-                            biometricTypeForDisplay === BiometricType.FACE
-                              ? t.login.biometricFaceId
-                              : t.login.biometricFingerprint,
-                          )}
-                        </span>
-                      </div>
-                      <Switch
-                        id="enableBiometric"
-                        checked={enableBiometric}
-                        onCheckedChange={setEnableBiometric}
-                      />
-                    </div>
-                  )}
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-sm text-red-500 text-center flex items-center justify-center"
-                  >
-                    {error}
-                    {errorCode === AuthResultCode.UNEXPECTED_ERROR &&
-                      errorDetails && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="ml-2 p-1 text-red-500"
-                              aria-label={t.login.viewErrorDetails}
-                            >
-                              <Wrench className="h-4 w-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-64 max-h-[50vh] overflow-y-auto text-left text-sm"
-                            sideOffset={8}
-                          >
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-foreground">
-                                {t.login.errorDetailsTitle}
-                              </p>
-                              <button
-                                type="button"
-                                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                                onClick={async () => {
-                                  if (
-                                    await copyToClipboard(errorDetails || "")
-                                  ) {
-                                    setDetailsCopied(true)
-                                    setTimeout(
-                                      () => setDetailsCopied(false),
-                                      2000,
-                                    )
-                                  }
-                                }}
-                              >
-                                {detailsCopied ? (
-                                  <Check className="h-3.5 w-3.5 text-green-500" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-                            <p className="mt-2 text-muted-foreground break-words">
-                              {errorDetails}
-                            </p>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                  </motion.div>
-                )}
-
-                {hasStoredCredentials && isLoginMode ? (
-                  <div className="flex items-center justify-center gap-6 pt-6">
-                    <button
-                      type="submit"
-                      className={cn(
-                        "text-lg font-medium tracking-wide transition-opacity duration-200",
-                        isLight ? "text-black" : "text-white",
-                        isLoading ? "opacity-40" : "active:opacity-60",
-                      )}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        t.common.unlock
-                      )}
-                    </button>
-                    <div
-                      className={`h-5 w-px ${isLight ? "bg-black/15" : "bg-white/15"}`}
-                    />
-                    <button
-                      type="button"
-                      className={cn(
-                        "transition-opacity duration-200",
-                        isLight ? "text-black/60" : "text-white/60",
-                        isBiometricLoading ? "opacity-40" : "active:opacity-40",
-                      )}
-                      disabled={isBiometricLoading}
-                      onClick={handleBiometricLogin}
-                      aria-label={t.login.biometricAuth}
-                    >
-                      {isBiometricLoading ? (
-                        <LoadingSpinner size="sm" />
-                      ) : biometricTypeForDisplay === BiometricType.FACE ? (
-                        <ScanFace className="h-6 w-6" />
-                      ) : (
-                        <Fingerprint className="h-6 w-6" />
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-4 flex items-center gap-2">
-                    <button
-                      type="submit"
-                      className={cn(
-                        "flex-1 min-w-0 flex items-center justify-center text-lg font-medium tracking-wide py-4 transition-opacity duration-200",
-                        isLight ? "text-black" : "text-white",
-                        isLoading ? "opacity-40" : "active:opacity-60",
-                      )}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <LoadingSpinner size="sm" />
-                      ) : isChangingPassword ? (
-                        t.login.changePassword
-                      ) : isSignupMode ? (
-                        t.login.signup
-                      ) : (
-                        t.common.unlock
-                      )}
-                    </button>
-                    {renderConsentToggle(
-                      isLight ? "text-black/70" : "text-white/70",
-                    )}
-                  </div>
-                )}
-
-                {(isSignupMode || isChangingPassword) && (
-                  <p
-                    className={`text-xs text-center mt-2 ${isLight ? "text-black/35" : "text-white/35"}`}
-                  >
-                    {t.login.syncPasswordHint}
-                  </p>
-                )}
-
-                {isSignupMode && !isChangingPassword && (
-                  <button
-                    type="button"
-                    onClick={() => setCloudRestoreMode(true)}
-                    className={`w-full flex items-center justify-center gap-2 text-sm mt-4 transition-opacity duration-200 ${isLight ? "text-black active:text-black/70" : "text-white active:text-white/70"}`}
-                  >
-                    <Cloud className="h-4 w-4" />
-                    {t.login.cloudRestore.trigger}
-                  </button>
-                )}
-              </form>
-            )}
-
-            {cloudRestoreMode && (
-              <div className="w-full mt-6">
-                <CloudRestore
-                  onBack={() => setCloudRestoreMode(false)}
-                  onRestoreComplete={() => {}}
-                  isDesktop={false}
-                  pendingUsername={
-                    pendingRegister ? lastLoggedUser || undefined : undefined
-                  }
-                />
-              </div>
-            )}
-          </motion.div>
-
-          <AdvancedSettings
-            isOpen={showAdvancedSettings}
-            onClose={() => setShowAdvancedSettings(false)}
-          />
-          {consentDialog}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
@@ -963,9 +430,7 @@ export default function LoginPage() {
                   onChange={e => setUsername(e.target.value)}
                   placeholder={t.login.namePlaceholder}
                   required={!isChangingPassword}
-                  autoFocus={
-                    !isNativeMobile() && (isSignupMode || !lastLoggedUser)
-                  }
+                  autoFocus={isSignupMode || !lastLoggedUser}
                   autoCapitalize="off"
                   disabled={pendingRegister}
                   className={inputClass}
@@ -999,7 +464,7 @@ export default function LoginPage() {
                 onChange={e => setOldPassword(e.target.value)}
                 placeholder={t.login.oldPasswordPlaceholder}
                 required
-                autoFocus={!isNativeMobile()}
+                autoFocus
                 className={cn(inputClass, passwordValueClass)}
               />
             )}
@@ -1016,10 +481,7 @@ export default function LoginPage() {
               }
               required
               autoFocus={
-                !isNativeMobile() &&
-                !isSignupMode &&
-                !isChangingPassword &&
-                !!lastLoggedUser
+                !isSignupMode && !isChangingPassword && !!lastLoggedUser
               }
               className={cn(inputClass, passwordValueClass)}
             />
@@ -1041,36 +503,6 @@ export default function LoginPage() {
                 />
               </motion.div>
             )}
-
-            {isNativeMobile() &&
-              biometricAvailability?.isAvailable &&
-              (!isLoginMode || !hasStoredCredentials) && (
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    {biometricTypeForDisplay === BiometricType.FACE ? (
-                      <ScanFace className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Fingerprint className="h-5 w-5 text-muted-foreground" />
-                    )}
-                    <Label
-                      htmlFor="enableBiometric"
-                      className="text-sm cursor-pointer"
-                    >
-                      {t.login.enableBiometric.replace(
-                        "{type}",
-                        biometricTypeForDisplay === BiometricType.FACE
-                          ? t.login.biometricFaceId
-                          : t.login.biometricFingerprint,
-                      )}
-                    </Label>
-                  </div>
-                  <Switch
-                    id="enableBiometric"
-                    checked={enableBiometric}
-                    onCheckedChange={setEnableBiometric}
-                  />
-                </div>
-              )}
 
             {showRememberOption && (
               <div className="flex items-center justify-between py-2">
@@ -1143,69 +575,33 @@ export default function LoginPage() {
               </motion.div>
             )}
 
-            {isNativeMobile() && hasStoredCredentials && isLoginMode ? (
-              <div className="flex items-center gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 text-lg py-6 from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 shadow-md"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      {t.common.loading}
-                    </>
-                  ) : (
-                    t.common.unlock
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  className="h-12 w-12 p-0 shrink-0"
-                  disabled={isBiometricLoading}
-                  onClick={handleBiometricLogin}
-                  aria-label={t.login.biometricAuth}
-                  title={t.login.biometricAuth}
-                >
-                  {isBiometricLoading ? (
-                    <LoadingSpinner size="sm" color="invert" />
-                  ) : biometricTypeForDisplay === BiometricType.FACE ? (
-                    <ScanFace className="h-5 w-5" />
-                  ) : (
-                    <Fingerprint className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  className={cn(
-                    "flex-1 min-w-0 text-lg py-6 font-bold bg-transparent shadow-none hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent",
-                    isLight
-                      ? "text-black hover:text-black"
-                      : "text-white hover:text-white dark:text-white dark:hover:text-white",
-                  )}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      {t.common.loading}
-                    </>
-                  ) : isChangingPassword ? (
-                    t.login.changePassword
-                  ) : isSignupMode ? (
-                    t.login.signup
-                  ) : (
-                    t.common.unlock
-                  )}
-                </Button>
-                {renderConsentToggle("text-foreground")}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Button
+                type="submit"
+                variant="ghost"
+                className={cn(
+                  "flex-1 min-w-0 text-lg py-6 font-bold bg-transparent shadow-none hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent",
+                  isLight
+                    ? "text-black hover:text-black"
+                    : "text-white hover:text-white dark:text-white dark:hover:text-white",
+                )}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    {t.common.loading}
+                  </>
+                ) : isChangingPassword ? (
+                  t.login.changePassword
+                ) : isSignupMode ? (
+                  t.login.signup
+                ) : (
+                  t.common.unlock
+                )}
+              </Button>
+              {renderConsentToggle("text-foreground")}
+            </div>
 
             {(isSignupMode || isChangingPassword) && (
               <p className="text-xs text-muted-foreground text-center mt-4">
