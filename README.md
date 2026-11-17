@@ -2,9 +2,9 @@
 > **Ferrofolio** is an independent, community-driven fork of [Finanze](https://github.com/finanze/finanze).
 > It is not affiliated with or endorsed by the Finanze project.
 >
-> The rename is in progress. This README and parts of the code still say "Finanze", and the download links,
-> container images and app listings below still point to the upstream project. Ferrofolio does not publish
-> its own releases yet. See [NOTICE](./NOTICE) for the origin of the code.
+> The rename is in progress. This README and parts of the code still say "Finanze", and the download links
+> and app listings below still point to the upstream project. Ferrofolio does not publish its own releases or
+> container images yet; the [Docker](#docker) setup builds the images from this repository. See [NOTICE](./NOTICE) for the origin of the code.
 
 <p align="center">
   <a href="https://github.com/finanze/finanze/releases/latest"><img src="https://img.shields.io/github/v/release/finanze/finanze?style=for-the-badge&color=blue&label=Latest%20Release" alt="Latest release of Finanze"></a>
@@ -254,15 +254,35 @@ to `develop`. These builds may be unstable and not intended for production use.
 
 ### Docker
 
-Two Docker images are available, a Selenium one (`latest-selenium`) and a lighter default one (`latest`).
+Ferrofolio does not publish container images yet. The example [docker-compose.yml](docker-compose.yml) builds the
+server image `ghcr.io/ferrofolio/ferrofolio` and the frontend image `ghcr.io/ferrofolio/ferrofolio-frontend` from this
+repository:
 
-In case you don't use Mintos, `latest` is highly recommended.
-The first one is required for Mintos, as it contains Selenium and reCAPTCHA resolution related Python and SO
-dependencies (like ffmpeg).
+```sh
+docker compose up -d --build
+```
 
-Both are available at Docker Hub [finanze/finanze](https://hub.docker.com/r/finanze/finanze).
+When upgrading a setup that used the upstream compose file, its services were named `finanze-server` and
+`finanze-front`, and their containers keep ports 7592 and 8080. Remove them before starting the renamed services:
 
-Frontend is available at [finanze/finanze-frontend](https://hub.docker.com/r/finanze/finanze-frontend).
+1. Before updating, run `docker compose down` in the directory of the old setup. Compose names a project after the
+   directory of its compose file, so the next step does not reach a setup in another directory.
+2. In the directory of this repository, start the renamed services and remove containers left from the old ones:
+
+   ```sh
+   docker compose up -d --build --remove-orphans
+   ```
+
+The server keeps its data in `./.storage` next to the compose file. Run the upgrade in the directory that holds the
+existing `./.storage` folder, or copy that folder into the new checkout first: a new checkout starts with an empty
+`./.storage`. The old data is not deleted.
+
+Cloud sign-in and cloud backup run on upstream Finanze services (Supabase and `api.finanze.me`). Images built from
+this repository are not configured for them, so these features do not work after the upgrade. The local data in
+`./.storage` is not affected.
+
+The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
+dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
 
 Checkout example [docker-compose.yml](docker-compose.yml) for a complete setup.
 
@@ -311,67 +331,7 @@ For the frontend use `pnpm`, and `node 24`.
 
     cd frontend/app
     pnpm dev            # For electron desktop app
-
-                        # ---- Mobile SPECIFIC ----
-    pnpm dev:mobile     # For mobile app (web feature limited, but useful for basic development and testing)
-    pnpm cap:ios        # For iOS development (requires Xcode and Mac)
-    pnpm cap:android    # For Android development (requires Android Studio and related SDKs
-    pnpm cap:sync       # To sync changes to native projects after frontend development
-
-                        # ---- App Store SPECIFIC ----
-    pnpm cap:sync:store # Same as above but this excludes all non App/Play Store compliant stuff (entity connections)
     ```
-
-#### Mobile specific step
-
-6. TLS client for mobile (required for some entities needing TLS fingerprint impersonation):
-
-    Requires: Go, full Xcode with iOS and simulator SDKs (iOS), JDK 21+ and Android NDK r28+ (Android), gomobile (
-    `go install golang.org/x/mobile/cmd/gomobile@latest && go install golang.org/x/mobile/cmd/gobind@latest`).
-
-    ```sh
-    cd frontend/app           # If not already
-    go mod tidy -C native/tlsclient
-    pnpm native:setup         # Builds iOS xcframework + Android AAR and copies to native projects
-    # Or build only the platform you need:
-    pnpm native:setup:ios
-    pnpm native:setup:android
-    ```
-
-    <details>
-    <summary>Android and iOS toolchain setup</summary>
-
-    **Android setup:** Install **NDK (Side by side)** in Android Studio > SDK Manager > SDK Tools.
-    The native build automatically selects the newest complete NDK installation under the SDK's `ndk/` directory,
-    using `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, or the default SDK location
-    (`~/Library/Android/sdk` on macOS, `~/Android/Sdk` on Linux).
-    Set `ANDROID_NDK_HOME` (or `ANDROID_NDK_ROOT`) to override detection; an invalid override fails instead of falling back.
-    Set `JAVA_HOME` to a JDK, not a JRE; if unset, the native build warns and checks the Java tools on `PATH`.
-
-    ```sh
-    # macOS: select an installed JDK 21
-    export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
-    # Only needed for custom SDK/NDK locations or to pin an NDK version:
-    export ANDROID_HOME="$HOME/Library/Android/sdk"
-    export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/<installed-version>"
-    ```
-
-    Replace `<installed-version>` with the installed NDK folder name. Add exports you need to your shell profile
-    (for example, `~/.zshrc`) to keep them across terminals.
-
-    **iOS setup (macOS):** Command Line Tools alone are not enough. Install and open Xcode to finish its initial setup
-    and install the iOS platform components. If `xcode-select -p` points to `/Library/Developer/CommandLineTools`
-    or another Xcode installation, override the developer directory for the setup command:
-
-    ```sh
-    DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer" pnpm native:setup:ios
-    ```
-
-    Adjust the path if Xcode is installed elsewhere. To select it for all future commands instead:
-    `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`.
-    The native build checks both iOS SDKs before building and reports how to set `DEVELOPER_DIR` if unavailable.
-
-    </details>
 
 #### Other
 
@@ -394,9 +354,6 @@ For the frontend use `pnpm`, and `node 24`.
 
     cd e2e/standard
     pnpm test           # Web based E2E
-
-    cd e2e/mobile
-    pnpm local:both     # Mobile based basic E2E
     ```
 
 ### Environment Variables
@@ -422,6 +379,8 @@ important ones are::
   sign-in. Feature flags are local configuration; the upstream cloud (`FF_CLOUD`) is off by default.
 - `FEATURE_FLAG_URL` optional, a remote source for feature flags. It is not set by default, so no request leaves the
   server for it.
+- `CRYPTO_DATASET_URL`, `METAL_RATES_URL` and `CLOUD_URL` optional, sources for a crypto coin snapshot, historic
+  metal prices and cloud backups. None is set by default, so the server does not contact upstream services for them.
 - Other Selenium related ones.
 
 ## License

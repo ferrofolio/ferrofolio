@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -25,14 +26,48 @@ from infrastructure.client.cloud.backup.file_transfer_strategy import (
 from infrastructure.client.http.http_session import get_http_session
 
 
+def _is_https(url) -> bool:
+    if not isinstance(url, str):
+        return False
+    try:
+        return urlparse(url).scheme == "https"
+    except ValueError:
+        return False
+
+
 class BackupClient(BackupRepository):
-    BASE_URL = os.getenv("CLOUD_URL") or "https://api.finanze.me"
+    # The upstream backup service is not used by default; set CLOUD_URL to opt in
+    BASE_URL = os.getenv("CLOUD_URL") or None
     TIMEOUT = 60
 
     def __init__(self, file_transfer_strategy: FileTransferStrategy):
         self._log = logging.getLogger(__name__)
         self._session = get_http_session()
         self._file_transfer_strategy = file_transfer_strategy
+
+    def _url(self, path: str) -> str:
+        if not self.BASE_URL:
+            raise BackupTransferFailed("No cloud backup service is configured")
+        # Requests carry the bearer token, which must not travel unencrypted
+        if not _is_https(self.BASE_URL):
+            raise BackupTransferFailed("The cloud backup service must use HTTPS")
+        return f"{self.BASE_URL}{path}"
+
+    @staticmethod
+    async def _response_field(response, field: str, expected: type):
+        """Read a field of a JSON object response, rejecting any other shape."""
+        try:
+            body = await response.json()
+        except ValueError as e:
+            raise BackupTransferFailed(
+                "The cloud backup service returned invalid JSON"
+            ) from e
+        value = body.get(field, expected()) if isinstance(body, dict) else None
+        if not isinstance(value, expected):
+            raise BackupTransferFailed(
+                "The cloud backup service returned an unexpected response"
+            )
+        return value
 
     def _get_auth_headers(self, auth: CloudAuthData) -> dict[str, str]:
         """Get authentication headers from auth data."""
@@ -63,7 +98,7 @@ class BackupClient(BackupRepository):
 
             headers = self._get_auth_headers(request.auth)
             response = await self._session.post(
-                f"{self.BASE_URL}/v1/backups/upload",
+                self._url("/v1/backups/upload"),
                 json=upload_request_body,
                 headers=headers,
                 timeout=self.TIMEOUT,
@@ -73,11 +108,15 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            upload_response = await response.json()
+            uploads = await self._response_field(response, "uploads", list)
 
             # Step 2: Upload each piece to the presigned URL
             uploaded_pieces = []
-            for upload_info in upload_response.get("uploads", []):
+            for upload_info in uploads:
+                if not isinstance(upload_info, dict) or "type" not in upload_info:
+                    raise BackupTransferFailed(
+                        "The cloud backup service returned an unexpected upload entry"
+                    )
                 piece = next(
                     (
                         p
@@ -90,9 +129,16 @@ class BackupClient(BackupRepository):
                     self._log.warning(f"No piece found for type {upload_info['type']}")
                     continue
 
+                # The backup payload must not travel unencrypted
+                upload_url = upload_info.get("url")
+                if not _is_https(upload_url):
+                    raise BackupTransferFailed(
+                        f"The upload URL for backup piece {piece.type.value} must use HTTPS"
+                    )
+
                 try:
                     await self._file_transfer_strategy.upload(
-                        url=upload_info["url"],
+                        url=upload_url,
                         method=upload_info["method"],
                         payload=piece.payload,
                         headers=upload_info.get("headers", {}),
@@ -129,7 +175,7 @@ class BackupClient(BackupRepository):
             headers = self._get_auth_headers(request.auth)
 
             response = await self._session.get(
-                f"{self.BASE_URL}/v1/backups/download",
+                self._url("/v1/backups/download"),
                 params=params,
                 headers=headers,
                 timeout=self.TIMEOUT,
@@ -139,13 +185,11 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            download_response = await response.json()
+            download_pieces = await self._response_field(response, "pieces", dict)
 
             # Step 2: Download each piece from the presigned URL
             pieces = []
-            for backup_type_str, piece_info in download_response.get(
-                "pieces", {}
-            ).items():
+            for backup_type_str, piece_info in download_pieces.items():
                 try:
                     download_url = piece_info.get("url")
                     if not download_url:
@@ -193,7 +237,7 @@ class BackupClient(BackupRepository):
         try:
             headers = self._get_auth_headers(request.auth)
             response = await self._session.get(
-                f"{self.BASE_URL}/v1/backups",
+                self._url("/v1/backups"),
                 headers=headers,
                 timeout=self.TIMEOUT,
             )
@@ -202,21 +246,24 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            info_response = await response.json()
+            info_pieces = await self._response_field(response, "pieces", dict)
 
             backup_infos = {}
-            for backup_type_str, piece_info in info_response.get("pieces", {}).items():
+            for backup_type_str, piece_info in info_pieces.items():
                 try:
                     backup_type = BackupFileType(backup_type_str)
+                    piece_id = piece_info["id"]
+                    if not isinstance(piece_id, str):
+                        raise ValueError("Backup piece id is not a string")
                     backup_info = BackupInfo(
-                        id=UUID(piece_info["id"]),
+                        id=UUID(piece_id),
                         protocol=piece_info["protocol"],
                         date=datetime.fromisoformat(piece_info["date"]),
                         type=backup_type,
                         size=piece_info["size"],
                     )
                     backup_infos[backup_type] = backup_info
-                except (KeyError, ValueError) as e:
+                except (KeyError, TypeError, ValueError) as e:
                     self._log.warning(
                         f"Error parsing backup info for {backup_type_str}: {e}"
                     )

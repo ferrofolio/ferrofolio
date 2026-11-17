@@ -23,7 +23,7 @@ export function RestrictedRegionScreen() {
       >
         <img
           src="finanze-fg.svg"
-          alt="Finanze Logo"
+          alt={t.common.logoAlt}
           className={`select-none pointer-events-none mb-5 ${isLight ? "invert" : ""}`}
           style={{ width: 56, height: 56 }}
           draggable={false}

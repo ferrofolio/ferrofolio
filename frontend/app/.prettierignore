@@ -7,6 +7,4 @@ dist-pyodide
 out
 build
 release
-android
-ios
 pnpm-lock.yaml

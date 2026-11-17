@@ -1,5 +1,7 @@
 {
   "common": {
+    "appName": "Ferrofolio",
+    "logoAlt": "Logo di Ferrofolio",
     "back": "Indietro",
     "backTo": "Torna a {page}",
     "backToTop": "Torna in alto",
@@ -439,10 +441,10 @@
     "hideCredential": "Nascondi valore",
     "credentialsSecurityTitle": "I tuoi dati sono al sicuro",
     "credentialsSecurityBody": "Le tue credenziali e tutti i dati mostrati qui sono archiviati localmente in modo crittografato. Non saranno mai condivisi con nessuno, a meno che tu non lo scelga esplicitamente. Non condividere mai la password dell'app con nessuno, poiché permetterebbe di accedere a tutti questi dati. Inoltre, questa app è open source e puoi verificare tu stesso come vengono archiviati e gestiti i dati.",
-    "title": "Benvenuto in Finanze",
+    "title": "Benvenuto in Ferrofolio",
     "subtitle": "I tuoi dati finanziari sono crittografati",
     "welcomeBack": "Bentornato, {username}!",
-    "signupTitle": "Crea un account Finanze",
+    "signupTitle": "Crea un account Ferrofolio",
     "signupSubtitle": "Configura il tuo account per gestire le tue finanze",
     "changePasswordTitle": "Cambia Chiave di Crittografia",
     "changePasswordSubtitle": "Inserisci la tua chiave di crittografia attuale e quella nuova",
@@ -462,7 +464,7 @@
     "invalidPassword": "Chiave di crittografia non valida",
     "invalidCredentials": "Credenziali non valide",
     "userNotFound": "Utente non trovato",
-    "unexpectedErrorContact": "Qualcosa è andato storto, contatta il team di Finanze.",
+    "unexpectedErrorContact": "Qualcosa è andato storto, contatta il team di Ferrofolio.",
     "serverError": "Si è verificato un errore imprevisto. Riprova.",
     "changePasswordSuccess": "Chiave di crittografia cambiata con successo",
     "changePasswordError": "Errore durante il cambio della chiave di crittografia",
@@ -477,7 +479,7 @@
     "biometricFaceId": "Face ID",
     "biometricFingerprint": "Impronta digitale",
     "biometricAuth": "Biometria",
-    "biometricLoginReason": "Sblocca Finanze",
+    "biometricLoginReason": "Sblocca Ferrofolio",
     "biometricSaved": "Accesso biometrico abilitato",
     "biometricError": "Impossibile abilitare l'accesso biometrico",
     "biometricLoginFailed": "Autenticazione biometrica non riuscita",
@@ -513,7 +515,7 @@
     },
     "regionRestricted": {
       "title": "Non disponibile nel tuo paese",
-      "description": "Finanze non può essere utilizzata nel tuo paese o regione attuale. Ci scusiamo per l'inconveniente."
+      "description": "Ferrofolio non può essere utilizzata nel tuo paese o regione attuale. Ci scusiamo per l'inconveniente."
     }
   },
   "pinpad": {
@@ -536,7 +538,7 @@
     "INVALID_PRIVATE_KEY": "La chiave privata fornita per {integration} non è valida.",
     "INVALID_URL": "L'URL di {integration} non è valido.",
     "UNREACHABLE": "Impossibile raggiungere {integration}. Verifica che il server sia in esecuzione e che l'URL sia corretto.",
-    "NOT_A_MODEL_ROUTER": "Questo server serve un solo modello. Collegalo come Custom AI, oppure avvia llama-server senza -m per gestire i modelli da Finanze.",
+    "NOT_A_MODEL_ROUTER": "Questo server serve un solo modello. Collegalo come Custom AI, oppure avvia llama-server senza -m per gestire i modelli da Ferrofolio.",
     "MISSING_SERVER_URL": "Inserisci l'URL del server per {integration}.",
     "AUTHORIZATION_DENIED": "L'accesso a {integration} è stato negato o non sono stati concessi i permessi necessari.",
     "AUTHORIZATION_EXPIRED": "L'autorizzazione di {integration} è scaduta o non è più valida. Riprova.",
@@ -883,7 +885,7 @@
       },
       "tabTitle": "MCP",
       "title": "Server MCP",
-      "description": "Consenti ad assistenti IA e client compatibili con MCP di consultare i tuoi dati Finanze tramite il Model Context Protocol.",
+      "description": "Consenti ad assistenti IA e client compatibili con MCP di consultare i tuoi dati Ferrofolio tramite il Model Context Protocol.",
       "enableLabel": "Attiva server MCP",
       "enableDescription": "I client autenticati con il token di accesso possono leggere posizioni, transazioni, flussi e altro.",
       "readOnlyLabel": "Sola lettura",
@@ -896,7 +898,7 @@
       "regenerateConfirmTitle": "Rigenerare il token di accesso?",
       "regenerateConfirmMessage": "I client che usano il token attuale smetteranno di funzionare finché non aggiornerai la loro configurazione.",
       "tokenRegenerated": "Token di accesso rigenerato",
-      "runningNote": "Finanze deve essere in esecuzione e sbloccato perché i client possano connettersi. Riconnetti i client dopo aver cambiato gli accessi o le categorie per aggiornare gli strumenti disponibili.",
+      "runningNote": "Ferrofolio deve essere in esecuzione e sbloccato perché i client possano connettersi. Riconnetti i client dopo aver cambiato gli accessi o le categorie per aggiornare gli strumenti disponibili.",
       "clientsTitle": "Configurazione del client",
       "clientsDescription": "Copia la configurazione per il tuo client. Il testo copiato include il tuo token di accesso.",
       "clients": {
@@ -1008,7 +1010,7 @@
       "logoutError": "Disconnessione non riuscita. Riprova.",
       "syncError": "Sincronizzazione con il server non riuscita. Riprova.",
       "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo.",
-      "oauthRedirectOpenApp": "Apri Finanze"
+      "oauthRedirectOpenApp": "Apri Ferrofolio"
     },
     "backup": {
       "title": "Backup",
@@ -1485,7 +1487,7 @@
             },
             {
               "type": "text",
-              "value": " su questo computer, esegui claude in un terminale e accedi con il tuo account Claude. Finanze riutilizza quell'accesso e non ti chiede mai le tue credenziali né una chiave API. Inserisci il percorso solo se Claude Code non viene trovato automaticamente."
+              "value": " su questo computer, esegui claude in un terminale e accedi con il tuo account Claude. Ferrofolio riutilizza quell'accesso e non ti chiede mai le tue credenziali né una chiave API. Inserisci il percorso solo se Claude Code non viene trovato automaticamente."
             }
           ]
         }
@@ -1528,7 +1530,7 @@
       "usingPlan": "Stai usando il tuo piano ChatGPT",
       "manageUsage": "Gestisci utilizzo",
       "expired": "Il tuo accesso a ChatGPT è scaduto. Continua con ChatGPT per accedere di nuovo.",
-      "pasteLabel": "Non sei tornato su Finanze? Incolla l'indirizzo mostrato dal browser dopo l'accesso.",
+      "pasteLabel": "Non sei tornato su Ferrofolio? Incolla l'indirizzo mostrato dal browser dopo l'accesso.",
       "pastePlaceholder": "http://127.0.0.1:…/auth/callback?code=…",
       "finish": "Completa",
       "invalidAddress": "Quell'indirizzo non contiene una risposta di accesso. Copia l'indirizzo completo dal browser."
@@ -1538,7 +1540,7 @@
     "integrationInsecureKeyWarning": "Questa connessione non è cifrata (http), quindi la chiave API viene inviata in chiaro. Usa https o solo una rete di cui ti fidi.",
     "deviceAuthorization": {
       "intro": "Riceverai un codice monouso per accedere con il tuo account {integration}. Puoi revocare l'accesso in qualsiasi momento dalle impostazioni del tuo account.",
-      "instructions": "Inserisci questo codice su {site} per autorizzare Finanze:",
+      "instructions": "Inserisci questo codice su {site} per autorizzare Ferrofolio:",
       "copyAndOpen": "Copia il codice e apri {site}",
       "waiting": "In attesa di autorizzazione, il codice scade tra {time}"
     },
@@ -1580,7 +1582,7 @@
       "downloadFailed": "Il download di {model} non è riuscito o è stato interrotto.",
       "deleteTitle": "Elimina modello",
       "deleteMessage": "{model} verrà eliminato. Potrai scaricarlo di nuovo più tardi.",
-      "deleteImportedMessage": "{model} verrà rimosso da Finanze. Il file originale viene mantenuto.",
+      "deleteImportedMessage": "{model} verrà rimosso da Ferrofolio. Il file originale viene mantenuto.",
       "deleted": "{model} eliminato",
       "includeVision": "Includi supporto immagini (+{size})",
       "addVision": "Aggiungi supporto immagini (+{size})",
@@ -1702,7 +1704,7 @@
   },
   "dashboard": {
     "title": "Pannello",
-    "welcome": "Benvenuto in Finanze",
+    "welcome": "Benvenuto in Ferrofolio",
     "summary": "Riepilogo Finanziario",
     "recentTransactions": "Transazioni Recenti",
     "maturity": "Scadenza",
@@ -1858,7 +1860,7 @@
   },
   "export": {
     "title": "Esporta e Importa",
-    "intro": "Coordina come i dati fluiscono tra Finanze e i tuoi fogli di calcolo.",
+    "intro": "Coordina come i dati fluiscono tra Ferrofolio e i tuoi fogli di calcolo.",
     "description": "Esporta i tuoi dati finanziari su Google Sheets.",
     "googleSheetsTitle": "Google Sheets",
     "googleSheetsExportDialogTitle": "Esportazione Google Sheets",

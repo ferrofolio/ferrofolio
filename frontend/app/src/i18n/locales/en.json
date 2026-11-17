@@ -1,5 +1,7 @@
 {
   "common": {
+    "appName": "Ferrofolio",
+    "logoAlt": "Ferrofolio logo",
     "back": "Back",
     "backTo": "Back to {page}",
     "backToTop": "Back to top",
@@ -440,10 +442,10 @@
     "hideCredential": "Hide value",
     "credentialsSecurityTitle": "Your data is safe",
     "credentialsSecurityBody": "Your credentials and all data shown here are stored locally in encrypted storage. They will never be shared with anyone or anything unless you explicitly choose to do so. Never share your app password with anyone, as it would grant access to all this data. Also, this app is open source and you can check yourself how data is stored and handled.",
-    "title": "Welcome to Finanze",
+    "title": "Welcome to Ferrofolio",
     "subtitle": "Your financial data is encrypted",
     "welcomeBack": "Welcome back, {username}!",
-    "signupTitle": "Create Finanze account",
+    "signupTitle": "Create Ferrofolio account",
     "signupSubtitle": "Set up your account to manage your finances",
     "changePasswordTitle": "Change Encryption Key",
     "changePasswordSubtitle": "Enter your current and new encryption key",
@@ -463,7 +465,7 @@
     "invalidPassword": "Invalid encryption key",
     "invalidCredentials": "Invalid credentials",
     "userNotFound": "User not found",
-    "unexpectedErrorContact": "Something went wrong, please contact the Finanze team.",
+    "unexpectedErrorContact": "Something went wrong, please contact the Ferrofolio team.",
     "serverError": "An unexpected error occurred. Please try again.",
     "changePasswordSuccess": "Encryption key changed successfully",
     "changePasswordError": "Failed to change encryption key",
@@ -478,7 +480,7 @@
     "biometricFaceId": "Face ID",
     "biometricFingerprint": "Fingerprint",
     "biometricAuth": "Biometric",
-    "biometricLoginReason": "Unlock Finanze",
+    "biometricLoginReason": "Unlock Ferrofolio",
     "biometricSaved": "Biometric login enabled",
     "biometricError": "Could not enable biometric login",
     "biometricLoginFailed": "Biometric authentication failed",
@@ -514,7 +516,7 @@
     },
     "regionRestricted": {
       "title": "Not available in your country",
-      "description": "Finanze cannot be used in your current country or region. We are sorry for the inconvenience."
+      "description": "Ferrofolio cannot be used in your current country or region. We are sorry for the inconvenience."
     }
   },
   "pinpad": {
@@ -537,7 +539,7 @@
     "INVALID_PRIVATE_KEY": "The provided private key for {integration} is invalid.",
     "INVALID_URL": "The URL for {integration} is not valid.",
     "UNREACHABLE": "Could not reach {integration}. Check that the server is running and the URL is correct.",
-    "NOT_A_MODEL_ROUTER": "This server serves a single model. Connect it as Custom AI, or start llama-server without -m to manage models from Finanze.",
+    "NOT_A_MODEL_ROUTER": "This server serves a single model. Connect it as Custom AI, or start llama-server without -m to manage models from Ferrofolio.",
     "MISSING_SERVER_URL": "Enter the server URL for {integration}.",
     "AUTHORIZATION_DENIED": "Access to {integration} was denied or the required permissions were not granted.",
     "AUTHORIZATION_EXPIRED": "The {integration} authorization expired or is no longer valid. Please try again.",
@@ -884,7 +886,7 @@
       },
       "tabTitle": "MCP",
       "title": "MCP server",
-      "description": "Let AI assistants and MCP-compatible clients query your Finanze data through the Model Context Protocol.",
+      "description": "Let AI assistants and MCP-compatible clients query your Ferrofolio data through the Model Context Protocol.",
       "enableLabel": "Enable MCP server",
       "enableDescription": "Clients authenticated with the access token can read your positions, transactions, flows and more.",
       "readOnlyLabel": "Read only",
@@ -897,7 +899,7 @@
       "regenerateConfirmTitle": "Regenerate access token?",
       "regenerateConfirmMessage": "Clients using the current token will stop working until you update their configuration.",
       "tokenRegenerated": "Access token regenerated",
-      "runningNote": "Finanze must be running and unlocked for clients to connect. Reconnect your clients after changing access or tool categories so they refresh the available tools.",
+      "runningNote": "Ferrofolio must be running and unlocked for clients to connect. Reconnect your clients after changing access or tool categories so they refresh the available tools.",
       "clientsTitle": "Client setup",
       "clientsDescription": "Copy the configuration for your client. The copied text includes your access token.",
       "clients": {
@@ -1009,7 +1011,7 @@
       "logoutError": "Sign out failed. Please try again.",
       "syncError": "Failed to sync with server. Please try again.",
       "sessionExpired": "Your session has expired. Please sign in again.",
-      "oauthRedirectOpenApp": "Open Finanze"
+      "oauthRedirectOpenApp": "Open Ferrofolio"
     },
     "backup": {
       "title": "Backup",
@@ -1486,7 +1488,7 @@
             },
             {
               "type": "text",
-              "value": " on this computer, run claude in a terminal and sign in with your Claude account. Finanze reuses that sign-in and never asks for your credentials or an API key. Fill in the path only if Claude Code is not found automatically."
+              "value": " on this computer, run claude in a terminal and sign in with your Claude account. Ferrofolio reuses that sign-in and never asks for your credentials or an API key. Fill in the path only if Claude Code is not found automatically."
             }
           ]
         }
@@ -1529,7 +1531,7 @@
       "usingPlan": "Using your ChatGPT plan",
       "manageUsage": "Manage usage",
       "expired": "Your ChatGPT sign-in expired. Continue with ChatGPT to sign in again.",
-      "pasteLabel": "Didn't return to Finanze? Paste the address shown in your browser after signing in.",
+      "pasteLabel": "Didn't return to Ferrofolio? Paste the address shown in your browser after signing in.",
       "pastePlaceholder": "http://127.0.0.1:…/auth/callback?code=…",
       "finish": "Finish",
       "invalidAddress": "That address doesn't contain a sign-in response. Copy the full address from your browser."
@@ -1539,7 +1541,7 @@
     "integrationInsecureKeyWarning": "This connection is not encrypted (http), so the API key is sent in plain text. Use https or only a network you trust.",
     "deviceAuthorization": {
       "intro": "You will get a one-time code to sign in with your {integration} account. You can revoke access at any time from your account settings.",
-      "instructions": "Enter this code at {site} to authorize Finanze:",
+      "instructions": "Enter this code at {site} to authorize Ferrofolio:",
       "copyAndOpen": "Copy code and open {site}",
       "waiting": "Waiting for authorization, code expires in {time}"
     },
@@ -1581,7 +1583,7 @@
       "downloadFailed": "The download of {model} failed or was interrupted.",
       "deleteTitle": "Delete model",
       "deleteMessage": "{model} will be removed. You can download it again later.",
-      "deleteImportedMessage": "{model} will be removed from Finanze. The original file is kept.",
+      "deleteImportedMessage": "{model} will be removed from Ferrofolio. The original file is kept.",
       "deleted": "{model} deleted",
       "includeVision": "Include image support (+{size})",
       "addVision": "Add image support (+{size})",
@@ -1703,7 +1705,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Welcome to Finanze",
+    "welcome": "Welcome to Ferrofolio",
     "summary": "Financial Summary",
     "recentTransactions": "Recent Transactions",
     "maturity": "Maturity",
@@ -1859,7 +1861,7 @@
   },
   "export": {
     "title": "Export & Import",
-    "intro": "Coordinate how data flows between Finanze and your spreadsheets.",
+    "intro": "Coordinate how data flows between Ferrofolio and your spreadsheets.",
     "description": "Export your financial data to Google Sheets.",
     "googleSheetsTitle": "Google Sheets",
     "googleSheetsExportDialogTitle": "Google Sheets Export",

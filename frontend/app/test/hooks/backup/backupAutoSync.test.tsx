@@ -124,6 +124,14 @@ describe("auto-sync interval (AUTO mode, Plus)", () => {
       buildSyncResult([BackupFileType.DATA], SyncStatus.SYNC),
     )
 
+    // The interval tick is skipped while the first sync still counts as
+    // running, so wait until it has finished and its state has settled.
+    const firstSyncDone = new Promise<void>(resolve => {
+      window.addEventListener("backup-auto-sync-complete", () => resolve(), {
+        once: true,
+      })
+    })
+
     const { unmount } = renderBackupUI()
 
     await waitFor(() => {
@@ -132,6 +140,10 @@ describe("auto-sync interval (AUTO mode, Plus)", () => {
 
     expect(mockUploadBackup).toHaveBeenCalledWith({
       types: [BackupFileType.DATA],
+    })
+
+    await act(async () => {
+      await firstSyncDone
     })
 
     mockGetBackupsInfo.mockClear()

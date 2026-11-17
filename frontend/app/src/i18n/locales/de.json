@@ -1,5 +1,7 @@
 {
   "common": {
+    "appName": "Ferrofolio",
+    "logoAlt": "Ferrofolio-Logo",
     "back": "Zurück",
     "backTo": "Zurück zu {page}",
     "backToTop": "Nach oben",
@@ -440,10 +442,10 @@
     "hideCredential": "Wert ausblenden",
     "credentialsSecurityTitle": "Deine Daten sind sicher",
     "credentialsSecurityBody": "Deine Zugangsdaten und alle hier angezeigten Daten werden lokal in einem verschlüsselten Speicher abgelegt. Sie werden niemals mit irgendjemandem oder irgendetwas geteilt, es sei denn, du entscheidest dich ausdrücklich dafür. Gib dein App-Passwort niemals weiter, da es Zugriff auf all diese Daten gewähren würde. Außerdem ist diese App Open Source, und du kannst selbst nachprüfen, wie Daten gespeichert und verarbeitet werden.",
-    "title": "Willkommen bei Finanze",
+    "title": "Willkommen bei Ferrofolio",
     "subtitle": "Deine Finanzdaten sind verschlüsselt",
     "welcomeBack": "Willkommen zurück, {username}!",
-    "signupTitle": "Finanze-Konto erstellen",
+    "signupTitle": "Ferrofolio-Konto erstellen",
     "signupSubtitle": "Richte dein Konto ein, um deine Finanzen zu verwalten",
     "changePasswordTitle": "Verschlüsselungsschlüssel ändern",
     "changePasswordSubtitle": "Gib deinen aktuellen und deinen neuen Verschlüsselungsschlüssel ein",
@@ -463,7 +465,7 @@
     "invalidPassword": "Ungültiger Verschlüsselungsschlüssel",
     "invalidCredentials": "Ungültige Zugangsdaten",
     "userNotFound": "Benutzer nicht gefunden",
-    "unexpectedErrorContact": "Etwas ist schiefgelaufen, bitte wende dich an das Finanze-Team.",
+    "unexpectedErrorContact": "Etwas ist schiefgelaufen, bitte wende dich an das Ferrofolio-Team.",
     "serverError": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.",
     "changePasswordSuccess": "Verschlüsselungsschlüssel erfolgreich geändert",
     "changePasswordError": "Verschlüsselungsschlüssel konnte nicht geändert werden",
@@ -478,7 +480,7 @@
     "biometricFaceId": "Face ID",
     "biometricFingerprint": "Fingerabdruck",
     "biometricAuth": "Biometrie",
-    "biometricLoginReason": "Finanze entsperren",
+    "biometricLoginReason": "Ferrofolio entsperren",
     "biometricSaved": "Biometrische Anmeldung aktiviert",
     "biometricError": "Biometrische Anmeldung konnte nicht aktiviert werden",
     "biometricLoginFailed": "Biometrische Authentifizierung fehlgeschlagen",
@@ -514,7 +516,7 @@
     },
     "regionRestricted": {
       "title": "In deinem Land nicht verfügbar",
-      "description": "Finanze kann in deinem aktuellen Land oder deiner Region nicht genutzt werden. Wir bitten um Entschuldigung für die Unannehmlichkeiten."
+      "description": "Ferrofolio kann in deinem aktuellen Land oder deiner Region nicht genutzt werden. Wir bitten um Entschuldigung für die Unannehmlichkeiten."
     }
   },
   "pinpad": {
@@ -537,7 +539,7 @@
     "INVALID_PRIVATE_KEY": "Der angegebene private Schlüssel für {integration} ist ungültig.",
     "INVALID_URL": "Die URL für {integration} ist ungültig.",
     "UNREACHABLE": "{integration} ist nicht erreichbar. Prüfe, ob der Server läuft und die URL korrekt ist.",
-    "NOT_A_MODEL_ROUTER": "Dieser Server stellt nur ein einzelnes Modell bereit. Verbinde ihn als Eigene KI oder starte llama-server ohne -m, um Modelle über Finanze zu verwalten.",
+    "NOT_A_MODEL_ROUTER": "Dieser Server stellt nur ein einzelnes Modell bereit. Verbinde ihn als Eigene KI oder starte llama-server ohne -m, um Modelle über Ferrofolio zu verwalten.",
     "MISSING_SERVER_URL": "Gib die Server-URL für {integration} ein.",
     "AUTHORIZATION_DENIED": "Der Zugriff auf {integration} wurde verweigert oder die erforderlichen Berechtigungen wurden nicht erteilt.",
     "AUTHORIZATION_EXPIRED": "Die Autorisierung für {integration} ist abgelaufen oder nicht mehr gültig. Bitte versuche es erneut.",
@@ -884,7 +886,7 @@
       },
       "tabTitle": "MCP",
       "title": "MCP-Server",
-      "description": "Ermögliche KI-Assistenten und MCP-kompatiblen Clients, deine Finanze-Daten über das Model Context Protocol abzufragen.",
+      "description": "Ermögliche KI-Assistenten und MCP-kompatiblen Clients, deine Ferrofolio-Daten über das Model Context Protocol abzufragen.",
       "enableLabel": "MCP-Server aktivieren",
       "enableDescription": "Clients, die sich mit dem Zugriffstoken authentifizieren, können deine Positionen, Transaktionen, Zahlungsflüsse und mehr lesen.",
       "readOnlyLabel": "Nur lesen",
@@ -897,7 +899,7 @@
       "regenerateConfirmTitle": "Zugriffstoken neu generieren?",
       "regenerateConfirmMessage": "Clients, die das aktuelle Token verwenden, funktionieren nicht mehr, bis du ihre Konfiguration aktualisierst.",
       "tokenRegenerated": "Zugriffstoken neu generiert",
-      "runningNote": "Finanze muss laufen und entsperrt sein, damit sich Clients verbinden können. Verbinde deine Clients nach Änderungen am Zugriff oder an den Tool-Kategorien neu, damit sie die verfügbaren Tools aktualisieren.",
+      "runningNote": "Ferrofolio muss laufen und entsperrt sein, damit sich Clients verbinden können. Verbinde deine Clients nach Änderungen am Zugriff oder an den Tool-Kategorien neu, damit sie die verfügbaren Tools aktualisieren.",
       "clientsTitle": "Client-Einrichtung",
       "clientsDescription": "Kopiere die Konfiguration für deinen Client. Der kopierte Text enthält dein Zugriffstoken.",
       "clients": {
@@ -1009,7 +1011,7 @@
       "logoutError": "Abmeldung fehlgeschlagen. Bitte versuche es erneut.",
       "syncError": "Synchronisierung mit dem Server fehlgeschlagen. Bitte versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
-      "oauthRedirectOpenApp": "Finanze öffnen"
+      "oauthRedirectOpenApp": "Ferrofolio öffnen"
     },
     "backup": {
       "title": "Backup",
@@ -1486,7 +1488,7 @@
             },
             {
               "type": "text",
-              "value": " auf diesem Computer, führe claude in einem Terminal aus und melde dich mit deinem Claude-Konto an. Finanze verwendet diese Anmeldung weiter und fragt niemals nach deinen Zugangsdaten oder einem API-Schlüssel. Gib den Pfad nur an, wenn Claude Code nicht automatisch gefunden wird."
+              "value": " auf diesem Computer, führe claude in einem Terminal aus und melde dich mit deinem Claude-Konto an. Ferrofolio verwendet diese Anmeldung weiter und fragt niemals nach deinen Zugangsdaten oder einem API-Schlüssel. Gib den Pfad nur an, wenn Claude Code nicht automatisch gefunden wird."
             }
           ]
         }
@@ -1529,7 +1531,7 @@
       "usingPlan": "Dein ChatGPT-Tarif wird verwendet",
       "manageUsage": "Nutzung verwalten",
       "expired": "Deine ChatGPT-Anmeldung ist abgelaufen. Fahre mit ChatGPT fort, um dich erneut anzumelden.",
-      "pasteLabel": "Nicht zu Finanze zurückgekehrt? Füge die Adresse ein, die dein Browser nach der Anmeldung anzeigt.",
+      "pasteLabel": "Nicht zu Ferrofolio zurückgekehrt? Füge die Adresse ein, die dein Browser nach der Anmeldung anzeigt.",
       "pastePlaceholder": "http://127.0.0.1:…/auth/callback?code=…",
       "finish": "Abschließen",
       "invalidAddress": "Diese Adresse enthält keine Anmeldeantwort. Kopiere die vollständige Adresse aus deinem Browser."
@@ -1539,7 +1541,7 @@
     "integrationInsecureKeyWarning": "Diese Verbindung ist nicht verschlüsselt (http), daher wird der API-Schlüssel im Klartext gesendet. Verwende https oder nur ein Netzwerk, dem du vertraust.",
     "deviceAuthorization": {
       "intro": "Du erhältst einen Einmalcode, um dich mit deinem {integration}-Konto anzumelden. Du kannst den Zugriff jederzeit in deinen Kontoeinstellungen widerrufen.",
-      "instructions": "Gib diesen Code auf {site} ein, um Finanze zu autorisieren:",
+      "instructions": "Gib diesen Code auf {site} ein, um Ferrofolio zu autorisieren:",
       "copyAndOpen": "Code kopieren und {site} öffnen",
       "waiting": "Warte auf die Autorisierung, der Code läuft in {time} ab"
     },
@@ -1581,7 +1583,7 @@
       "downloadFailed": "Der Download von {model} ist fehlgeschlagen oder wurde unterbrochen.",
       "deleteTitle": "Modell löschen",
       "deleteMessage": "{model} wird entfernt. Du kannst es später erneut herunterladen.",
-      "deleteImportedMessage": "{model} wird aus Finanze entfernt. Die Originaldatei bleibt erhalten.",
+      "deleteImportedMessage": "{model} wird aus Ferrofolio entfernt. Die Originaldatei bleibt erhalten.",
       "deleted": "{model} gelöscht",
       "includeVision": "Bildunterstützung einschließen (+{size})",
       "addVision": "Bildunterstützung hinzufügen (+{size})",
@@ -1703,7 +1705,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Willkommen bei Finanze",
+    "welcome": "Willkommen bei Ferrofolio",
     "summary": "Finanzübersicht",
     "recentTransactions": "Letzte Transaktionen",
     "maturity": "Fälligkeit",
@@ -1859,7 +1861,7 @@
   },
   "export": {
     "title": "Export & Import",
-    "intro": "Steuere, wie Daten zwischen Finanze und deinen Tabellen fließen.",
+    "intro": "Steuere, wie Daten zwischen Ferrofolio und deinen Tabellen fließen.",
     "description": "Exportiere deine Finanzdaten nach Google Sheets.",
     "googleSheetsTitle": "Google Sheets",
     "googleSheetsExportDialogTitle": "Google-Sheets-Export",

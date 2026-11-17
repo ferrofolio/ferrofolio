@@ -98,7 +98,7 @@ export default function SplashScreen() {
     >
       <img
         src="finanze-fg.svg"
-        alt="Finanze Logo"
+        alt={t.common.logoAlt}
         className={
           isMobile
             ? `animate-breathing select-none pointer-events-none ${

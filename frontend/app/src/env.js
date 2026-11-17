@@ -15,3 +15,7 @@ export const BS_ENVIRONMENT =
   runtime.BS_ENVIRONMENT ||
   import.meta.env.VITE_BS_ENVIRONMENT ||
   (import.meta.env.DEV ? "development" : "production")
+
+// Base URL of ticker icons (<base>/<ISIN or ticker>.png); no icons are loaded without it
+export const TICKER_ICON_URL =
+  runtime.TICKER_ICON_URL || import.meta.env.VITE_TICKER_ICON_URL || ""

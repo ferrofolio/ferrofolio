@@ -1,4 +1,0 @@
-allowBuilds:
-  appium: true
-  appium-ios-tuntap: true
-  sharp: true
