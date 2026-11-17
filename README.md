@@ -287,6 +287,10 @@ The server keeps its data in `./.storage` next to the compose file. Run the upgr
 existing `./.storage` folder, or copy that folder into the new checkout first: a new checkout starts with an empty
 `./.storage`. The old data is not deleted.
 
+Cloud sign-in and cloud backup run on upstream Finanze services (Supabase and `api.finanze.me`). Images built from
+this repository are not configured for them, so these features do not work after the upgrade. The local data in
+`./.storage` is not affected.
+
 The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
 dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
 
