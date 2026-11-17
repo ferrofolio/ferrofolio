@@ -74,7 +74,7 @@ About the PWA: a web manifest with `display: standalone` and the iOS meta tags a
 | New files | SPDX header `AGPL-3.0-only` |
 | `cargo deny` | Licence check of all Rust dependencies for AGPL compatibility as a CI gate |
 
-**Trademark.** The AGPL grants no trademark rights. The name, icons and identifiers of "Finanze" are planned to be replaced completely. The name "Ferrofolio" has been checked against GitHub, crates.io, npm, Docker Hub and domain registries, and the domain `ferrofolio.app` is registered for the project. A check against trademark registers is not planned.
+**Trademark.** The AGPL grants no trademark rights. The name, icons and identifiers of "Finanze" are planned to be replaced. The name "Ferrofolio" has been checked against GitHub, crates.io, npm, Docker Hub and domain registries, and the domain `ferrofolio.app` is registered for the project. A check against trademark registers is not planned.
 
 **Direction of code flow.** Ferrofolio may take upstream changes (AGPL to AGPL). Upstream cannot take Ferrofolio code unless its authors sign the upstream CLA.
 
