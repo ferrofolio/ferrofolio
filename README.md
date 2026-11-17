@@ -112,9 +112,6 @@ Finanze includes a Model Context Protocol (MCP) server that lets compatible AI c
 
 | Financial Entity    | Accounts        | Cards | Funds | Stock/<br>ETFs       | Deposits | Portfolios | Loans/<br>Mortgages | Crypto | Bonds | Specific                  |
 | ------------------- | --------------- | ----- | ----- | -------------------- | -------- | ---------- | ------------------- | ------ | ----- | ------------------------- |
-| Urbanitae           | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Lending Investments       |
-| MyInvestor          | ✅              | ✅    | ✅    | ✅                   | ✅       | ✅         | Credits             | -      | -     |                           |
-| SEGO                | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Factoring                 |
 | Trade Republic      | ✅              | -     | ✅    | ✅                   | -        | -          | -                   | ✅     | ❌    | Private Markets           |
 | Unicaja             | ✅              | ✅    | ❌    | ❌                   | ❌       | -          | ✅                  | -      | -     |                           |
 | Wecity              | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Investments               |
@@ -125,7 +122,6 @@ Finanze includes a Model Context Protocol (MCP) server that lets compatible AI c
 | Grupo Cajamar       | ✅              | ✅    | ❌️    | ❌                   | ❌       | -          | ✅                  | -      | -     |                           |
 | DEGIRO              | ✅              | -     | ✅️    | ✅️                   | -        | -          | -                   | -      | -     |                           |
 | Interactive Brokers | ✅              | -     | ❌    | ✅️ Stocks            | -        | -          | -                   | -      | ❌    |                           |
-| B100                | ✅              | ✅    | -     | -                    | -        | -          | -                   | -      | -     |                           |
 | Crescenta           | -               | -     | ✅    | -                    | -        | -          | -                   | -      | -     |                           |
 | Trading 212 (Beta)  | ✅              | -     | -     | ✅                   | -        | -          | -                   | ❌     | -     |                           |
 
@@ -148,8 +144,8 @@ Not all entities support the same features, in general we can group data in the 
 
 - **Global Position**: current financial position including the current state of assets mentioned above, this is
   supported by all entities.
-- **Periodic Contributions**: automatic periodic contributions made to investments such as Funds (MyInvestor) or
-  Stocks/ETFs (Trade Republic).
+- **Periodic Contributions**: automatic periodic contributions made to investments such as Stocks/ETFs (Trade
+  Republic).
 - **Transactions**: all the account/investment related transactions, interest payments, stock of fund operations, asset
   maturity, fees...
 - **Investment Historic**: aggregates past positions and TXs to create a history of past and current investments (
@@ -157,9 +153,6 @@ Not all entities support the same features, in general we can group data in the 
 
 | Financial Entity    | Global Position | Periodic<br>Contributions | Transactions<br>(inv. related) | Investment<br>Historic |
 | ------------------- | --------------- | ------------------------- | ------------------------------ | ---------------------- |
-| Urbanitae           | ✅              | -                         | ✅                             | ✅                     |
-| MyInvestor          | ✅              | ✅                        | ✅                             | ❌                     |
-| SEGO                | ✅              | -                         | ✅                             | ✅                     |
 | Trade Republic      | ✅              | ✅                        | ✅                             | -                      |
 | Unicaja             | ✅              | ✅                        | ❌                             | -                      |
 | Wecity              | ✅              | -                         | ✅                             | ✅                     |
@@ -170,7 +163,6 @@ Not all entities support the same features, in general we can group data in the 
 | Grupo Cajamar       | ✅              | -                         | ❌                             | -                      |
 | DEGIRO              | ✅              | ❌                        | ✅                             | -                      |
 | Interactive Brokers | ✅              | ❌                        | ✅⚠️                           | -                      |
-| B100                | ✅              | ❌                        | ✅ (interest)                  | -                      |
 | Crescenta           | ✅              | -                         | ✅                             | -                      |
 | Trading 212 (Beta)  | ✅              | ❌                        | ✅                             | -                      |
 
@@ -183,10 +175,8 @@ Not all entities support the same features, in general we can group data in the 
 Some entities require a 2FA to login or get its data, which doesn't allow to background update, this applies to the
 following ones:
 
-- **SEGO** (e-mail)
 - **Trade Republic** (mobile app or SMS)
 - **Wecity** (SMS)
-- Sometimes **MyInvestor** (SMS) and may ask sometimes for captcha
 - **DEGIRO** (mobile app confirmation)
 
 Important points to remark:

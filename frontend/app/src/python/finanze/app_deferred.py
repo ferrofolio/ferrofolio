@@ -199,11 +199,8 @@ class DeferredComponents:
             financial_entity_fetcher_stubs = {
                 entity: True
                 for entity in [
-                    domain.native_entities.MY_INVESTOR,
                     domain.native_entities.TRADE_REPUBLIC,
-                    domain.native_entities.URBANITAE,
                     domain.native_entities.WECITY,
-                    domain.native_entities.SEGO,
                     domain.native_entities.MINTOS,
                     domain.native_entities.F24,
                     domain.native_entities.INDEXA_CAPITAL,
@@ -211,7 +208,6 @@ class DeferredComponents:
                     domain.native_entities.CAJAMAR,
                     domain.native_entities.UNICAJA,
                     domain.native_entities.IBKR,
-                    domain.native_entities.B100,
                     domain.native_entities.CRESCENTA,
                     domain.native_entities.TRADING212,
                     domain.native_entities.BINANCE,
