@@ -37,10 +37,6 @@ export function hasLocalBackend(): boolean {
   return isElectron() || !isNativeMobile()
 }
 
-export function usesPyodide(): boolean {
-  return isNativeMobile()
-}
-
 export function isPWAStandalone(): boolean {
   if (typeof window === "undefined") return false
   if ((navigator as { standalone?: boolean }).standalone) return true

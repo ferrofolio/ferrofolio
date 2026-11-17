@@ -1,3 +1,0 @@
-requests==2.33.1
-cryptography==47.0.0
-strictyaml==1.7.3

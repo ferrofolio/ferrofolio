@@ -3,13 +3,7 @@
   "productName": "Finanze",
   "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
   "asar": true,
-  "files": [
-    "dist-electron/**/*",
-    "dist/**/*",
-    "!dist/python/**/*",
-    "!dist/pyodide/**/*",
-    "!node_modules/**/*"
-  ],
+  "files": ["dist-electron/**/*", "dist/**/*", "!node_modules/**/*"],
   "directories": {
     "output": "release"
   },

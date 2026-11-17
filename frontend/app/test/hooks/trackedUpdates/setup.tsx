@@ -48,10 +48,6 @@ vi.mock("@/context/CloudContext", () => ({
   }),
 }))
 
-vi.mock("@/lib/mobile", () => ({
-  triggerLazyInit: vi.fn(),
-}))
-
 vi.mock("@/services/api", () => ({
   getPositions: vi.fn().mockResolvedValue({ positions: {} }),
   getContributions: vi.fn().mockResolvedValue({ contributions: {} }),
