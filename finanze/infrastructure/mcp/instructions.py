@@ -1,6 +1,6 @@
-READ_ONLY_NOTE = "Modifications are disabled, data can only be read. The user can allow them in the Finanze settings."
+READ_ONLY_NOTE = "Modifications are disabled, data can only be read. The user can allow them in the Ferrofolio settings."
 
-INSTRUCTIONS = """Finanze is the user's self-hosted personal finance app. It aggregates banks, brokers, crypto wallets, commodities, real estate and manual data.
+INSTRUCTIONS = """Ferrofolio is the user's self-hosted personal finance app. It aggregates banks, brokers, crypto wallets, commodities, real estate and manual data.
 
 - Call get_context first to know today's date, timezone and default currency.
 - Use list_entities to resolve entity and account IDs before filtering by them.

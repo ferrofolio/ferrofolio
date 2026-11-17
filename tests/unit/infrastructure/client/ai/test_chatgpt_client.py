@@ -134,7 +134,7 @@ class FakeOAuth:
         return self.completed_payload
 
     def destination(self, state):
-        return "finanze://integration/complete" if state == "known" else None
+        return "ferrofolio://integration/complete" if state == "known" else None
 
 
 class FakeApi:
@@ -613,9 +613,9 @@ class TestConnection:
         port.status = "EXPIRED"
         oauth = FakeOAuth()
 
-        await _client(port, oauth).start_authorization({}, "finanze://complete")
+        await _client(port, oauth).start_authorization({}, "ferrofolio://complete")
 
-        assert oauth.started == [("finanze://complete", previous)]
+        assert oauth.started == [("ferrofolio://complete", previous)]
 
     @pytest.mark.asyncio
     async def test_completion_checks_plan_access(self):
@@ -665,7 +665,7 @@ class TestConnection:
         client = _client()
 
         assert await client.callback_destination("known") == (
-            "finanze://integration/complete"
+            "ferrofolio://integration/complete"
         )
         assert await client.callback_destination("unknown") is None
 

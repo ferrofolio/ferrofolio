@@ -576,7 +576,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         }
 
         if (
-          urlObj.protocol === "finanze:" &&
+          urlObj.protocol === "ferrofolio:" &&
           urlObj.hostname === "auth" &&
           urlObj.pathname === "/callback"
         ) {
@@ -626,7 +626,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         if (
           mounted &&
           !launchUrlHandledRef.current &&
-          result?.url?.startsWith("finanze://auth/callback")
+          result?.url?.startsWith("ferrofolio://auth/callback")
         ) {
           launchUrlHandledRef.current = true
           void handleOAuthCallbackUrl(result.url)
@@ -634,7 +634,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
       })
 
       const listener = App.addListener("appUrlOpen", ({ url }) => {
-        if (url.startsWith("finanze://auth/callback")) {
+        if (url.startsWith("ferrofolio://auth/callback")) {
           void handleOAuthCallbackUrl(url)
         }
       })
