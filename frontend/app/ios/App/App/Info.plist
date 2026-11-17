@@ -33,7 +33,7 @@
                 <string>me.finanze</string>
                 <key>CFBundleURLSchemes</key>
                 <array>
-                    <string>finanze</string>
+                    <string>ferrofolio</string>
                 </array>
             </dict>
         </array>

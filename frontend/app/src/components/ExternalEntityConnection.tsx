@@ -366,7 +366,7 @@ export function useExternalEntityConnection() {
 
   const handleExternalCompleteUrl = useCallback(
     async (url: string) => {
-      if (!url.startsWith("finanze://external/complete")) return
+      if (!url.startsWith("ferrofolio://external/complete")) return
       let code: string | null
       let state: string | null
       let error: string | null
@@ -457,7 +457,7 @@ export function useExternalEntityConnection() {
     if (state) out.set("state", state)
     if (error) out.set("error", error)
     void handleExternalCompleteUrl(
-      `finanze://external/complete?${out.toString()}`,
+      `ferrofolio://external/complete?${out.toString()}`,
     )
 
     window.history.replaceState(

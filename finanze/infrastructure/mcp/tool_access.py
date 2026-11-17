@@ -34,7 +34,7 @@ class McpToolAccess:
                     content=[
                         TextContent(
                             type="text",
-                            text="This tool is disabled in Finanze MCP settings. Ask the user to enable its category and required access before trying again.",
+                            text="This tool is disabled in Ferrofolio MCP settings. Ask the user to enable its category and required access before trying again.",
                         )
                     ],
                     is_error=True,

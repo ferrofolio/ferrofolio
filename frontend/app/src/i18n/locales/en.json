@@ -109,8 +109,6 @@
     "details": "Details",
     "unsupportedWebView": "Your Android System WebView is outdated and not supported. Please update it from the Play Store to use this app.",
     "updateWebView": "Update WebView",
-    "officialWebpage": "finanze.me",
-    "officialWebpageUrl": "https://finanze.me",
     "optional": "Optional",
     "clear": "Clear",
     "notAvailableOnPlatform": "Not available on this platform",
@@ -603,7 +601,6 @@
     "tabEntities": "Entities",
     "tabProviders": "Providers",
     "storeNotice": "This version does not support connections with financial entities. You can manage your data manually, import from files, visit {link} for more options.",
-    "storeNoticeLink": "finanze.me",
     "connected": "Connected",
     "requiresLogin": "Requires Login",
     "login": "Login Again",
@@ -846,9 +843,9 @@
     "integrations": "Integrations",
     "legal": {
       "title": "Legal",
-      "description": "Legal information and policies",
-      "privacyPolicy": "Privacy Policy",
-      "termsOfService": "Terms of Service"
+      "description": "Ferrofolio is free software. Its source code is available to everyone who uses it.",
+      "sourceCode": "Source code",
+      "license": "License (AGPL-3.0)"
     },
     "privacy": {
       "title": "Diagnostics",
@@ -1210,8 +1207,8 @@
               "Add this URL to the **Authorized redirect URIs** ",
               {
                 "type": "copylink",
-                "label": "https://finanze.me/oauth/v1/integration/callback/",
-                "url": "https://finanze.me/oauth/v1/integration/callback/"
+                "label": "{{integrationCallbackUrl}}",
+                "url": "{{integrationCallbackUrl}}"
               },
               ". This field is **so important**."
             ],
