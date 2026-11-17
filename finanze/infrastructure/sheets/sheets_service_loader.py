@@ -35,7 +35,7 @@ AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 RELAY_REDIRECT_URI = "https://finanze.me/oauth/v1/integration/callback/"
 DEFAULT_COMPLETION_URL = (
-    "finanze://integration/complete?integration_oauth="
+    "ferrofolio://integration/complete?integration_oauth="
     + ExternalIntegrationId.GOOGLE_SHEETS.value
 )
 PENDING_AUTHORIZATION_TTL_SECONDS = 15 * 60
