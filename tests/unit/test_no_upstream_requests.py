@@ -24,29 +24,17 @@ EXCLUDED_PARTS = {"node_modules", "__pycache__", "locales"}
 
 UPSTREAM = re.compile(r"(?:https?://|@|\b)(?:[a-z0-9-]+\.)*finanze\.me\b", re.I)
 
-# Files that still reference finanze.me, each with the change that removes it.
-# Remove an entry once that change is merged; do not add new ones.
+# Files that still reference finanze.me, each with the change that removes it and
+# the number of lines that may still reference it. Lower the count or remove the
+# entry as references go away; do not add entries or raise a count.
 PENDING = {
     # Upstream cloud UI; hidden unless the CLOUD feature flag is on. Links and
     # e-mail addresses only, nothing is requested.
-    "frontend/app/src/components/settings/CloudTab.tsx": "upstream cloud UI",
-    "frontend/app/src/components/ui/PlusMessage.tsx": "upstream cloud UI",
-    # Source code and licence links (#24)
-    "frontend/app/src/about/AboutWindow.tsx": "#24",
-    "frontend/app/src/components/settings/GeneralTab.tsx": "#24",
-    "frontend/app/src/pages/EntityIntegrationsPage.tsx": "#24",
-    # Google Sheets redirect (#30)
-    "finanze/infrastructure/sheets/sheets_service_loader.py": "#30",
+    "frontend/app/src/components/settings/CloudTab.tsx": ("upstream cloud UI", 3),
+    "frontend/app/src/components/ui/PlusMessage.tsx": ("upstream cloud UI", 1),
     # Feature flags and public keychain (#31)
-    "finanze/infrastructure/client/features/feature_flag_client.py": "#31",
-    "finanze/infrastructure/client/keychain/public_keychain_client.py": "#31",
-    # Static data, ticker icons and cloud backups (#32)
-    "finanze/infrastructure/client/cloud/backup/backup_client.py": "#32",
-    "finanze/infrastructure/client/rates/crypto/crypto_dataset_client.py": "#32",
-    "finanze/infrastructure/client/rates/metal/historic_metal_price_client.py": "#32",
-    "frontend/app/src/components/contributions/ContributionsView.tsx": "#32",
-    "frontend/app/src/components/transactions/ManualTransactionDialog.tsx": "#32",
-    "frontend/app/src/pages/StocksInvestmentPage.tsx": "#32",
+    "finanze/infrastructure/client/features/feature_flag_client.py": ("#31", 1),
+    "finanze/infrastructure/client/keychain/public_keychain_client.py": ("#31", 1),
 }
 
 
@@ -91,14 +79,30 @@ def test_pattern_matches_upstream_addresses():
 
 
 def test_shipped_code_makes_no_new_upstream_requests():
+    references = _references()
     unexpected = [
         location
-        for file, locations in sorted(_references().items())
-        if file not in PENDING
+        for file, locations in sorted(references.items())
+        if len(locations) > PENDING.get(file, (None, 0))[1]
         for location in locations
     ]
 
     assert unexpected == [], (
         "Code must not reference services under finanze.me (AGENTS.md). "
         f"Found: {unexpected}"
+    )
+
+
+def test_pending_baselines_are_current():
+    # A baseline above the actual count would let new references in unnoticed
+    references = _references()
+    stale = {
+        file: (count, len(references.get(file, [])))
+        for file, (_, count) in PENDING.items()
+        if count != len(references.get(file, []))
+    }
+
+    assert stale == {}, (
+        "Update PENDING to the current number of references, or remove the entry "
+        f"(file: (baseline, found)): {stale}"
     )

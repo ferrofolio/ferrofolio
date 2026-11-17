@@ -62,7 +62,8 @@ class BackupClient(BackupRepository):
             raise BackupTransferFailed(
                 "The cloud backup service returned invalid JSON"
             ) from e
-        value = body.get(field, expected()) if isinstance(body, dict) else None
+        # A missing field is malformed; an explicitly empty container is valid
+        value = body[field] if isinstance(body, dict) and field in body else None
         if not isinstance(value, expected):
             raise BackupTransferFailed(
                 "The cloud backup service returned an unexpected response"
@@ -252,6 +253,10 @@ class BackupClient(BackupRepository):
             for backup_type_str, piece_info in info_pieces.items():
                 try:
                     backup_type = BackupFileType(backup_type_str)
+                except ValueError:
+                    self._log.warning(f"Ignoring unknown backup type {backup_type_str}")
+                    continue
+                try:
                     piece_id = piece_info["id"]
                     if not isinstance(piece_id, str):
                         raise ValueError("Backup piece id is not a string")
@@ -264,10 +269,12 @@ class BackupClient(BackupRepository):
                     )
                     backup_infos[backup_type] = backup_info
                 except (KeyError, TypeError, ValueError) as e:
-                    self._log.warning(
-                        f"Error parsing backup info for {backup_type_str}: {e}"
-                    )
-                    continue
+                    # Skipping the piece would report it as absent, and an upload
+                    # would then overwrite it without checking for a conflict
+                    raise BackupTransferFailed(
+                        "The cloud backup service returned malformed info for "
+                        f"backup piece {backup_type.value}"
+                    ) from e
 
             return BackupsInfo(pieces=backup_infos)
 
