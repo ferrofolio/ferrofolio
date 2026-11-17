@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
-import type { PluginListenerHandle } from "@capacitor/core"
 import { useAppContext } from "@/context/AppContext"
 import { useEntityWorkflow } from "@/context/EntityWorkflowContext"
 import { useI18n } from "@/i18n"
@@ -36,10 +35,9 @@ import {
   disconnectExternalEntity,
 } from "@/services/api"
 import { AVAILABLE_COUNTRIES } from "@/constants/countries"
-import { isNativeMobile, isWeb } from "@/lib/platform"
+import { isWeb } from "@/lib/platform"
 import {
   INTEGRATION_OAUTH_PARAM,
-  closeExternalAuthBrowser,
   openExternalAuthLink,
 } from "@/lib/externalAuth"
 import { useModalBackHandler } from "@/hooks/useModalBackHandler"
@@ -381,13 +379,11 @@ export function useExternalEntityConnection() {
 
       const entityId = state || externalEntityId
       if (error || !entityId) {
-        await closeExternalAuthBrowser()
         setShowCompleteExternalModal(false)
         showToast(t.entities.externalLinkError, "error", { reportable: false })
         return
       }
 
-      await closeExternalAuthBrowser()
       setShowCompleteExternalModal(true)
       setCompletingConnection(true)
       try {
@@ -412,32 +408,6 @@ export function useExternalEntityConnection() {
       await handleExternalCompleteUrl(payload.url)
     })
     return () => unsubscribe?.()
-  }, [handleExternalCompleteUrl])
-
-  // Listen for the external entity completion deep link (mobile)
-  useEffect(() => {
-    if (!isNativeMobile()) return
-
-    let cleanup: (() => void) | undefined
-    let mounted = true
-
-    import("@capacitor/app").then(({ App }) => {
-      if (!mounted) return
-      const listener = App.addListener(
-        "appUrlOpen",
-        ({ url }: { url: string }) => {
-          void handleExternalCompleteUrl(url)
-        },
-      )
-      cleanup = () => {
-        listener.then((l: PluginListenerHandle) => l.remove())
-      }
-    })
-
-    return () => {
-      mounted = false
-      cleanup?.()
-    }
   }, [handleExternalCompleteUrl])
 
   // Handle the external entity completion return (web/Docker). The provider

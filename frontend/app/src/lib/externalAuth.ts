@@ -1,10 +1,8 @@
-import { isNativeMobile, isWeb } from "@/lib/platform"
-import { openInAppBrowser, closeInAppBrowser } from "@/lib/mobile"
+import { isWeb } from "@/lib/platform"
 
 export const INTEGRATION_OAUTH_PARAM = "integration_oauth"
 
 const INTEGRATION_COMPLETE_DEEPLINK = "ferrofolio://integration/complete"
-const LOOPBACK_CALLBACK_PATH = "/auth/callback"
 
 export interface IntegrationOAuthCallback {
   integrationId: string
@@ -14,21 +12,7 @@ export interface IntegrationOAuthCallback {
   clientId: string | null
 }
 
-export interface LoopbackAuthorization {
-  callbackUrl: string
-  wait(link: string): Promise<IntegrationOAuthCallback | null>
-  cancel(): Promise<void>
-}
-
 export async function openExternalAuthLink(link: string) {
-  if (isNativeMobile()) {
-    try {
-      await openInAppBrowser(link)
-    } catch {
-      // ignore in-app browser open errors
-    }
-    return
-  }
   if (isWeb()) {
     // Web/Docker: navigate the same tab; the provider page redirects back
     // to this app with the code/state once the authorization completes.
@@ -42,23 +26,7 @@ export async function openExternalAuthLink(link: string) {
   }
 }
 
-export async function closeExternalAuthBrowser() {
-  try {
-    await closeInAppBrowser()
-  } catch {
-    // ignore in-app browser close errors
-  }
-}
-
 export async function openExternalAuthPage(link: string) {
-  if (isNativeMobile()) {
-    try {
-      await openInAppBrowser(link)
-    } catch {
-      // ignore in-app browser open errors
-    }
-    return
-  }
   try {
     window.open(link, "_blank", "noopener,noreferrer")
   } catch {
@@ -108,77 +76,5 @@ export function parseOAuthCallbackAddress(
     code: url.searchParams.get("code"),
     error: url.searchParams.get("error"),
     clientId: url.searchParams.get("client_id"),
-  }
-}
-
-function authorizationState(link: string): string | null {
-  try {
-    return new URL(link).searchParams.get("state")
-  } catch {
-    return null
-  }
-}
-
-export async function startLoopbackAuthorization(
-  integrationId: string,
-): Promise<LoopbackAuthorization> {
-  const { LoopbackCallback } = await import("@/lib/capacitor/loopbackCallback")
-  const { Browser } = await import("@capacitor/browser")
-
-  let settle: (callback: IntegrationOAuthCallback | null) => void = () => {}
-  const outcome = new Promise<IntegrationOAuthCallback | null>(resolve => {
-    settle = resolve
-  })
-  let expectedState: string | null = null
-  let released = false
-
-  const handles = await Promise.all([
-    LoopbackCallback.addListener("callback", ({ url }) => {
-      const callback = parseOAuthCallbackAddress(integrationId, url)
-      if (callback && expectedState && callback.state === expectedState) {
-        settle(callback)
-      }
-    }),
-    LoopbackCallback.addListener("timeout", () => settle(null)),
-    Browser.addListener("browserFinished", () => settle(null)),
-  ])
-
-  const release = async () => {
-    if (released) return
-    released = true
-    await Promise.all(handles.map(handle => handle.remove()))
-    try {
-      await LoopbackCallback.stop()
-    } catch {
-      // listener already stopped
-    }
-  }
-
-  let callbackUrl: string
-  try {
-    callbackUrl = (
-      await LoopbackCallback.start({ path: LOOPBACK_CALLBACK_PATH })
-    ).url
-  } catch (error) {
-    await release()
-    throw error
-  }
-
-  return {
-    callbackUrl,
-    async wait(link: string) {
-      expectedState = authorizationState(link)
-      await openExternalAuthLink(link)
-      const callback = await outcome
-      await release()
-      if (callback) {
-        await closeExternalAuthBrowser()
-      }
-      return callback
-    },
-    async cancel() {
-      settle(null)
-      await release()
-    },
   }
 }

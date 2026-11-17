@@ -1,5 +1,3 @@
-import { isNativeMobile } from "@/lib/platform"
-
 export interface ChallengeWindowAPI {
   requestChallengeWindow(
     siteKey: string,
@@ -21,11 +19,7 @@ export function getChallengeWindowAPI(): ChallengeWindowAPI | null {
     }
   }
 
-  if (isNativeMobile() || mobileChallengeAPI) {
-    return mobileChallengeAPI
-  }
-
-  return null
+  return mobileChallengeAPI
 }
 
 export function setMobileChallengeAPI(api: ChallengeWindowAPI | null) {

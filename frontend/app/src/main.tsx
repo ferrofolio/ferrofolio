@@ -15,16 +15,12 @@ import { initDevPlatformOverride } from "@/lib/dev/initDevPlatformOverride"
 import { initE2eMockExternalLogin } from "@/lib/dev/initE2eMockExternalLogin"
 import { initE2eMockChallengeWindow } from "@/lib/dev/initE2eMockChallengeWindow"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-import * as mobile from "@/lib/mobile"
 import { initTelemetry } from "@/lib/telemetry"
 
 async function bootstrap(): Promise<void> {
-  await mobile.preinit()
-
   initDevPlatformOverride()
   initE2eMockExternalLogin()
   initE2eMockChallengeWindow()
-  mobile.init()
 
   await initTelemetry().catch(console.error)
 

@@ -32,7 +32,6 @@ export const mockExportFile = vi.fn()
 export const mockImportFile = vi.fn()
 export const mockGetTemplates = vi.fn()
 export const mockSuggestTemplateFields = vi.fn()
-export const mockSaveBlobToDevice = vi.fn().mockResolvedValue(false)
 export const mockFinancialState: { positionsData: any } = {
   positionsData: null,
 }
@@ -108,14 +107,6 @@ vi.mock("@/services/api", async importOriginal => {
     createTemplate: vi.fn().mockResolvedValue({}),
     updateTemplate: vi.fn().mockResolvedValue({}),
     deleteTemplate: vi.fn().mockResolvedValue(undefined),
-  }
-})
-
-vi.mock("@/lib/mobile", async importOriginal => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return {
-    ...actual,
-    saveBlobToDevice: (...args: unknown[]) => mockSaveBlobToDevice(...args),
   }
 })
 
@@ -416,5 +407,6 @@ export function resetAllMocks() {
     date_format: null,
     detected_currency: null,
   })
-  mockSaveBlobToDevice.mockReset().mockResolvedValue(false)
+  URL.createObjectURL = vi.fn(() => "blob:export")
+  URL.revokeObjectURL = vi.fn()
 }
