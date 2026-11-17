@@ -10,7 +10,6 @@ from domain.global_position import (
     EquityType,
     ProductType,
 )
-from domain.public_keychain import PublicKeychain
 from domain.transactions import TxType
 from infrastructure.client.entity.financial.trading212.trading212_fetcher import (
     Trading212Fetcher,
@@ -62,7 +61,6 @@ async def _agen(pages):
 def _login_params(api_key="key", secret_key="secret"):
     return EntityLoginParams(
         credentials={"apiKey": api_key, "secretKey": secret_key},
-        keychain=MagicMock(spec=PublicKeychain),
     )
 
 

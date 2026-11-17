@@ -125,7 +125,6 @@ from application.ports.backup_repository import BackupRepository
 from application.ports.backup_processor import BackupProcessor
 from application.ports.datasource_backup_port import Backupable
 from application.ports.datasource_initiator import DatasourceInitiator
-from application.ports.public_keychain_loader import PublicKeychainLoader
 from application.ports.entity_account_port import EntityAccountPort
 from application.ports.crypto_wallet_port import CryptoWalletPort
 from application.ports.crypto_entity_fetcher import CryptoEntityFetcher
@@ -139,7 +138,6 @@ from application.ports.manual_position_data_port import ManualPositionDataPort
 from application.ports.virtual_import_registry import VirtualImportRegistry
 from application.ports.pending_flow_port import PendingFlowPort
 from application.ports.file_storage_port import FileStoragePort
-from domain.public_keychain import PublicKeychain
 
 from application.use_cases.register_user import RegisterUserImpl
 from application.use_cases.user_login import UserLoginImpl
@@ -277,9 +275,6 @@ async def app(tmp_path):
         BackupFileType.DATA: backupable_data,
     }
 
-    keychain_loader = AsyncMock(spec=PublicKeychainLoader)
-    keychain_loader.load = AsyncMock(return_value=PublicKeychain({}))
-
     entity_account_port = AsyncMock(spec=EntityAccountPort)
     loan_calculator = AsyncMock(spec=LoanCalculatorPort)
 
@@ -328,7 +323,6 @@ async def app(tmp_path):
         credentials_port,
         sessions_port,
         transaction_handler_port,
-        keychain_loader,
         entity_account_port,
         feature_flag_port,
     )
@@ -345,7 +339,6 @@ async def app(tmp_path):
         crypto_asset_registry_port,
         crypto_asset_info_provider,
         transaction_handler_port,
-        keychain_loader,
         entity_account_port,
         loan_calculator,
         real_estate_repo,
