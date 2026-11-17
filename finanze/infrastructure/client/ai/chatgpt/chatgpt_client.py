@@ -153,7 +153,7 @@ def _error_for_code(code: Optional[str], message: str) -> Optional[Exception]:
     if code in FORBIDDEN_CODES:
         return AIProviderError(
             AIProviderErrorCode.INVALID_CREDENTIALS,
-            "The connected ChatGPT account can't use its plan in Finanze",
+            "The connected ChatGPT account can't use its plan in Ferrofolio",
         )
     if code in UNSUPPORTED_CODES:
         return AIProviderError(AIProviderErrorCode.UNSUPPORTED_OPERATION, message)

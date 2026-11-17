@@ -1639,7 +1639,7 @@ class FinanzeServer:
         return False
 
     async def run(self):
-        self._log.info(f"Initializing Finanze server on port {self._args.port}...")
+        self._log.info(f"Initializing Ferrofolio server on port {self._args.port}...")
         try:
             await self._init()
         except OSError as e:
@@ -1686,7 +1686,7 @@ class FinanzeServer:
             self._error_reporter.capture_exception(e, tags={"phase": "runtime"})
             raise
         finally:
-            self._log.info("Finanze server shutting down.")
+            self._log.info("Ferrofolio server shutting down.")
             await self._error_reporter.flush()
             await self._close_financial_entity_fetchers()
             await self._stop_local_models()

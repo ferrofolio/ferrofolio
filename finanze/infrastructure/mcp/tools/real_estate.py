@@ -124,7 +124,7 @@ def register(registry: ToolRegistry, ucs: McpUseCases):
         ] = None,
         rental_data: Optional[RentalDataInput] = None,
     ):
-        """Create a real estate property, or update one by real_estate_id. On update only the provided sections are replaced. On create basic_info, purchase_info, valuation_info and currency are required. Linked flows (rent, mortgage, costs) and photos are managed in the Finanze app and kept on update."""
+        """Create a real estate property, or update one by real_estate_id. On update only the provided sections are replaced. On create basic_info, purchase_info, valuation_info and currency are required. Linked flows (rent, mortgage, costs) and photos are managed in the Ferrofolio app and kept on update."""
         if real_estate_id:
             current = next(
                 (
