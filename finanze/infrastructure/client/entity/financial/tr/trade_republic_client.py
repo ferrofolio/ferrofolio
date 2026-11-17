@@ -250,12 +250,7 @@ class TradeRepublicClient:
 
     @staticmethod
     def _get_timezone() -> str:
-        try:
-            import js
-
-            return str(js.Intl.DateTimeFormat().resolvedOptions().timeZone)
-        except Exception:
-            return str(get_localzone())
+        return str(get_localzone())
 
     async def _get_v2_headers(self) -> dict:
         app_version = await self._fetch_app_version()

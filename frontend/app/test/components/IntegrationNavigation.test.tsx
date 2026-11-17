@@ -18,7 +18,6 @@ import { FFStatus, PlatformType } from "@/types"
 const { state, setupIntegration, disableIntegration } = vi.hoisted(() => ({
   state: {
     app: {} as Record<string, unknown>,
-    native: false,
     locale: "en-US" as "en-US" | "es-ES" | "it-IT" | "de-DE",
   },
   setupIntegration: vi.fn(),
@@ -64,7 +63,6 @@ vi.mock("@/components/settings/CloudTab", () => ({ CloudTab: () => null }))
 vi.mock("@/components/settings/McpTab", () => ({ McpTab: () => null }))
 vi.mock("@/lib/platform", async importOriginal => ({
   ...(await importOriginal<typeof import("@/lib/platform")>()),
-  isNativeMobile: () => state.native,
   getPlatformType: () => PlatformType.WEB,
 }))
 vi.mock("@/services/api", async importOriginal => ({
@@ -99,7 +97,6 @@ function renderRoute(route = "/entities") {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(window, "scrollTo").mockImplementation(() => {})
-  state.native = false
   state.locale = "en-US"
   state.app = {
     entities: [],
@@ -323,24 +320,11 @@ describe("Settings integration migration", () => {
   )
 
   it.each([
-    {
-      native: true,
-      cloud: false,
-      count: 3,
-      aiTab: en.settings.aiTab.titleNoMcp,
-    },
-    {
-      native: true,
-      cloud: true,
-      count: 4,
-      aiTab: en.settings.aiTab.titleNoMcp,
-    },
-    { native: false, cloud: false, count: 3, aiTab: en.settings.aiTab.title },
-    { native: false, cloud: true, count: 4, aiTab: en.settings.aiTab.title },
+    { cloud: false, count: 3, aiTab: en.settings.aiTab.title },
+    { cloud: true, count: 4, aiTab: en.settings.aiTab.title },
   ])(
-    "keeps $count settings tabs with native=$native and cloud=$cloud",
-    ({ native, cloud, count, aiTab }) => {
-      state.native = native
+    "keeps $count settings tabs with cloud=$cloud",
+    ({ cloud, count, aiTab }) => {
       state.app.featureFlags = { CLOUD: cloud ? FFStatus.ON : FFStatus.OFF }
       renderRoute("/settings")
       expect(screen.getAllByRole("tab")).toHaveLength(count)
@@ -356,7 +340,6 @@ describe("Settings integration migration", () => {
   )
 
   it("opens the AI & MCP settings tab from the legacy MCP link", () => {
-    state.native = false
     state.app.featureFlags = { CLOUD: FFStatus.OFF }
     renderRoute("/settings?tab=mcp")
     expect(

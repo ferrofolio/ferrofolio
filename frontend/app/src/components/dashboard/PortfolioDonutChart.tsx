@@ -154,10 +154,6 @@ export function PortfolioDonutChart({
   }, [overflowItems])
 
   const getInvestmentRoute = (assetType: string) => {
-    if (assetType === "MARKET_FORECAST" && !__CONNECTIONS__) {
-      return null
-    }
-
     const routeMap: Record<string, string> = {
       STOCK_ETF: "/investments/stocks-etfs",
       FUND: "/investments/funds",

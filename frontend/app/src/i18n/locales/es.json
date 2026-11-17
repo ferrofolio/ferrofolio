@@ -107,8 +107,6 @@
     "startingServer": "Iniciando servidor",
     "backendFailedToStart": "Error al iniciar el servidor",
     "details": "Detalles",
-    "unsupportedWebView": "Tu Android System WebView está desactualizado y no es compatible. Por favor, actualízalo desde la Play Store para usar esta aplicación.",
-    "updateWebView": "Actualizar WebView",
     "optional": "Opcional",
     "clear": "Limpiar",
     "notAvailableOnPlatform": "No disponible en esta plataforma",
@@ -140,16 +138,6 @@
     "manualDownloads": {
       "show": "Mostrar descargas manuales",
       "hide": "Ocultar descargas manuales"
-    },
-    "mobileUpdate": {
-      "description": "Hay una nueva versión lista para descargar e instalar.",
-      "download": "Descargar actualización",
-      "downloading": "Descargando…",
-      "install": "Instalar actualización",
-      "permissionRequired": "Permite instalar apps de este origen y vuelve a pulsar Instalar actualización.",
-      "retry": "Reintentar",
-      "showMore": "Mostrar más",
-      "showLess": "Mostrar menos"
     }
   },
   "about": {
@@ -473,15 +461,9 @@
     "viewErrorDetails": "Ver detalles técnicos",
     "errorDetailsTitle": "Detalles técnicos",
     "syncPasswordHint": "Usa la misma clave de cifrado en todos tus dispositivos si tienes la sincronización activada",
-    "enableBiometric": "Activar {type}",
     "rememberSession": "Recordarme",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Huella",
-    "biometricAuth": "Biometría",
-    "biometricLoginReason": "Desbloquear Ferrofolio",
     "biometricSaved": "Inicio de sesión biométrico activado",
     "biometricError": "No se pudo activar el inicio de sesión biométrico",
-    "biometricLoginFailed": "La autenticación biométrica falló",
     "usernameInfoTooltip": "Esto no es un email ni una cuenta en la nube. Solo un nombre local como un apodo o tu nombre.",
     "invalidUsername": "El nombre de usuario debe tener al menos 2 caracteres y solo puede contener letras, números y _ - . $ € #",
     "invalidPasswordFormat": "La clave de cifrado debe tener al menos 8 caracteres",
@@ -600,7 +582,6 @@
     "title": "Integraciones",
     "tabEntities": "Entidades",
     "tabProviders": "Proveedores",
-    "storeNotice": "Esta versión no soporta conexiones con entidades financieras. Puedes gestionar tus datos manualmente, importar desde archivos, visita {link} para más opciones.",
     "connected": "Conectado",
     "requiresLogin": "Requiere inicio de sesión",
     "login": "Iniciar sesión",
@@ -737,14 +718,6 @@
     },
     "userTitle": "Cuenta",
     "userDescription": "Gestiona tu cuenta.",
-    "biometricCredentialsTitle": "Inicio biométrico",
-    "biometricCredentialsNotEnabledTitle": "Habilitar inicio biométrico",
-    "biometricCredentialsDescription": "Gestiona el inicio de sesión biométrico.",
-    "biometricCredentialsAction": "Desactivar",
-    "biometricCredentialsCleared": "Credenciales biométricas eliminadas",
-    "biometricCredentialsClearError": "No se pudo deshabilitar el inicio biométrico",
-    "biometricCredentialsNotEnabledHint": "Habilita el inicio biométrico para un acceso más rápido y seguro al iniciar sesión o al cambiar tu contraseña.",
-    "biometricCredentialsActionTitle": "Desactivar inicio biométrico",
     "applicationLanguageOptions": {
       "en-US": "Inglés",
       "es-ES": "Español",
@@ -1685,8 +1658,7 @@
       "settingsLink": "Elige qué modelos de IA usan las funciones, en Ajustes"
     },
     "aiTab": {
-      "title": "IA y MCP",
-      "titleNoMcp": "IA"
+      "title": "IA y MCP"
     },
     "aiTaskProviders": {
       "customize": "Usar modelos personalizados en esta función",
@@ -1739,8 +1711,6 @@
     },
     "noDataTitle": "Aún no tienes datos",
     "noDataSubtitle": "Conecta tus entidades financieras en la sección de integraciones para el resumen, también puedes añadir manualmente o importar tus datos!",
-    "noDataSubtitleStore": "Añade tus datos financieros manualmente, importa desde archivos o restaura una copia de seguridad para empezar.",
-    "goToAssetsButton": "Ir a Mis Activos",
     "noDataButton": "Actualizar datos",
     "connectEntitiesButton": "Conectar entidades",
     "totalValue": "Valor total",

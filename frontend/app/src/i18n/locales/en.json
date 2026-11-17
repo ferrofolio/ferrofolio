@@ -109,8 +109,6 @@
     "startingServer": "Starting server",
     "backendFailedToStart": "Failed to start server",
     "details": "Details",
-    "unsupportedWebView": "Your Android System WebView is outdated and not supported. Please update it from the Play Store to use this app.",
-    "updateWebView": "Update WebView",
     "optional": "Optional",
     "clear": "Clear",
     "notAvailableOnPlatform": "Not available on this platform",
@@ -142,16 +140,6 @@
     "manualDownloads": {
       "show": "Show manual download options",
       "hide": "Hide manual download options"
-    },
-    "mobileUpdate": {
-      "description": "A new version is ready to download and install.",
-      "download": "Download update",
-      "downloading": "Downloading…",
-      "install": "Install update",
-      "permissionRequired": "Allow installing apps from this source, then tap Install update again.",
-      "retry": "Retry",
-      "showMore": "Show more",
-      "showLess": "Show less"
     }
   },
   "about": {
@@ -475,15 +463,9 @@
     "viewErrorDetails": "View technical details",
     "errorDetailsTitle": "Technical details",
     "syncPasswordHint": "Use the same encryption key across devices if sync is enabled",
-    "enableBiometric": "Enable {type}",
     "rememberSession": "Remember me",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Fingerprint",
-    "biometricAuth": "Biometric",
-    "biometricLoginReason": "Unlock Ferrofolio",
     "biometricSaved": "Biometric login enabled",
     "biometricError": "Could not enable biometric login",
-    "biometricLoginFailed": "Biometric authentication failed",
     "usernameInfoTooltip": "This is not an email or cloud account. Just a local name like a nickname or your name.",
     "invalidUsername": "Username must be at least 2 characters and can only contain letters, numbers, and _ - . $ € #",
     "invalidPasswordFormat": "Encryption key must be at least 8 characters",
@@ -602,7 +584,6 @@
     "title": "Integrations",
     "tabEntities": "Entities",
     "tabProviders": "Providers",
-    "storeNotice": "This version does not support connections with financial entities. You can manage your data manually, import from files, visit {link} for more options.",
     "connected": "Connected",
     "requiresLogin": "Requires Login",
     "login": "Login Again",
@@ -739,14 +720,6 @@
     },
     "userTitle": "Account",
     "userDescription": "Manage your account.",
-    "biometricCredentialsActionTitle": "Disable biometric login",
-    "biometricCredentialsNotEnabledTitle": "Enable biometric login",
-    "biometricCredentialsNotEnabledHint": "Enable biometric login for faster and secure from login or when changing your password.",
-    "biometricCredentialsAction": "Disable",
-    "biometricCredentialsTitle": "Biometric login",
-    "biometricCredentialsDescription": "Manage biometric login.",
-    "biometricCredentialsCleared": "Biometric login disabled",
-    "biometricCredentialsClearError": "Failed to disable biometric login",
     "applicationLanguageOptions": {
       "en-US": "English",
       "es-ES": "Spanish",
@@ -1687,8 +1660,7 @@
       "settingsLink": "Choose which AI models features use, in Settings"
     },
     "aiTab": {
-      "title": "AI & MCP",
-      "titleNoMcp": "AI"
+      "title": "AI & MCP"
     },
     "aiTaskProviders": {
       "customize": "Use custom models for this feature",
@@ -1741,8 +1713,6 @@
     "entity": "Entity",
     "noDataTitle": "No financial data yet",
     "noDataSubtitle": "Connect your financial entities in the integrations section to see your dashboard, you can also add and import your own data!",
-    "noDataSubtitleStore": "Add your financial data manually, import from files, or restore a backup to get started!",
-    "goToAssetsButton": "Go to My Assets",
     "connectEntitiesButton": "Connect Entities",
     "totalValue": "Total Value",
     "shareOfTotal": "Share of Total",

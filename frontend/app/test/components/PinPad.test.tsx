@@ -13,8 +13,6 @@ import en from "@/i18n/locales/en.json"
 
 const mocks = vi.hoisted(() => ({
   login: vi.fn().mockResolvedValue(undefined),
-  getLastSmsOtpMessage: vi.fn().mockResolvedValue("Your code is 999999"),
-  addSmsOtpReceivedListener: vi.fn(),
   cancelEntityLogin: vi.fn().mockResolvedValue(undefined),
   entity: { id: "tr", name: "Trade Republic", pin: { positions: 4 } },
   credentials: { phone: "+490000000", password: "0000" },
@@ -47,11 +45,6 @@ vi.mock("@/context/AppContext", () => ({
   useAppContext: () => ({ showToast: vi.fn() }),
 }))
 vi.mock("@/i18n", () => ({ useI18n: () => ({ t: en }) }))
-vi.mock("@/lib/mobile/smsOtp", () => ({
-  getLastSmsOtpMessage: mocks.getLastSmsOtpMessage,
-  addSmsOtpReceivedListener: mocks.addSmsOtpReceivedListener,
-}))
-vi.mock("@/lib/platform", () => ({ isIOS: () => false }))
 vi.mock("@/services/api", () => ({
   cancelEntityLogin: mocks.cancelEntityLogin,
 }))
@@ -62,7 +55,7 @@ describe("PinPad authenticator", () => {
     vi.clearAllMocks()
   })
 
-  it("accepts an authenticator code without reading or listening for SMS", async () => {
+  it("accepts an authenticator code", async () => {
     render(
       <ModalRegistryProvider>
         <PinPad />
@@ -72,8 +65,6 @@ describe("PinPad authenticator", () => {
     expect(screen.getByText(en.pinpad.authenticatorHint)).toBeVisible()
     const input = screen.getByLabelText(en.pinpad.otpInputLabel)
     expect(input).toHaveAttribute("autocomplete", "off")
-    expect(mocks.getLastSmsOtpMessage).not.toHaveBeenCalled()
-    expect(mocks.addSmsOtpReceivedListener).not.toHaveBeenCalled()
 
     fireEvent.change(input, { target: { value: "003456" } })
     fireEvent.click(screen.getByRole("button", { name: en.common.submit }))

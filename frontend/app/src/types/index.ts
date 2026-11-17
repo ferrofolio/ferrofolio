@@ -571,8 +571,6 @@ export interface PlatformInfo {
   electronVersion?: string
   chromiumVersion?: string | null
   nodeVersion?: string | null
-  webViewVersion?: string | null
-  unsupportedWebView?: boolean
 }
 
 export type ThemeMode = "light" | "dark" | "system"

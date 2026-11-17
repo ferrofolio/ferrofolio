@@ -1,7 +1,11 @@
 import { beforeEach, afterEach, describe, expect, it } from "vitest"
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { type ReactNode } from "react"
-import { BottomNavProvider, useBottomNav } from "@/context/BottomNavContext"
+import {
+  BOTTOM_NAV_SHORTCUTS,
+  BottomNavProvider,
+  useBottomNav,
+} from "@/context/BottomNavContext"
 
 const STORAGE_KEY = "finanze-bottom-nav"
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -13,6 +17,23 @@ beforeEach(() => localStorage.clear())
 afterEach(cleanup)
 
 describe("BottomNavContext", () => {
+  it("offers the Market Forecast shortcut in every build", () => {
+    expect(BOTTOM_NAV_SHORTCUTS).toContain("market-forecast")
+  })
+
+  it("keeps a stored Market Forecast shortcut", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        bar: ["dashboard", "market-forecast"],
+        menu: ["settings"],
+      }),
+    )
+    const { result } = renderNav()
+    expect(result.current.bar).toContain("market-forecast")
+  })
+
   it("keeps today's defaults and persists a versioned local preference", () => {
     const { result } = renderNav()
     expect(result.current.bar).toEqual([
@@ -48,7 +69,7 @@ describe("BottomNavContext", () => {
       STORAGE_KEY,
       JSON.stringify({
         version: 1,
-        bar: ["crypto", "crypto", "unknown", "market-forecast", 3],
+        bar: ["crypto", "crypto", "unknown", "removed-page", 3],
         menu: ["crypto", "settings"],
       }),
     )
@@ -137,6 +158,7 @@ describe("BottomNavContext", () => {
       "settings",
       "export",
       "banking",
+      "market-forecast",
       "calculations",
     ])
     act(() => result.current.removeShortcut("banking"))

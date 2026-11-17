@@ -146,14 +146,6 @@ import { handleApiError } from "@/utils/apiErrors"
 import { getApiClient } from "./apiClient"
 import { setTelemetryContext } from "@/lib/telemetry"
 import { AppSettings, type SettingsKey } from "@/context/AppContext"
-import {
-  triggerDeferredInit,
-  isBackgroundUpdateAvailable,
-  backgroundUpdateQuotes,
-  backgroundUpdateLoans,
-  backgroundGetNetworthTimeline,
-  backgroundGetGainsTimeline,
-} from "@/lib/mobile"
 
 export interface ApiServerInfo {
   isCustomServer: boolean
@@ -355,8 +347,6 @@ export async function checkStatus(
     backendOs: result.server?.platform_type,
     backendOsVersion: result.server?.platform_version,
   })
-
-  triggerDeferredInit()
 
   return result
 }
@@ -775,18 +765,12 @@ export async function saveManualPositions(
 }
 
 export async function updateQuotesManualPositions(): Promise<UpdateTrackedResult> {
-  if (isBackgroundUpdateAvailable()) {
-    return backgroundUpdateQuotes<UpdateTrackedResult>()
-  }
   return (await getApiClient()).post<UpdateTrackedResult>(
     "/data/manual/positions/update-quotes",
   )
 }
 
 export async function updateTrackedLoans(): Promise<UpdateTrackedResult> {
-  if (isBackgroundUpdateAvailable()) {
-    return backgroundUpdateLoans<UpdateTrackedResult>()
-  }
   return (await getApiClient()).post<UpdateTrackedResult>(
     "/data/manual/positions/update-loans",
   )
@@ -1177,10 +1161,6 @@ export async function getMoneyEvents(
 export async function getNetworthTimeline(
   query?: NetworthTimelineQuery,
 ): Promise<NetworthTimeline> {
-  if (isBackgroundUpdateAvailable()) {
-    return backgroundGetNetworthTimeline<NetworthTimeline>(query)
-  }
-
   const params = new URLSearchParams()
   if (query?.base_currency) params.append("base_currency", query.base_currency)
   if (query?.from_date) params.append("from_date", query.from_date)
@@ -1210,10 +1190,6 @@ export async function regenerateMcpToken(): Promise<McpConfig> {
 export async function getGainsTimeline(
   query: GainsTimelineQuery,
 ): Promise<GainsTimeline> {
-  if (isBackgroundUpdateAvailable()) {
-    return backgroundGetGainsTimeline<GainsTimeline>(query)
-  }
-
   const params = new URLSearchParams()
   params.append("base_currency", query.base_currency || "EUR")
   for (const asset of query.assets) {

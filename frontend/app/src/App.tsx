@@ -32,7 +32,6 @@ import { LabelsProvider } from "./context/LabelsContext"
 import { PinnedShortcutsProvider } from "./context/PinnedShortcutsContext"
 import { BottomNavProvider } from "./context/BottomNavContext"
 import { ReleaseUpdateModal } from "./components/ReleaseUpdateModal"
-import { MobileReleaseUpdateModal } from "./components/MobileReleaseUpdateModal"
 import { GlobalEntityModals } from "./components/GlobalEntityModals"
 import { useReleaseUpdate } from "./hooks/useReleaseUpdate"
 import { EntityWorkflowProvider } from "./context/EntityWorkflowContext"
@@ -40,10 +39,6 @@ import { FileImportJobProvider } from "./context/FileImportJobContext"
 import { BackupAlertSync } from "./components/BackupAlertSync"
 import { useState, useEffect, useRef } from "react"
 import { useAutoUpdater } from "./hooks/useAutoUpdater"
-import { useAndroidApkUpdater } from "./hooks/useAndroidApkUpdater"
-import { getPlatformAssets } from "@/utils/releaseUtils"
-import { isNativeMobile, isAndroid } from "@/lib/platform"
-import { PlatformType } from "@/types"
 
 function LegacyLabelsRedirect() {
   const [searchParams] = useSearchParams()
@@ -58,18 +53,12 @@ function App() {
   const [showReleaseModal, setShowReleaseModal] = useState(false)
   const releaseModalDismissedRef = useRef(false)
   const [skippedVersions, setSkippedVersions] = useState<string[]>([])
-  const androidUpdateEnabled = isAndroid() && __CONNECTIONS__
-  const {
-    state: apkUpdaterState,
-    download: downloadApk,
-    install: installApk,
-  } = useAndroidApkUpdater()
   const {
     state: autoUpdateState,
     downloadUpdate: startAutoUpdateDownload,
     quitAndInstall: startAutoUpdateInstallation,
   } = useAutoUpdater({
-    checkOnMount: isAuthenticated && !isInitializing && !isNativeMobile(),
+    checkOnMount: isAuthenticated && !isInitializing,
   })
 
   // Load skipped versions from localStorage on mount
@@ -97,10 +86,7 @@ function App() {
   }, [skippedVersions])
 
   const { updateInfo } = useReleaseUpdate({
-    checkOnMount:
-      isAuthenticated &&
-      !isInitializing &&
-      (!isNativeMobile() || androidUpdateEnabled),
+    checkOnMount: isAuthenticated && !isInitializing,
     skipVersions: skippedVersions,
     onUpdateAvailable: () => {
       if (isAuthenticated && !releaseModalDismissedRef.current) {
@@ -123,7 +109,6 @@ function App() {
   useEffect(() => {
     if (
       isAuthenticated &&
-      !isNativeMobile() &&
       autoUpdateState.isSupported &&
       autoUpdateState.updateInfo &&
       !releaseModalDismissedRef.current
@@ -246,8 +231,7 @@ function App() {
                 </Layout>
 
                 {/* Release Update Modal */}
-                {!isNativeMobile() &&
-                  showReleaseModal &&
+                {showReleaseModal &&
                   updateInfo?.hasUpdate &&
                   updateInfo.release && (
                     <ReleaseUpdateModal
@@ -276,46 +260,6 @@ function App() {
                       }}
                     />
                   )}
-
-                {/* Android APK Update Modal */}
-                {androidUpdateEnabled &&
-                  showReleaseModal &&
-                  updateInfo?.hasUpdate &&
-                  updateInfo.release &&
-                  (() => {
-                    const apkAsset = getPlatformAssets(
-                      updateInfo.release,
-                      PlatformType.ANDROID,
-                    )[0]
-                    if (!apkAsset) return null
-                    return (
-                      <MobileReleaseUpdateModal
-                        isOpen={showReleaseModal}
-                        onClose={handleCloseReleaseModal}
-                        currentVersion={updateInfo.currentVersion}
-                        latestVersion={updateInfo.latestVersion}
-                        release={updateInfo.release}
-                        onSkipVersion={handleSkipVersion}
-                        isDownloading={apkUpdaterState.isDownloading}
-                        isDownloaded={apkUpdaterState.isDownloaded}
-                        needsPermission={apkUpdaterState.needsPermission}
-                        progress={apkUpdaterState.progress}
-                        downloadedBytes={apkUpdaterState.downloadedBytes}
-                        totalBytes={apkUpdaterState.totalBytes}
-                        errorMessage={apkUpdaterState.error}
-                        onDownload={() => {
-                          void downloadApk(
-                            apkAsset.url,
-                            apkAsset.name,
-                            apkAsset.size,
-                          )
-                        }}
-                        onInstall={() => {
-                          void installApk()
-                        }}
-                      />
-                    )
-                  })()}
 
                 <GlobalEntityModals />
               </FileImportJobProvider>

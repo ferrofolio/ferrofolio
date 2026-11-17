@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/Popover"
 import { useI18n } from "@/i18n"
 import { cn } from "@/lib/utils"
-import { isNativeMobile } from "@/lib/platform"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { updateTelemetryConsent } from "@/lib/telemetry"
 import {
@@ -61,8 +60,7 @@ export function ErrorReportingToggle({
             aria-checked={isOn}
             data-testid="error-reporting-toggle"
             onClick={event => {
-              // On touch devices the tap also opens the popover with the details.
-              if (!isNativeMobile()) event.stopPropagation()
+              event.stopPropagation()
               toggle()
             }}
             className={cn(

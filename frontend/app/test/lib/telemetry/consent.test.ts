@@ -1,15 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
-}))
-
-vi.mock("@capacitor/preferences", () => ({
-  Preferences: {
-    get: vi.fn(),
-    set: vi.fn(),
-  },
-}))
+import { PlatformType } from "@/types"
 
 const TELEMETRY_CONSENT_KEY = "telemetry_consent"
 
@@ -55,5 +46,43 @@ describe("telemetry consent store", () => {
 
     expect(consent.errorReporting).toBe(false)
     expect(consent.installId).toBeTruthy()
+  })
+
+  describe.each([
+    PlatformType.WEB,
+    PlatformType.IOS,
+    PlatformType.ANDROID,
+    PlatformType.LINUX,
+  ])("on %s", type => {
+    beforeEach(() => {
+      window.platform = { type }
+    })
+
+    afterEach(() => {
+      delete (window as { platform?: unknown }).platform
+    })
+
+    it("reads the consent stored in localStorage", async () => {
+      localStorage.setItem(
+        TELEMETRY_CONSENT_KEY,
+        JSON.stringify({ errorReporting: true, installId: "install-1" }),
+      )
+      const { loadConsent } = await importConsent()
+
+      expect(await loadConsent()).toEqual({
+        errorReporting: true,
+        installId: "install-1",
+      })
+    })
+
+    it("writes the saved consent to localStorage", async () => {
+      const { saveConsent } = await importConsent()
+
+      const saved = await saveConsent({ errorReporting: true })
+
+      expect(JSON.parse(localStorage.getItem(TELEMETRY_CONSENT_KEY)!)).toEqual(
+        saved,
+      )
+    })
   })
 })

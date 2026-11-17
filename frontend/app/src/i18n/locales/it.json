@@ -109,8 +109,6 @@
     "startingServer": "Avvio del server",
     "backendFailedToStart": "Avvio del server non riuscito",
     "details": "Dettagli",
-    "unsupportedWebView": "La tua Android System WebView non è aggiornata e non è supportata. Aggiornala dal Play Store per usare questa app.",
-    "updateWebView": "Aggiorna WebView",
     "optional": "Opzionale",
     "clear": "Cancella",
     "notAvailableOnPlatform": "Non disponibile su questa piattaforma",
@@ -142,16 +140,6 @@
     "manualDownloads": {
       "show": "Mostra opzioni di download manuale",
       "hide": "Nascondi opzioni di download manuale"
-    },
-    "mobileUpdate": {
-      "description": "È disponibile una nuova versione da scaricare e installare.",
-      "download": "Scarica aggiornamento",
-      "downloading": "Download…",
-      "install": "Installa aggiornamento",
-      "permissionRequired": "Consenti l'installazione di app da questa origine, poi tocca di nuovo Installa aggiornamento.",
-      "retry": "Riprova",
-      "showMore": "Mostra di più",
-      "showLess": "Mostra meno"
     }
   },
   "about": {
@@ -474,15 +462,9 @@
     "viewErrorDetails": "Vedi dettagli tecnici",
     "errorDetailsTitle": "Dettagli tecnici",
     "syncPasswordHint": "Usa la stessa chiave di crittografia su tutti i dispositivi se la sincronizzazione è abilitata",
-    "enableBiometric": "Abilita {type}",
     "rememberSession": "Ricordami",
-    "biometricFaceId": "Face ID",
-    "biometricFingerprint": "Impronta digitale",
-    "biometricAuth": "Biometria",
-    "biometricLoginReason": "Sblocca Ferrofolio",
     "biometricSaved": "Accesso biometrico abilitato",
     "biometricError": "Impossibile abilitare l'accesso biometrico",
-    "biometricLoginFailed": "Autenticazione biometrica non riuscita",
     "usernameInfoTooltip": "Non è un'email né un account cloud. È solo un nome locale, come un soprannome o il tuo nome.",
     "invalidUsername": "Il nome utente deve contenere almeno 2 caratteri e può contenere solo lettere, numeri e _ - . $ € #",
     "invalidPasswordFormat": "La chiave di crittografia deve contenere almeno 8 caratteri",
@@ -601,7 +583,6 @@
     "title": "Integrazioni",
     "tabEntities": "Entità",
     "tabProviders": "Provider",
-    "storeNotice": "Questa versione non supporta connessioni con entità finanziarie. Puoi gestire i tuoi dati manualmente, importarli da file, visita {link} per altre opzioni.",
     "connected": "Connesso",
     "requiresLogin": "Richiede Accesso",
     "login": "Accedi di nuovo",
@@ -738,14 +719,6 @@
     },
     "userTitle": "Account",
     "userDescription": "Gestisci il tuo account.",
-    "biometricCredentialsActionTitle": "Disabilita accesso biometrico",
-    "biometricCredentialsNotEnabledTitle": "Abilita accesso biometrico",
-    "biometricCredentialsNotEnabledHint": "Abilita l'accesso biometrico per un accesso più rapido e sicuro, sia in fase di login sia quando cambi la password.",
-    "biometricCredentialsAction": "Disabilita",
-    "biometricCredentialsTitle": "Accesso biometrico",
-    "biometricCredentialsDescription": "Gestisci l'accesso biometrico.",
-    "biometricCredentialsCleared": "Accesso biometrico disabilitato",
-    "biometricCredentialsClearError": "Impossibile disabilitare l'accesso biometrico",
     "applicationLanguageOptions": {
       "en-US": "Inglese",
       "es-ES": "Spagnolo",
@@ -1686,8 +1659,7 @@
       "settingsLink": "Scegli quali modelli di IA usano le funzioni, nelle Impostazioni"
     },
     "aiTab": {
-      "title": "IA e MCP",
-      "titleNoMcp": "IA"
+      "title": "IA e MCP"
     },
     "aiTaskProviders": {
       "customize": "Usa modelli personalizzati per questa funzione",
@@ -1740,8 +1712,6 @@
     "entity": "Entità",
     "noDataTitle": "Ancora nessun dato finanziario",
     "noDataSubtitle": "Connetti le tue entità finanziarie nella sezione integrazioni per vedere il tuo pannello, puoi anche aggiungere e importare i tuoi dati!",
-    "noDataSubtitleStore": "Aggiungi i tuoi dati finanziari manualmente, importali da file o ripristina un backup per iniziare!",
-    "goToAssetsButton": "Vai a I Miei Beni",
     "connectEntitiesButton": "Connetti Entità",
     "totalValue": "Valore Totale",
     "shareOfTotal": "Quota del Totale",

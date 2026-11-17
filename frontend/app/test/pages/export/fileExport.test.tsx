@@ -13,7 +13,6 @@ import {
   mockExportFile,
   mockGetTemplates,
   mockShowToast,
-  mockSaveBlobToDevice,
   mockFinancialState,
   buildExportResult,
 } from "./setup"
@@ -88,7 +87,6 @@ describe("file export dialog", () => {
   it("opens the export dialog with preselected feature and products from held position quick export pills", async () => {
     mockGetTemplates.mockResolvedValue([])
     mockExportFile.mockResolvedValue(buildExportResult())
-    mockSaveBlobToDevice.mockResolvedValue(true)
     mockFinancialState.positionsData = {
       positions: {
         "entity-1": [
@@ -178,7 +176,6 @@ describe("file export dialog", () => {
 
   it("shows format, decimal format, date format, and datetime format preset badges with independent custom inputs", async () => {
     mockExportFile.mockResolvedValue(buildExportResult())
-    mockSaveBlobToDevice.mockResolvedValue(true)
 
     await openExportDialog()
     expect(screen.getByText("Format")).toBeInTheDocument()
@@ -344,7 +341,6 @@ describe("file export dialog", () => {
 
   it("calls exportFile and shows success toast on successful export", async () => {
     mockExportFile.mockResolvedValue(buildExportResult())
-    mockSaveBlobToDevice.mockResolvedValue(true)
 
     await openExportDialog()
 
@@ -412,7 +408,6 @@ describe("file export dialog", () => {
 
   it("defaults transactions export to last 6 months and supports switching presets", async () => {
     mockExportFile.mockResolvedValue(buildExportResult())
-    mockSaveBlobToDevice.mockResolvedValue(true)
     const today = new Date()
     const expectedSixMonthsFrom = format(subMonths(today, 6), "yyyy-MM-dd")
     const expectedToday = format(today, "yyyy-MM-dd")
@@ -525,7 +520,6 @@ describe("file export dialog", () => {
 
   it("hides temporal format selectors when the selected export template excludes temporal columns", async () => {
     mockExportFile.mockResolvedValue(buildExportResult())
-    mockSaveBlobToDevice.mockResolvedValue(true)
     mockGetTemplates.mockResolvedValue([
       {
         id: "tpl-no-dates",

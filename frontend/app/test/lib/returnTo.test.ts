@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 
 import { readReturnTo, returnScrollKey } from "@/lib/returnTo"
-import { canNavigateBack } from "@/lib/mobile/backNavigation"
 
 describe("readReturnTo", () => {
   it("returns the origin when the state is valid", () => {
@@ -44,19 +43,5 @@ describe("readReturnTo", () => {
 
   it("builds a scroll key per history entry", () => {
     expect(returnScrollKey("abc")).toBe("returnScroll:abc")
-  })
-})
-
-describe("canNavigateBack", () => {
-  it("keeps top-level pages non-navigable without an origin", () => {
-    expect(canNavigateBack("/transactions")).toBe(false)
-  })
-
-  it("allows going back when an origin is present", () => {
-    expect(
-      canNavigateBack("/transactions", {
-        returnTo: { path: "/management/cashflow", label: "Activity" },
-      }),
-    ).toBe(true)
   })
 })

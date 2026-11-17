@@ -75,7 +75,6 @@ import {
 } from "@/services/api"
 import { useAppContext } from "@/context/AppContext"
 import { useFinancialData } from "@/context/FinancialDataContext"
-import { compressImageForUpload } from "@/lib/mobile"
 
 interface RealEstateFormModalProps {
   isOpen: boolean
@@ -788,13 +787,12 @@ export function RealEstateFormModal({
     const file = e.target.files?.[0]
     if (!file) return
 
-    const processedFile = await compressImageForUpload(file)
-    setPhoto(processedFile)
+    setPhoto(file)
     const reader = new FileReader()
     reader.onload = e => {
       setPhotoPreview(e.target?.result as string)
     }
-    reader.readAsDataURL(processedFile)
+    reader.readAsDataURL(file)
     setHasUnsavedChanges(true)
   }
 

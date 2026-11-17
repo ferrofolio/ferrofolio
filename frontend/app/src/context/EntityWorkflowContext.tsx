@@ -25,7 +25,6 @@ import {
   EntityOrigin,
   FetchStage,
   OldTxsRequirement,
-  PinChannel,
 } from "@/types"
 import {
   loginEntity,
@@ -46,7 +45,6 @@ import { useCloud } from "@/context/CloudContext"
 import { getExternalLoginAPI } from "@/lib/externalLogin"
 import { getChallengeWindowAPI } from "@/lib/challengeWindow"
 import { getConnectedAccountIds } from "@/utils/entityUtils"
-import { startSmsOtpListening, stopSmsOtpListening } from "@/lib/mobile/smsOtp"
 
 export interface FetchOptions {
   deep?: boolean
@@ -217,9 +215,6 @@ const getNewAccountName = (
     ? undefined
     : accountName
 
-const entityHasSmsPin = (entity: Entity | null | undefined): boolean =>
-  entity?.pin?.channel === PinChannel.SMS
-
 export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   const { t } = useI18n()
@@ -330,7 +325,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
 
   const resetState = useCallback((options: ResetStateOptions = {}) => {
     const { preserveSelectedFeatures = false } = options
-    void stopSmsOtpListening()
     setPinRequired(false)
     setPinConfirmationType(null)
     setActivePinEntityId(null)
@@ -382,7 +376,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
         )
         throw new Error("Invalid authenticator request")
       }
-      void stopSmsOtpListening()
       setProcessId(requestedProcessId)
       setPinConfirmationType(LoginConfirmationType.AUTHENTICATOR)
       setPinLength(requestedLength)
@@ -617,10 +610,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (entityHasSmsPin(selectedEntity) && pin === undefined) {
-          await startSmsOtpListening()
-        }
-
         const response = await loginEntity({
           entity: selectedEntity.id,
           credentials: credentials,
@@ -642,7 +631,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             return
           }
           if (response.confirmationType === LoginConfirmationType.IN_APP) {
-            void stopSmsOtpListening()
             setPinRequired(false)
             setPinConfirmationType(null)
             setInAppConfirmation(true)
@@ -705,7 +693,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             return
           }
           if (response.confirmationType === LoginConfirmationType.CHALLENGE) {
-            void stopSmsOtpListening()
             if (
               response.challengeType === ChallengeType.RECAPTCHA &&
               response.processId
@@ -838,7 +825,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
           )
           throw new Error("Invalid authenticator request")
         }
-        void stopSmsOtpListening()
         const pending: PendingScrapeParams = {
           entity,
           features,
@@ -899,10 +885,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             ...prev,
             fetchingEntityIds: [...prev.fetchingEntityIds, entity.id],
           }))
-        }
-
-        if (entity && !silent && !options.code && entityHasSmsPin(entity)) {
-          await startSmsOtpListening()
         }
 
         let response
@@ -982,7 +964,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             return
           }
           if (response.confirmationType === LoginConfirmationType.CHALLENGE) {
-            void stopSmsOtpListening()
             const processIdValue = response.details?.processId || null
             const challengeTypeValue = response.details?.challengeType || null
             const challengeDomainValue =
@@ -1029,7 +1010,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             entity &&
             isOldTxsStage
           ) {
-            void stopSmsOtpListening()
             const accountId =
               entityAccountId ||
               entity.accounts?.find(
@@ -1123,7 +1103,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             response.confirmationType === LoginConfirmationType.IN_APP &&
             entity
           ) {
-            void stopSmsOtpListening()
             const processIdValue = response.details?.processId || null
             if (processIdValue) {
               setSelectedEntity(entity)
@@ -1281,9 +1260,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             }
 
             if (isOldTxsStage) {
-              if (response.details?.pinChannel === PinChannel.SMS) {
-                await startSmsOtpListening()
-              }
               if (response.details?.failedFeatures?.length) {
                 notify(
                   formatPartialFetchMessage(
@@ -1758,10 +1734,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
           : getDefaultAccountName(selectedEntity, credentials)
         pendingAccountNameRef.current = accountName
 
-        if (entityHasSmsPin(selectedEntity)) {
-          await startSmsOtpListening()
-        }
-
         const loginResponse = await loginEntity({
           entity: selectedEntity.id,
           credentials,
@@ -1826,7 +1798,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
           } else if (
             loginResponse.confirmationType === LoginConfirmationType.IN_APP
           ) {
-            void stopSmsOtpListening()
             setPinRequired(false)
             setPinConfirmationType(null)
             setInAppConfirmation(true)
@@ -1917,7 +1888,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
             loginResponse.challengeType === ChallengeType.RECAPTCHA &&
             loginResponse.processId
           ) {
-            void stopSmsOtpListening()
             const domain = loginResponse.details?.challengeDomain
             if (
               domain &&
@@ -2185,7 +2155,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
   }, [autoRefreshCountdown, scrape])
 
   useEffect(() => {
-    if (!__CONNECTIONS__) return
     if (autoRefreshExecutedRef.current) return
     if (!entitiesLoaded || entities.length === 0) return
 

@@ -14,7 +14,6 @@ import { FFStatus, type FeatureFlags } from "@/types"
 const platform = vi.hoisted(() => ({ electron: false }))
 
 vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
   isElectron: () => platform.electron,
 }))
 
@@ -113,6 +112,22 @@ describe("isDeviceInRestrictedRegion", () => {
       },
     )
   })
+
+  it.each(["ios", "android"])(
+    "uses the language region for a %s platform type outside Electron",
+    async type => {
+      window.platform = { type } as typeof window.platform
+      mockTimezone("Europe/London")
+      mockLanguage("en-GB")
+      const { isDeviceInRestrictedRegion } = await importModule()
+
+      try {
+        expect(await isDeviceInRestrictedRegion(FLAG_ON)).toBe(true)
+      } finally {
+        delete (window as { platform?: unknown }).platform
+      }
+    },
+  )
 
   it("prefers the Electron OS country over the language", async () => {
     platform.electron = true

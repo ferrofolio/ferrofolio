@@ -118,7 +118,7 @@ export default function InvestmentsPage() {
       .filter(
         route =>
           route.productType !== ProductType.MARKET_FORECAST ||
-          (__CONNECTIONS__ && hasConnectedMarketForecastPlatform),
+          hasConnectedMarketForecastPlatform,
       )
       .map(route => ({
         ...route,

@@ -21,15 +21,7 @@ vi.mock("@/lib/telemetry/sentryEnvelope", async () => {
 })
 
 vi.mock("@/lib/platform", () => ({
-  isNativeMobile: () => false,
   getPlatformInfo: () => platformInfo,
-}))
-
-vi.mock("@capacitor/preferences", () => ({
-  Preferences: {
-    get: vi.fn(),
-    set: vi.fn(),
-  },
 }))
 
 async function setup(errorReporting: boolean) {
