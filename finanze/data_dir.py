@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import os
 import shutil
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -39,9 +40,12 @@ def _has_entries(path: Path) -> bool:
 
 
 def _copy_then_publish(legacy: Path, target: Path) -> None:
-    """Copy into a staging directory and only publish it as target when complete."""
-    staging = target.with_name(target.name + STAGING_SUFFIX)
-    shutil.rmtree(staging, ignore_errors=True)
+    """Copy into a staging directory and only publish it as target when complete.
+
+    Each attempt uses its own staging directory, so a concurrent start can never
+    remove or publish another attempt's partial copy.
+    """
+    staging = target.with_name(f"{target.name}{STAGING_SUFFIX}-{uuid.uuid4().hex}")
     try:
         shutil.copytree(legacy, staging, symlinks=True)
         os.rename(staging, target)

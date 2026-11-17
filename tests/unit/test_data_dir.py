@@ -101,7 +101,7 @@ def test_copies_through_staging_across_file_systems(tmp_path, monkeypatch):
     assert result.moved_from == legacy
     assert (target / "user.db").read_bytes() == b"encrypted"
     assert not legacy.exists()
-    assert not target.with_name(target.name + STAGING_SUFFIX).exists()
+    assert not list(tmp_path.glob(f"{target.name}{STAGING_SUFFIX}*"))
 
 
 def test_failed_copy_leaves_no_partial_target(tmp_path, monkeypatch):
@@ -123,7 +123,7 @@ def test_failed_copy_leaves_no_partial_target(tmp_path, monkeypatch):
     assert result.moved_from is None
     assert "No space left on device" in result.error
     assert not target.exists()
-    assert not target.with_name(target.name + STAGING_SUFFIX).exists()
+    assert not list(tmp_path.glob(f"{target.name}{STAGING_SUFFIX}*"))
     assert (legacy / "user.db").read_bytes() == b"encrypted"
 
 
@@ -135,7 +135,7 @@ def _parse(monkeypatch, tmp_path, argv, configured=None):
 
     def configure_logging(parsed):
         if configured is not None:
-            configured.append(parsed)
+            configured.append(("configure_logging", parsed))
 
     monkeypatch.setattr(app_args_module, "configure_logging", configure_logging)
     monkeypatch.setattr(sys, "argv", ["finanze", *argv])
@@ -189,14 +189,26 @@ def test_conflict_is_logged_after_logging_is_configured(monkeypatch, tmp_path, c
     target = tmp_path / "Ferrofolio"
     target.mkdir()
     (target / "user.db").write_bytes(b"newer")
-    configured = []
+    events = []
 
-    with caplog.at_level(logging.WARNING):
-        _, _, parsed = _parse(monkeypatch, tmp_path, [], configured)
+    class Recorder(logging.Handler):
+        def emit(self, record):
+            events.append(("warning", record.getMessage()))
 
-    assert configured == [parsed]
+    recorder = Recorder(logging.WARNING)
+    logging.getLogger().addHandler(recorder)
+    try:
+        with caplog.at_level(logging.WARNING):
+            _, _, parsed = _parse(monkeypatch, tmp_path, [], events)
+    finally:
+        logging.getLogger().removeHandler(recorder)
+
     assert parsed.data_dir == target
-    assert "Found data of a previous installation" in caplog.text
+    assert events[0] == ("configure_logging", parsed)
+    assert any(
+        kind == "warning" and "Found data of a previous installation" in message
+        for kind, message in events[1:]
+    )
 
 
 def _conflict_instruction(caplog, conflict):
@@ -232,3 +244,27 @@ def test_conflict_instruction_quotes_cmd_metacharacters_on_windows(monkeypatch, 
     instruction = _conflict_instruction(caplog, conflict)
 
     assert instruction == f'--data-dir "{conflict}"'
+
+
+def test_concurrent_copies_use_separate_staging_directories(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    _rename_fails_across_devices(monkeypatch, legacy)
+    foreign = tmp_path / f"Ferrofolio{STAGING_SUFFIX}"
+    foreign.mkdir()
+    (foreign / "partial").write_bytes(b"other attempt")
+    staged = []
+    real_copytree = shutil.copytree
+
+    def record_copytree(src, dst, *args, **kwargs):
+        staged.append(dst)
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(data_dir.shutil, "copytree", record_copytree)
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result.moved_from == legacy
+    assert staged and staged[0] != foreign
+    assert (foreign / "partial").read_bytes() == b"other attempt"
+    assert not (target / "partial").exists()
