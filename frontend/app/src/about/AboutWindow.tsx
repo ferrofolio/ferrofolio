@@ -11,6 +11,9 @@ export function AboutWindow() {
   const [isLoading, setIsLoading] = useState(true)
 
   const aboutStrings = t.about
+  // The packaged app name still comes from the upstream build config, so the
+  // displayed name is taken from the locale instead.
+  const appName = t.common.appName
   const plarformInfo = getPlatformInfo()
 
   useEffect(() => {
@@ -39,9 +42,8 @@ export function AboutWindow() {
   }, [])
 
   useEffect(() => {
-    const appName = info?.appName
-    document.title = aboutStrings.title.replace("{appName}", appName!)
-  }, [info?.appName, aboutStrings.title])
+    document.title = aboutStrings.title.replace("{appName}", appName)
+  }, [appName, aboutStrings.title])
 
   const author = useMemo(() => {
     if (!info) return aboutStrings.unknownAuthor
@@ -104,8 +106,6 @@ export function AboutWindow() {
   const handleNavigate = (url: string) => {
     window.open(url, "_blank")
   }
-
-  const appName = info?.appName ?? t.common.appName
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
