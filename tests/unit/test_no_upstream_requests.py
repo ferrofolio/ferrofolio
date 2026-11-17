@@ -67,10 +67,8 @@ def _files():
 def _references() -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for file in _files():
-        try:
-            text = file.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
+        # A file that cannot be read as UTF-8 fails the scan instead of being skipped
+        text = file.read_text(encoding="utf-8")
         for number, line in enumerate(text.splitlines(), start=1):
             if UPSTREAM.search(line):
                 relative = file.relative_to(ROOT).as_posix()
