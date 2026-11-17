@@ -330,8 +330,6 @@ For the frontend use `pnpm`, and `node 24`.
     ```sh
     cd frontend/app
     pnpm install
-                         # ---- Mobile SPECIFIC ----
-    pnpm install:pyodide # For mobile app initial setup, it will download Pyodide and all required Python dependencies for mobile backend
     ```
 
 5. Run it
@@ -404,7 +402,6 @@ Ferrofolio is derived from [Finanze](https://github.com/finanze/finanze). See [N
 - Powered by [CoinGecko](https://www.coingecko.com/).
 - Powered by [CoinMarketCap](https://coinmarketcap.com/).
 - Powered by [CryptoCompare](https://www.cryptocompare.com/).
-- [Pyodide](https://github.com/pyodide/pyodide) is used for mobile backend compatibility.
 - Llama.cpp icon from [ggml-org/llama.brand](https://github.com/ggml-org/llama.brand), used under
   its [brand usage policy](https://github.com/ggml-org/llama.brand/blob/master/BRAND-USAGE.md) (CC BY-NC 4.0).
 - Trade Republic client is based on project [pytr-org/pytr](https://github.com/pytr-org/pytr), although it has been

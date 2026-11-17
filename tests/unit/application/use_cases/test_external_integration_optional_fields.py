@@ -1,6 +1,4 @@
-import ast
 from dataclasses import asdict
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,7 +17,6 @@ from domain.exception.exceptions import (
     IntegrationSetupErrorCode,
 )
 from domain.external_integration import (
-    AI_PROVIDER_PLATFORMS,
     AIProviderFamily,
     ConnectedExternalIntegrationRequest,
     DisconnectedExternalIntegrationRequest,
@@ -162,28 +159,6 @@ class TestGetIntegrationsOptionalFields:
             == by_id[ExternalIntegrationId.OPENAI]["family"]
         )
         assert by_id[ExternalIntegrationId.GOOGLE_SHEETS]["family"] is None
-
-    def test_mobile_platforms_match_registered_ai_clients(self):
-        root = Path(__file__).resolve().parents[4]
-        module = ast.parse(
-            (root / "frontend/app/src/python/finanze/app_lazy.py").read_text()
-        )
-        clients = next(
-            node
-            for node in ast.walk(module)
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "ai_clients"
-                for target in node.targets
-            )
-        )
-        registered = {ExternalIntegrationId(key.attr) for key in clients.value.keys}
-        declared = {
-            provider
-            for provider, platforms in AI_PROVIDER_PLATFORMS.items()
-            if IntegrationPlatform.MOBILE in platforms
-        }
-        assert declared == registered
 
     @pytest.mark.asyncio
     async def test_exposes_optional_fields(self):

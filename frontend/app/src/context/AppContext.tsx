@@ -28,7 +28,6 @@ import {
   updateQuotesManualPositions,
   updateTrackedLoans,
 } from "@/services/api"
-import { waitForLazyInit } from "@/lib/mobile"
 import { reportError } from "@/lib/telemetry"
 import { stripEmptySheetsGlobals } from "@/lib/settingsUtils"
 import { useI18n } from "@/i18n"
@@ -403,7 +402,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         startExchangeRatesTimer()
       }
 
-      waitForLazyInit().then(() => fetchExchangeRatesSilently())
+      fetchExchangeRatesSilently()
     } catch (error) {
       console.error("Error fetching exchange rates:", error)
       setExchangeRatesError(t.common.fetchError)
@@ -644,7 +643,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [LAST_UPDATE_LOANS_KEY, LOANS_UPDATE_INTERVAL_MS])
 
   const runTrackedUpdatesIfNeeded = useCallback(async () => {
-    await waitForLazyInit()
     updateQuotesIfNeeded()
     updateLoansIfNeeded()
   }, [updateQuotesIfNeeded, updateLoansIfNeeded])

@@ -12,14 +12,6 @@ vi.mock("@/services/apiClient", () => ({
     setSessionToken: mocks.setSessionToken,
   }),
 }))
-vi.mock("@/lib/mobile", () => ({
-  triggerDeferredInit: vi.fn(),
-  isBackgroundUpdateAvailable: vi.fn(),
-  backgroundUpdateQuotes: vi.fn(),
-  backgroundUpdateLoans: vi.fn(),
-  backgroundGetNetworthTimeline: vi.fn(),
-  backgroundGetGainsTimeline: vi.fn(),
-}))
 
 const credentials = { username: "alice", password: "secret123" }
 

@@ -15,7 +15,6 @@ export default defineConfig([
       "release/**",
       "dist/**",
       "dist-electron/**",
-      "dist-pyodide/**",
     ],
   },
   {

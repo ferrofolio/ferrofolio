@@ -198,8 +198,6 @@ web_modules/
 # TypeScript cache
 *.tsbuildinfo
 
-# Generated offline Pyodide assets (do not commit)
-dist-pyodide/
 
 # Optional npm cache directory
 .npm
