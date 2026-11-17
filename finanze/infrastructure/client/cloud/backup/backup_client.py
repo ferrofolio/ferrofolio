@@ -44,6 +44,22 @@ class BackupClient(BackupRepository):
             raise BackupTransferFailed("The cloud backup service must use HTTPS")
         return f"{self.BASE_URL}{path}"
 
+    @staticmethod
+    async def _response_field(response, field: str, expected: type):
+        """Read a field of a JSON object response, rejecting any other shape."""
+        try:
+            body = await response.json()
+        except ValueError as e:
+            raise BackupTransferFailed(
+                "The cloud backup service returned invalid JSON"
+            ) from e
+        value = body.get(field, expected()) if isinstance(body, dict) else None
+        if not isinstance(value, expected):
+            raise BackupTransferFailed(
+                "The cloud backup service returned an unexpected response"
+            )
+        return value
+
     def _get_auth_headers(self, auth: CloudAuthData) -> dict[str, str]:
         """Get authentication headers from auth data."""
         return {
@@ -83,11 +99,15 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            upload_response = await response.json()
+            uploads = await self._response_field(response, "uploads", list)
 
             # Step 2: Upload each piece to the presigned URL
             uploaded_pieces = []
-            for upload_info in upload_response.get("uploads", []):
+            for upload_info in uploads:
+                if not isinstance(upload_info, dict) or "type" not in upload_info:
+                    raise BackupTransferFailed(
+                        "The cloud backup service returned an unexpected upload entry"
+                    )
                 piece = next(
                     (
                         p
@@ -149,13 +169,11 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            download_response = await response.json()
+            download_pieces = await self._response_field(response, "pieces", dict)
 
             # Step 2: Download each piece from the presigned URL
             pieces = []
-            for backup_type_str, piece_info in download_response.get(
-                "pieces", {}
-            ).items():
+            for backup_type_str, piece_info in download_pieces.items():
                 try:
                     download_url = piece_info.get("url")
                     if not download_url:
@@ -212,10 +230,10 @@ class BackupClient(BackupRepository):
                 raise TooManyRequests()
 
             response.raise_for_status()
-            info_response = await response.json()
+            info_pieces = await self._response_field(response, "pieces", dict)
 
             backup_infos = {}
-            for backup_type_str, piece_info in info_response.get("pieces", {}).items():
+            for backup_type_str, piece_info in info_pieces.items():
                 try:
                     backup_type = BackupFileType(backup_type_str)
                     backup_info = BackupInfo(
@@ -226,7 +244,7 @@ class BackupClient(BackupRepository):
                         size=piece_info["size"],
                     )
                     backup_infos[backup_type] = backup_info
-                except (KeyError, ValueError) as e:
+                except (KeyError, TypeError, ValueError) as e:
                     self._log.warning(
                         f"Error parsing backup info for {backup_type_str}: {e}"
                     )
