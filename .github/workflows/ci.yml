@@ -73,7 +73,8 @@ jobs:
 
           # A change to this workflow runs every job.
           workflow='^\.github/workflows/ci\.yml$'
-          python_deps='^(pyproject\.toml|requirements[^/]*\.txt)$'
+          # Root files that configure Python dependencies, pytest or ruff.
+          python_config='^(pyproject\.toml|requirements[^/]*\.txt|pytest\.ini|tox\.ini|setup\.cfg|conftest\.py|\.?ruff\.toml)$'
 
           match() {
             local file
@@ -87,10 +88,10 @@ jobs:
           }
 
           {
-            echo "backend=$(match "^(finanze|tests)/|$python_deps")"
-            echo "python=$(match "\.py$|$python_deps")"
+            echo "backend=$(match "^(finanze|tests)/|$python_config")"
+            echo "python=$(match "\.py$|$python_config")"
             echo "frontend=$(match '^frontend/app/')"
-            echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_deps")"
+            echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_config")"
           } | tee -a "$GITHUB_OUTPUT"
 
   test:
