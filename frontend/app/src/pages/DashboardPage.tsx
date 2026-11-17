@@ -1619,18 +1619,10 @@ export default function DashboardPage() {
                 <PopoverTrigger asChild>
                   <Button
                     variant={forecastMode ? "default" : "outline"}
-                    className={`flex items-center h-9 px-3 text-sm ${__CONNECTIONS__ ? "[@media(max-width:450px)]:w-9 [@media(max-width:450px)]:px-0 [@media(max-width:450px)]:justify-center" : ""}`}
+                    className="flex items-center h-9 px-3 text-sm [@media(max-width:450px)]:w-9 [@media(max-width:450px)]:px-0 [@media(max-width:450px)]:justify-center"
                   >
-                    <TrendingUpDown
-                      className={`h-4 w-4 flex-shrink-0 ${__CONNECTIONS__ ? "mr-0 [@media(min-width:450px)]:mr-1" : "mr-1"}`}
-                    />
-                    <span
-                      className={
-                        __CONNECTIONS__
-                          ? "hidden [@media(min-width:450px)]:inline whitespace-nowrap"
-                          : "whitespace-nowrap"
-                      }
-                    >
+                    <TrendingUpDown className="h-4 w-4 flex-shrink-0 mr-0 [@media(min-width:450px)]:mr-1" />
+                    <span className="hidden [@media(min-width:450px)]:inline whitespace-nowrap">
                       {forecastMode && forecastResult
                         ? formatDate(forecastResult.target_date, locale)
                         : t.forecast.title}
@@ -1820,7 +1812,7 @@ export default function DashboardPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-              {__CONNECTIONS__ && <EntityRefreshDropdown />}
+              <EntityRefreshDropdown />
             </div>
           </div>
 
@@ -1835,19 +1827,11 @@ export default function DashboardPage() {
                 {t.dashboard.noDataTitle}
               </h2>
               <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
-                {__CONNECTIONS__
-                  ? t.dashboard.noDataSubtitle
-                  : t.dashboard.noDataSubtitleStore}
+                {t.dashboard.noDataSubtitle}
               </p>
-              {__CONNECTIONS__ ? (
-                <Button onClick={() => navigate("/entities")}>
-                  {t.dashboard.connectEntitiesButton}
-                </Button>
-              ) : (
-                <Button onClick={() => navigate("/investments")}>
-                  {t.dashboard.goToAssetsButton}
-                </Button>
-              )}
+              <Button onClick={() => navigate("/entities")}>
+                {t.dashboard.connectEntitiesButton}
+              </Button>
             </AnimatedContainer>
           ) : (
             <div className="space-y-6">

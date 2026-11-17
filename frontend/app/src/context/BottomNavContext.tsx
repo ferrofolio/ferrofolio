@@ -28,9 +28,7 @@ const STORAGE_KEY = "finanze-bottom-nav"
 const DEFAULT_BAR: BottomNavItemId[] = [...ROOT_IDS.slice(0, 6)]
 const DEFAULT_MENU: BottomNavItemId[] = ["settings", "export"]
 
-export const BOTTOM_NAV_SHORTCUTS = KNOWN_SHORTCUT_IDS.filter(
-  id => __CONNECTIONS__ || id !== "market-forecast",
-)
+export const BOTTOM_NAV_SHORTCUTS = KNOWN_SHORTCUT_IDS
 const KNOWN_IDS: readonly string[] = [...ROOT_IDS, ...BOTTOM_NAV_SHORTCUTS]
 
 interface NavLayout {
