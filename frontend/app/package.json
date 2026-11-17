@@ -42,16 +42,7 @@
     "format": "prettier --write src electron test scripts '*.{json,js,cjs,ts,html}' pnpm-workspace.yaml public/site.webmanifest .prettierrc.json --ignore-unknown",
     "pretest": "vite build --mode=test",
     "test": "vitest run",
-    "lint-staged": "lint-staged --no-stash",
-    "native:setup": "bash native/tlsclient/build.sh && bash native/tlsclient/install.sh",
-    "native:setup:ios": "bash native/tlsclient/build.sh --platform ios && bash native/tlsclient/install.sh",
-    "native:setup:android": "bash native/tlsclient/build.sh --platform android && bash native/tlsclient/install.sh",
-    "cap:sync": "pnpm build:mobile && pnpm exec cap sync",
-    "cap:sync:store": "pnpm build:mobile:store && pnpm exec cap sync",
-    "cap:ios": "pnpm build:mobile && pnpm exec cap sync ios && pnpm exec cap open ios",
-    "cap:ios:store": "pnpm build:mobile:store && pnpm exec cap sync ios && pnpm exec cap open ios",
-    "cap:android": "pnpm build:mobile && pnpm exec cap sync android && pnpm exec cap open android",
-    "cap:android:store": "pnpm build:mobile:store && pnpm exec cap sync android && pnpm exec cap open android"
+    "lint-staged": "lint-staged --no-stash"
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx,json,css}": [
@@ -62,15 +53,12 @@
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
-    "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
-    "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/device": "^8.0.3",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/haptics": "^8.0.2",
-    "@capacitor/ios": "^8.5.3",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.3",
     "@capacitor/splash-screen": "^8.0.2",
