@@ -1,11 +1,24 @@
+import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from infrastructure.client.keychain.public_keychain_client import PublicKeychainClient
+from infrastructure.client.keychain.public_keychain_client import (
+    MalformedKeychainError,
+    PublicKeychainClient,
+    _parse_keychain,
+)
 
 KEYCHAIN_URL = "https://keys.example.com/keys"
+
+
+@pytest.fixture(autouse=True)
+def clear_fetch_cache():
+    # fetch is cached per instance repr, which can repeat across tests
+    asyncio.run(PublicKeychainClient.fetch.cache.clear())
+    yield
+    asyncio.run(PublicKeychainClient.fetch.cache.clear())
 
 
 def _make_client_with_mock_session(response_json: dict, ok: bool = True):
@@ -58,7 +71,7 @@ class TestFetchEmptyEntries:
 class TestFetchHandlesError:
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_exception(self):
-        client = PublicKeychainClient()
+        client = PublicKeychainClient(KEYCHAIN_URL)
         mock_session = MagicMock()
         mock_session.get = AsyncMock(side_effect=Exception("Network error"))
         client._session = mock_session
@@ -66,6 +79,7 @@ class TestFetchHandlesError:
         result = await client.fetch()
 
         assert result == []
+        mock_session.get.assert_called_once()
 
 
 class TestFetchCallsCorrectUrl:
@@ -115,3 +129,11 @@ class TestFetchRejectsMalformedResponse:
         client, _ = _make_client_with_mock_session(response)
 
         assert await client.fetch() == []
+
+    @pytest.mark.parametrize(
+        "response",
+        [[], {"version": 1, "algo": 1, "entries": []}],
+    )
+    def test_parser_raises_typed_error(self, response):
+        with pytest.raises(MalformedKeychainError):
+            _parse_keychain(response)
