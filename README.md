@@ -2,9 +2,9 @@
 > **Ferrofolio** is an independent, community-driven fork of [Finanze](https://github.com/finanze/finanze).
 > It is not affiliated with or endorsed by the Finanze project.
 >
-> The rename is in progress. This README and parts of the code still say "Finanze", and the download links,
-> container images and app listings below still point to the upstream project. Ferrofolio does not publish
-> its own releases yet. See [NOTICE](./NOTICE) for the origin of the code.
+> The rename is in progress. This README and parts of the code still say "Finanze", and the download links
+> and app listings below still point to the upstream project. Ferrofolio does not publish its own releases or
+> container images yet; the [Docker](#docker) setup builds the images from this repository. See [NOTICE](./NOTICE) for the origin of the code.
 
 <p align="center">
   <a href="https://github.com/finanze/finanze/releases/latest"><img src="https://img.shields.io/github/v/release/finanze/finanze?style=for-the-badge&color=blue&label=Latest%20Release" alt="Latest release of Finanze"></a>
@@ -264,15 +264,16 @@ to `develop`. These builds may be unstable and not intended for production use.
 
 ### Docker
 
-Two Docker images are available, a Selenium one (`latest-selenium`) and a lighter default one (`latest`).
+Ferrofolio does not publish container images yet. The example [docker-compose.yml](docker-compose.yml) builds the
+server image `ghcr.io/ferrofolio/ferrofolio` and the frontend image `ghcr.io/ferrofolio/ferrofolio-frontend` from this
+repository:
 
-In case you don't use Mintos, `latest` is highly recommended.
-The first one is required for Mintos, as it contains Selenium and reCAPTCHA resolution related Python and SO
-dependencies (like ffmpeg).
+```sh
+docker compose up -d --build
+```
 
-Both are available at Docker Hub [finanze/finanze](https://hub.docker.com/r/finanze/finanze).
-
-Frontend is available at [finanze/finanze-frontend](https://hub.docker.com/r/finanze/finanze-frontend).
+The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
+dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
 
 Checkout example [docker-compose.yml](docker-compose.yml) for a complete setup.
 
