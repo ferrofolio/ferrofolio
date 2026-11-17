@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { useI18n } from "@/i18n"
 import type { AboutAppInfo } from "@/types"
 import { getPlatformInfo } from "@/lib/platform"
+import { SOURCE_CODE_LABEL, SOURCE_CODE_URL } from "@/lib/project"
 
 export function AboutWindow() {
   const { t } = useI18n()
@@ -105,7 +106,6 @@ export function AboutWindow() {
   }
 
   const appName = info?.appName ?? "Finanze"
-  const OFFICIAL_PAGE_URL = "https://finanze.me"
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
@@ -134,10 +134,10 @@ export function AboutWindow() {
             />
             <button
               type="button"
-              onClick={() => handleNavigate(OFFICIAL_PAGE_URL)}
+              onClick={() => handleNavigate(SOURCE_CODE_URL)}
               className="text-xs font-medium text-primary hover:underline pt-1"
             >
-              finanze.me
+              {SOURCE_CODE_LABEL}
             </button>
           </div>
         </CardHeader>

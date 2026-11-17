@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useI18n } from "@/i18n"
+import { LICENSE_URL, SOURCE_CODE_LABEL, SOURCE_CODE_URL } from "@/lib/project"
 import { Badge } from "@/components/ui/Badge"
 import {
   Card,
@@ -1143,22 +1144,18 @@ export function GeneralTab() {
               <Button
                 variant="outline"
                 className="justify-start"
-                onClick={() =>
-                  window.open("https://finanze.me/privacy", "_blank")
-                }
+                onClick={() => window.open(SOURCE_CODE_URL, "_blank")}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
-                {t.settings.legal.privacyPolicy}
+                {t.settings.legal.sourceCode}
               </Button>
               <Button
                 variant="outline"
                 className="justify-start"
-                onClick={() =>
-                  window.open("https://finanze.me/terms", "_blank")
-                }
+                onClick={() => window.open(LICENSE_URL, "_blank")}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
-                {t.settings.legal.termsOfService}
+                {t.settings.legal.license}
               </Button>
             </div>
           </CardContent>
@@ -1179,10 +1176,10 @@ export function GeneralTab() {
         </button>
         <button
           type="button"
-          onClick={() => window.open(t.common.officialWebpageUrl, "_blank")}
+          onClick={() => window.open(SOURCE_CODE_URL, "_blank")}
           className="text-[0.5rem] text-primary hover:underline"
         >
-          {t.common.officialWebpage}
+          {SOURCE_CODE_LABEL}
         </button>
         <p className="text-[0.5rem] text-gray-500 dark:text-gray-400">
           v{__APP_VERSION__} by marcosav
