@@ -28,7 +28,7 @@ def register(registry: ToolRegistry, ucs: McpUseCases):
             Field(description="Currencies or crypto symbols to include. Omit for all."),
         ] = None,
     ):
-        """Get the latest exchange rates used by Finanze, as units of each currency (fiat, crypto or commodity) per 1 unit of base_currency. To convert an amount X in currency C to base, compute X / rates[C]."""
+        """Get the latest exchange rates used by Ferrofolio, as units of each currency (fiat, crypto or commodity) per 1 unit of base_currency. To convert an amount X in currency C to base, compute X / rates[C]."""
         base = await resolve_currency(ucs, base_currency)
         rates = await ucs.get_exchange_rates.execute()
         base_rates = rates.get(base)

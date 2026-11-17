@@ -14,7 +14,7 @@ def main() -> None:
     try:
         args = parse_args()
 
-        log.info(f"Initializing Finanze server v{resolve_version()}...")
+        log.info(f"Initializing Ferrofolio server v{resolve_version()}...")
         server = FinanzeServer(args)
 
         asyncio.run(server.run())
