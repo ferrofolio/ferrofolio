@@ -40,19 +40,30 @@ class PublicKeychainClient(PublicKeychainFetcherPort):
             )
             return []
 
-        if not _is_valid_keychain(data):
-            self._log.error("Ignoring public keychain with an unexpected structure")
+        try:
+            return _parse_keychain(data)
+        except MalformedKeychainError as e:
+            self._log.error("Ignoring public keychain: %s", e)
             return []
 
-        version = data.get("version", 0)
-        algo = data.get("algo", 0)
-        entries_map = data.get("entries", {})
-        now = datetime.now(tzlocal())
 
-        return [
-            PublicKeyEntry(key=k, value=v, algo=algo, version=version, updated_at=now)
-            for k, v in entries_map.items()
-        ]
+class MalformedKeychainError(ValueError):
+    """The keychain source returned data with an unexpected structure."""
+
+
+def _parse_keychain(data) -> list[PublicKeyEntry]:
+    if not _is_valid_keychain(data):
+        raise MalformedKeychainError("unexpected structure")
+
+    version = data.get("version", 0)
+    algo = data.get("algo", 0)
+    entries_map = data.get("entries", {})
+    now = datetime.now(tzlocal())
+
+    return [
+        PublicKeyEntry(key=k, value=v, algo=algo, version=version, updated_at=now)
+        for k, v in entries_map.items()
+    ]
 
 
 def _is_int(value) -> bool:
