@@ -14,6 +14,7 @@ workspace = true
 
 [dependencies]
 bnum = "0.14.4"
+jiff = "1.0.1"
 thiserror = "2.0.21"
 
 [dev-dependencies]
