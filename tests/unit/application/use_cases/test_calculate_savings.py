@@ -11,7 +11,7 @@ from domain.calculations import (
     SavingsScenarioRequest,
 )
 from domain.dezimal import Dezimal
-from domain.exception.exceptions import MissingFieldsError
+from domain.exception.exceptions import CalculationInputError, MissingFieldsError
 
 
 def _use_case() -> CalculateSavingsImpl:
@@ -340,3 +340,133 @@ class TestRetirement:
         assert scenario.retirement is not None
         assert scenario.retirement.withdrawal_amount > Dezimal(0)
         assert len(scenario.retirement.periods) > 0
+
+
+# ---------------------------------------------------------------------------
+# TestSolvedValuesHold: what the calculator solves for is reached by its own
+# projection, which rounds every return to cents.
+# ---------------------------------------------------------------------------
+
+
+class TestSolvedValuesHold:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("performance", ["0.06", "-0.04", "0.25"])
+    async def test_solved_contribution_reaches_the_target(self, performance):
+        target = Dezimal(10000)
+        req = _request(
+            base_amount=Dezimal(1000),
+            years=5,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal(performance),
+                    target_amount=target,
+                )
+            ],
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.final_balance >= target
+        # One cent less per period would miss it.
+        assert scenario.final_balance - target < Dezimal(60) * Dezimal("0.02")
+
+    @pytest.mark.asyncio
+    async def test_a_rate_too_small_to_matter_acts_as_zero(self):
+        req = _request(
+            years=1,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal("1e-30"),
+                    target_amount=Dezimal(1200),
+                )
+            ],
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.periodic_contribution == Dezimal(100)
+        assert scenario.final_balance == Dezimal(1200)
+
+    @pytest.mark.asyncio
+    async def test_solved_horizon_reaches_the_target(self):
+        target = Dezimal(5000)
+        req = _request(
+            base_amount=Dezimal(1000),
+            years=None,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal("0.06"),
+                    periodic_contribution=Dezimal(200),
+                    target_amount=target,
+                )
+            ],
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.final_balance >= target
+
+    @pytest.mark.asyncio
+    async def test_a_target_the_rounded_returns_never_reach_has_no_horizon(self):
+        # A return of 0.0005 per period rounds to no return at all, so the balance
+        # stays at 0.10 in the projection.
+        req = _request(
+            base_amount=Dezimal("0.10"),
+            years=None,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal("0.06"),
+                    periodic_contribution=Dezimal(0),
+                    target_amount=Dezimal("0.11"),
+                )
+            ],
+        )
+
+        with pytest.raises(CalculationInputError):
+            await _use_case().execute(req)
+
+    @pytest.mark.asyncio
+    async def test_solved_contribution_funds_every_withdrawal(self):
+        withdrawal = Dezimal(1000)
+        req = _request(
+            base_amount=Dezimal(0),
+            years=10,
+            scenarios=[
+                _scenario(annual_market_performance=Dezimal("0.05")),
+            ],
+            retirement=SavingsRetirementRequest(
+                withdrawal_amount=withdrawal, withdrawal_years=5
+            ),
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        periods = scenario.retirement.periods
+        assert len(periods) >= 60
+        assert all(period.withdrawal == withdrawal for period in periods[:60])
+
+    @pytest.mark.asyncio
+    async def test_a_base_that_funds_retirement_needs_no_contribution(self):
+        req = _request(
+            base_amount=Dezimal(1_000_000),
+            years=10,
+            scenarios=[_scenario(annual_market_performance=Dezimal("0.05"))],
+            retirement=SavingsRetirementRequest(
+                withdrawal_amount=Dezimal(100), withdrawal_years=5
+            ),
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.periodic_contribution == Dezimal(0)
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_negative_withdrawal(self):
+        req = _request(
+            retirement=SavingsRetirementRequest(
+                withdrawal_amount=Dezimal(-100), withdrawal_years=5
+            ),
+        )
+
+        with pytest.raises(CalculationInputError):
+            await _use_case().execute(req)

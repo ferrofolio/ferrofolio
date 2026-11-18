@@ -20,6 +20,16 @@ from domain.exception.exceptions import CalculationInputError, MissingFieldsErro
 from domain.use_cases.calculate_savings import CalculateSavings
 
 
+# A solved contribution is rounded to cents and then raised a cent at a time until the
+# projection, which rounds every return to cents, reaches what it was solved for.
+# The formulas are exact apart from that rounding, so a few cents always suffice.
+_MAX_CENT_STEPS = 10
+# How often the search for a retirement contribution doubles its upper bound until
+# that bound funds every withdrawal.
+_MAX_BOUND_DOUBLINGS = 64
+_CENT = Dezimal("0.01")
+
+
 class CalculateSavingsImpl(CalculateSavings):
     async def execute(
         self, request: SavingsCalculationRequest
@@ -72,14 +82,15 @@ class CalculateSavingsImpl(CalculateSavings):
         )
         base = request.base_amount
         periodic = scenario.periodic_contribution or Dezimal(0)
-        if rate == Dezimal(0) and periodic == Dezimal(0):
+        if self._negligible_rate(rate) and periodic == Dezimal(0):
             return None
         periods = 0
         balance = base
         target = scenario.target_amount
         while balance < target and periods < 200 * request.periodicity.periods_per_year:
             balance = balance + periodic
-            balance = balance + (balance * rate)
+            # Rounded to cents like the projection, so that it reaches the target too.
+            balance = balance + self._round_cents(balance * rate)
             periods += 1
         if balance < target:
             return None
@@ -171,7 +182,15 @@ class CalculateSavingsImpl(CalculateSavings):
             retirement_periods,
             initial_estimate,
         )
-        return self._round_cents(contribution)
+        return self._raise_until(
+            self._round_cents(contribution),
+            lambda c: (
+                self._simulate_full_cycle(
+                    base, rate, accumulation_periods, c, withdrawal, retirement_periods
+                )
+                >= Dezimal(0)
+            ),
+        )
 
     def _estimate_contribution_for_retirement(
         self,
@@ -181,7 +200,7 @@ class CalculateSavingsImpl(CalculateSavings):
         withdrawal: Dezimal,
         retirement_periods: int,
     ) -> Dezimal:
-        if rate == Dezimal(0):
+        if self._negligible_rate(rate):
             total_needed = withdrawal * Dezimal(retirement_periods)
             if total_needed <= base:
                 return Dezimal(0)
@@ -195,7 +214,10 @@ class CalculateSavingsImpl(CalculateSavings):
         if required_balance <= base_at_retirement:
             return Dezimal(0)
         shortfall = required_balance - base_at_retirement
-        annuity = (growth - Dezimal(1)) / rate
+        # Each contribution earns the return of its own period (an annuity due).
+        annuity = (growth - Dezimal(1)) / rate * (Dezimal(1) + rate)
+        if annuity <= Dezimal(0):
+            return shortfall
         return shortfall / annuity
 
     def _refine_contribution_via_simulation(
@@ -207,16 +229,33 @@ class CalculateSavingsImpl(CalculateSavings):
         retirement_periods: int,
         initial_estimate: Dezimal,
     ) -> Dezimal:
+        def funded(contribution: Dezimal) -> Dezimal:
+            return self._simulate_full_cycle(
+                base,
+                rate,
+                accumulation_periods,
+                contribution,
+                withdrawal,
+                retirement_periods,
+            )
+
+        # The base alone already funds every withdrawal.
+        if funded(Dezimal(0)) >= Dezimal(0):
+            return Dezimal(0)
         low = Dezimal(0)
         high = initial_estimate * Dezimal(3)
-        if high == Dezimal(0):
+        if high <= Dezimal(0):
             high = withdrawal * Dezimal(2)
+        # The search only converges when the upper bound funds every withdrawal.
+        for _ in range(_MAX_BOUND_DOUBLINGS):
+            if high <= Dezimal(0) or funded(high) >= Dezimal(0):
+                break
+            low = high
+            high = high * Dezimal(2)
         tolerance = Dezimal("0.01")
         for _ in range(100):
             mid = (low + high) / Dezimal(2)
-            final_balance = self._simulate_full_cycle(
-                base, rate, accumulation_periods, mid, withdrawal, retirement_periods
-            )
+            final_balance = funded(mid)
             if abs(final_balance) < tolerance:
                 return mid
             if final_balance > Dezimal(0):
@@ -234,10 +273,7 @@ class CalculateSavingsImpl(CalculateSavings):
         withdrawal: Dezimal,
         retirement_periods: int,
     ) -> Dezimal:
-        balance = base
-        for _ in range(accumulation_periods):
-            balance = balance + contribution
-            balance = balance + self._round_cents(balance * rate)
+        balance = self._accumulate(base, rate, accumulation_periods, contribution)
         final_balance = self._simulate_retirement_balance(
             balance, rate, retirement_periods, withdrawal
         )
@@ -262,11 +298,48 @@ class CalculateSavingsImpl(CalculateSavings):
         target_remaining = target - (base * growth)
         if target_remaining <= Dezimal(0):
             return Dezimal(0)
-        if rate == Dezimal(0):
-            return self._round_cents(target_remaining / Dezimal(periods))
-        annuity_factor = ((Dezimal(1) + rate) ** periods - Dezimal(1)) / rate
-        contribution = target_remaining / annuity_factor
-        return self._round_cents(contribution)
+        if self._negligible_rate(rate):
+            contribution = target_remaining / Dezimal(periods)
+        else:
+            # Each contribution earns the return of its own period (an annuity due),
+            # as in the projection.
+            annuity_factor = (
+                ((Dezimal(1) + rate) ** periods - Dezimal(1))
+                / rate
+                * (Dezimal(1) + rate)
+            )
+            if annuity_factor <= Dezimal(0):
+                raise CalculationInputError(
+                    "target_amount cannot be reached with this market performance"
+                )
+            contribution = target_remaining / annuity_factor
+        return self._raise_until(
+            self._round_cents(contribution),
+            lambda c: self._accumulate(base, rate, periods, c) >= target,
+        )
+
+    def _accumulate(
+        self, base: Dezimal, rate: Dezimal, periods: int, contribution: Dezimal
+    ) -> Dezimal:
+        """The balance after `periods` contributions, as the projection computes it."""
+        balance = base
+        for _ in range(periods):
+            balance = balance + contribution
+            balance = balance + self._round_cents(balance * rate)
+        return balance
+
+    def _raise_until(self, contribution: Dezimal, reaches) -> Dezimal:
+        """Raises a contribution rounded to cents a cent at a time until it reaches its
+        goal under the projection's rounding of returns."""
+        for _ in range(_MAX_CENT_STEPS):
+            if reaches(contribution):
+                break
+            contribution = contribution + _CENT
+        return contribution
+
+    def _negligible_rate(self, rate: Dezimal) -> bool:
+        """True when the rate does not change `1 + rate`, so it acts as zero."""
+        return Dezimal(1) + rate == Dezimal(1)
 
     def _run_scenario(
         self,
@@ -412,14 +485,14 @@ class CalculateSavingsImpl(CalculateSavings):
         periods: int,
         withdrawal: Dezimal,
     ) -> Dezimal:
+        """The balance left after every withdrawal, negative by what was not funded."""
         current = balance
         for i in range(1, periods + 1):
-            if current <= Dezimal(0):
-                remaining_periods = periods - i + 1
-                return Dezimal(0) - (withdrawal * Dezimal(remaining_periods))
-            w = withdrawal if current >= withdrawal else current
-            current = current - w
-            if i < periods and current > Dezimal(0):
+            current = current - withdrawal
+            if current < Dezimal(0):
+                # This withdrawal and all later ones are not funded in full.
+                return current - withdrawal * Dezimal(periods - i)
+            if i < periods:
                 current = current + self._round_cents(current * rate)
         return current
 
@@ -479,4 +552,8 @@ class CalculateSavingsImpl(CalculateSavings):
                     [
                         "retirement.withdrawal_amount | retirement.withdrawal_years",
                     ]
+                )
+            if r.withdrawal_amount is not None and r.withdrawal_amount < Dezimal(0):
+                raise CalculationInputError(
+                    "retirement.withdrawal_amount must not be negative"
                 )

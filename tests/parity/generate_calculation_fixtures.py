@@ -870,6 +870,57 @@ def savings_cases():
             ),
         ),
         case(
+            "retirement contribution when the base already funds it",
+            SAVINGS_PATH,
+            savings(
+                base_amount=1000000,
+                years=10,
+                scenarios=[scenario("rich", 0.05)],
+                retirement={"withdrawal_amount": 100, "withdrawal_years": 5},
+            ),
+        ),
+        case(
+            "retirement contribution above the first search bound",
+            SAVINGS_PATH,
+            savings(
+                base_amount=0,
+                years=1,
+                periodicity="YEARLY",
+                scenarios=[scenario("late", -0.5)],
+                retirement={"withdrawal_amount": 1000, "withdrawal_years": 10},
+            ),
+        ),
+        case(
+            "negative withdrawal",
+            SAVINGS_PATH,
+            savings(
+                scenarios=[scenario("plan", 0.05, periodic_contribution=100)],
+                retirement={"withdrawal_amount": -100, "withdrawal_years": 5},
+            ),
+        ),
+        case(
+            "target with a negative return",
+            SAVINGS_PATH,
+            savings(
+                base_amount=1000,
+                years=5,
+                scenarios=[scenario("down", -0.04, target_amount=10000)],
+            ),
+        ),
+        case(
+            "target the rounded returns never reach",
+            SAVINGS_PATH,
+            savings(
+                base_amount="0.10",
+                years=...,
+                scenarios=[
+                    scenario(
+                        "dust", 0.06, periodic_contribution=0, target_amount="0.11"
+                    )
+                ],
+            ),
+        ),
+        case(
             "retirement solves the contribution at zero rate",
             SAVINGS_PATH,
             savings(

@@ -17,6 +17,13 @@ use core_domain::dezimal::Checked;
 use core_domain::exception::{CalculationError, CalculationInputError, MissingFieldsError};
 
 const NON_FINITE: &str = "calculation produced non-finite amount";
+/// A solved contribution is rounded to cents and then raised a cent at a time until
+/// the projection, which rounds every return to cents, reaches what it was solved
+/// for. The formulas are exact apart from that rounding, so a few cents suffice.
+const MAX_CENT_STEPS: usize = 10;
+/// How often the search for a retirement contribution doubles its upper bound until
+/// that bound funds every withdrawal.
+const MAX_BOUND_DOUBLINGS: usize = 64;
 
 /// Longest accumulation or retirement phase, in years. Python's own search for a
 /// target stops at 200 years; longer horizons let one request exhaust memory and
@@ -111,6 +118,11 @@ fn round_cents(amount: Dezimal) -> Result<Dezimal, CalculationError> {
     amount.round_cents().map_err(|_| non_finite())
 }
 
+/// True when the rate does not change `1 + rate`, so it acts as zero.
+fn negligible_rate(rate: Dezimal) -> Result<bool, CalculationError> {
+    Ok(value(Dezimal::ONE + rate)? == Dezimal::ONE)
+}
+
 fn period_rate(
     annual_rate: Dezimal,
     periodicity: SavingsPeriodicity,
@@ -143,6 +155,17 @@ fn validate(request: &SavingsCalculationRequest) -> Result<(), CalculationError>
         return Err(MissingFieldsError::new([
             "retirement.withdrawal_amount | retirement.withdrawal_years",
         ])
+        .into());
+    }
+    if request
+        .retirement
+        .as_ref()
+        .and_then(|retirement| retirement.withdrawal_amount)
+        .is_some_and(|amount| amount < Dezimal::ZERO)
+    {
+        return Err(CalculationInputError::new(
+            "retirement.withdrawal_amount must not be negative",
+        )
         .into());
     }
     if request.years.is_some_and(|years| years > MAX_YEARS) {
@@ -204,7 +227,7 @@ fn solve_periods_for_target(
 ) -> Result<Option<i64>, CalculationError> {
     let rate = period_rate(annual_market_performance, data.periodicity())?;
     let periodic = periodic_contribution.unwrap_or(Dezimal::ZERO);
-    if rate.is_zero() && periodic.is_zero() {
+    if negligible_rate(rate)? && periodic.is_zero() {
         return Ok(None);
     }
     let limit = 200 * data.periods_per_year();
@@ -212,9 +235,8 @@ fn solve_periods_for_target(
     let mut balance = data.base_amount;
     while balance < target && periods < limit {
         balance = value(balance + periodic)?;
-        // Kept from Python: unrounded returns, while the projection rounds each
-        // return to cents (docs/rust-backend.md, "Known issues of the Python reference", S3).
-        balance = value(balance + balance * rate)?;
+        // Rounded to cents like the projection, so that it reaches the target too.
+        balance = value(balance + round_cents(value(balance * rate)?)?)?;
         periods += 1;
     }
     if balance < target {
@@ -335,7 +357,16 @@ fn solve_contribution_for_retirement(
         retirement_periods,
         initial_estimate,
     )?;
-    round_cents(contribution)
+    raise_until(round_cents(contribution)?, |candidate| {
+        Ok(simulate_full_cycle(
+            base,
+            rate,
+            accumulation_periods,
+            candidate,
+            withdrawal,
+            retirement_periods,
+        )? >= Dezimal::ZERO)
+    })
 }
 
 fn estimate_contribution_for_retirement(
@@ -346,7 +377,7 @@ fn estimate_contribution_for_retirement(
     retirement_periods: i64,
 ) -> Result<Dezimal, CalculationError> {
     let one = Dezimal::ONE;
-    if rate.is_zero() {
+    if negligible_rate(rate)? {
         let total_needed = value(withdrawal * Dezimal::from(retirement_periods))?;
         if total_needed <= base {
             return Ok(Dezimal::ZERO);
@@ -363,7 +394,11 @@ fn estimate_contribution_for_retirement(
         return Ok(Dezimal::ZERO);
     }
     let shortfall = value(required_balance - base_at_retirement)?;
-    let annuity = value((growth - one) / rate)?;
+    // Each contribution earns the return of its own period (an annuity due).
+    let annuity = value((growth - one) / rate * (one + rate))?;
+    if annuity <= Dezimal::ZERO {
+        return Ok(shortfall);
+    }
     value(shortfall / annuity)
 }
 
@@ -375,22 +410,37 @@ fn refine_contribution_via_simulation(
     retirement_periods: i64,
     initial_estimate: Dezimal,
 ) -> Result<Dezimal, CalculationError> {
+    let funded = |contribution: Dezimal| {
+        simulate_full_cycle(
+            base,
+            rate,
+            accumulation_periods,
+            contribution,
+            withdrawal,
+            retirement_periods,
+        )
+    };
+    // The base alone already funds every withdrawal.
+    if funded(Dezimal::ZERO)? >= Dezimal::ZERO {
+        return Ok(Dezimal::ZERO);
+    }
     let mut low = Dezimal::ZERO;
     let mut high = value(initial_estimate * Dezimal::from(3))?;
-    if high.is_zero() {
+    if high <= Dezimal::ZERO {
         high = value(withdrawal * Dezimal::TWO)?;
+    }
+    // The search only converges when the upper bound funds every withdrawal.
+    for _ in 0..MAX_BOUND_DOUBLINGS {
+        if high <= Dezimal::ZERO || funded(high)? >= Dezimal::ZERO {
+            break;
+        }
+        low = high;
+        high = value(high * Dezimal::TWO)?;
     }
     let tolerance = Dezimal::CENT;
     for _ in 0..100 {
         let mid = value((low + high) / Dezimal::TWO)?;
-        let final_balance = simulate_full_cycle(
-            base,
-            rate,
-            accumulation_periods,
-            mid,
-            withdrawal,
-            retirement_periods,
-        )?;
+        let final_balance = funded(mid)?;
         if final_balance.abs() < tolerance {
             return Ok(mid);
         }
@@ -417,12 +467,38 @@ fn simulate_full_cycle(
     withdrawal: Dezimal,
     retirement_periods: i64,
 ) -> Result<Dezimal, CalculationError> {
+    let balance = accumulate(base, rate, accumulation_periods, contribution)?;
+    simulate_retirement_balance(balance, rate, retirement_periods, withdrawal)
+}
+
+/// The balance after `periods` contributions, as the projection computes it.
+fn accumulate(
+    base: Dezimal,
+    rate: Dezimal,
+    periods: i64,
+    contribution: Dezimal,
+) -> Result<Dezimal, CalculationError> {
     let mut balance = base;
-    for _ in 0..accumulation_periods {
+    for _ in 0..periods {
         balance = value(balance + contribution)?;
         balance = value(balance + round_cents(value(balance * rate)?)?)?;
     }
-    simulate_retirement_balance(balance, rate, retirement_periods, withdrawal)
+    Ok(balance)
+}
+
+/// Raises a contribution rounded to cents a cent at a time until it reaches its goal
+/// under the projection's rounding of returns.
+fn raise_until(
+    mut contribution: Dezimal,
+    reaches: impl Fn(Dezimal) -> Result<bool, CalculationError>,
+) -> Result<Dezimal, CalculationError> {
+    for _ in 0..MAX_CENT_STEPS {
+        if reaches(contribution)? {
+            break;
+        }
+        contribution = value(contribution + Dezimal::CENT)?;
+    }
+    Ok(contribution)
 }
 
 fn solve_required_contribution_periods(
@@ -442,15 +518,23 @@ fn solve_required_contribution_periods(
     if target_remaining <= Dezimal::ZERO {
         return Ok(Dezimal::ZERO);
     }
-    if rate.is_zero() {
-        return round_cents(value(target_remaining / Dezimal::from(periods))?);
-    }
-    // Kept from Python: the factor of an ordinary annuity, although the projection
-    // applies the return after each contribution (docs/rust-backend.md, "Known issues of the Python reference", S2).
-    // A rate too small to change `1 + rate` makes it zero (S5).
-    let annuity_factor = value(((one + rate).powi(periods) - one) / rate)?;
-    let contribution = value(target_remaining / annuity_factor)?;
-    round_cents(contribution)
+    let contribution = if negligible_rate(rate)? {
+        value(target_remaining / Dezimal::from(periods))?
+    } else {
+        // Each contribution earns the return of its own period (an annuity due), as
+        // in the projection.
+        let annuity_factor = value(((one + rate).powi(periods) - one) / rate * (one + rate))?;
+        if annuity_factor <= Dezimal::ZERO {
+            return Err(CalculationInputError::new(
+                "target_amount cannot be reached with this market performance",
+            )
+            .into());
+        }
+        value(target_remaining / annuity_factor)?
+    };
+    raise_until(round_cents(contribution)?, |candidate| {
+        Ok(accumulate(base, rate, periods, candidate)? >= target)
+    })
 }
 
 fn run_scenario(
@@ -567,8 +651,6 @@ fn compute_retirement(
         if index > safety_limit {
             break;
         }
-        // Kept from Python: a negative withdrawal is accepted and adds to the
-        // balance (docs/rust-backend.md, "Known issues of the Python reference", S4).
         let withdrawal = if current >= amount { amount } else { current };
         current = value(current - withdrawal)?;
         total_withdrawn = value(total_withdrawn + withdrawal)?;
@@ -611,19 +693,12 @@ fn simulate_retirement_balance(
 ) -> Result<Dezimal, CalculationError> {
     let mut current = balance;
     for index in 1..=periods {
-        if current <= Dezimal::ZERO {
-            let remaining_periods = periods - index + 1;
-            return value(Dezimal::ZERO - withdrawal * Dezimal::from(remaining_periods));
+        current = value(current - withdrawal)?;
+        if current < Dezimal::ZERO {
+            // This withdrawal and all later ones are not funded in full.
+            return value(current - withdrawal * Dezimal::from(periods - index));
         }
-        // Kept from Python: a withdrawal the balance cannot cover is cut to the
-        // balance without counting the shortfall (docs/rust-backend.md, "Known issues of the Python reference", S1).
-        let taken = if current >= withdrawal {
-            withdrawal
-        } else {
-            current
-        };
-        current = value(current - taken)?;
-        if index < periods && current > Dezimal::ZERO {
+        if index < periods {
             current = value(current + round_cents(value(current * rate)?)?)?;
         }
     }
