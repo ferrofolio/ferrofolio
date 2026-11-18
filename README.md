@@ -322,9 +322,11 @@ For the frontend use `pnpm`, and `node 24`.
 
     ```sh
     cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
-    pnpm dev            # For the Electron desktop app
-    # Or for a browser-only session:
+    # Browser only, connects to the server running in the first terminal:
     WEB_ONLY=1 VITE_BASE_URL=http://localhost:7592 pnpm dev
+    # Or the Electron desktop app. It starts its own backend on port 7592,
+    # so stop the server in the first terminal before running it:
+    pnpm dev
     # The default Vite dev URL is http://localhost:5173
     ```
 

@@ -1,62 +1,64 @@
 // @vitest-environment node
 // SPDX-License-Identifier: AGPL-3.0-only
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { Logger } from "../../electron/main/logging/logger"
-import { mkdirSync, existsSync, rmSync, readFileSync } from "fs"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "fs"
 import { join } from "path"
-import { mkdtempSync } from "fs"
 import { tmpdir } from "os"
+import { Logger } from "../../electron/main/logging/logger"
+import { getLogFilePath } from "../../electron/main/logging/utils"
 
 const LOG_HEADER_PREFIX = "=== Ferrofolio Electron Log Started at"
+const CONSOLE_METHODS = ["log", "info", "warn", "error", "debug"] as const
+
+function requireLogFile(logger: Logger): string {
+  const logFile = logger.getCurrentLogFile()
+  if (!logFile) throw new Error("logger has no current log file")
+  return logFile
+}
 
 describe("Logger", () => {
-  const tmpDir = mkdtempSync(join(tmpdir(), "logger-test-"))
+  let tmpDir: string
+  let savedConsole: Pick<Console, (typeof CONSOLE_METHODS)[number]>
 
   beforeEach(() => {
-    vi.restoreAllMocks()
+    tmpDir = mkdtempSync(join(tmpdir(), "logger-test-"))
+    savedConsole = Object.fromEntries(
+      CONSOLE_METHODS.map(method => [method, console[method]]),
+    ) as typeof savedConsole
   })
 
   afterEach(() => {
+    // Logger.initialize() replaces these by assignment; restore them before the log directory goes away.
+    for (const method of CONSOLE_METHODS) console[method] = savedConsole[method]
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  it("writes the expected header into the main log file", async () => {
+  it("writes the expected header into the main log file", () => {
     const logDir = join(tmpDir, "logs")
     mkdirSync(logDir, { recursive: true })
 
     const logger = new Logger({ logDir })
     logger.initialize()
 
-    const logFile = logger.getCurrentLogFile()
-    expect(logFile).toBeDefined()
-    if (logFile) {
-      const content = readFileSync(logFile, "utf-8")
-      expect(content.startsWith(LOG_HEADER_PREFIX)).toBe(true)
-    }
+    const content = readFileSync(requireLogFile(logger), "utf-8")
+    expect(content.startsWith(LOG_HEADER_PREFIX)).toBe(true)
   })
 
-  it("rotates logs when the file exceeds max size", async () => {
+  it("archives the full log and starts a new one with the header", () => {
     const logDir = join(tmpDir, "logs-rotate")
     mkdirSync(logDir, { recursive: true })
 
-    const logger = new Logger({
-      logDir,
-      maxFileSize: 100,
-      maxFiles: 2,
-    })
+    const logger = new Logger({ logDir, maxFileSize: 100, maxFiles: 2 })
     logger.initialize()
+    logger.info("rotation-marker")
+    logger.info("after rotation")
 
-    const initialLog = logger.getCurrentLogFile()!
-    expect(readFileSync(initialLog, "utf-8")).toContain(LOG_HEADER_PREFIX)
+    const archived = readFileSync(getLogFilePath(logDir, 1), "utf-8")
+    expect(archived).toContain("rotation-marker")
 
-    // Write enough to trigger rotation
-    for (let i = 0; i < 10; i++) {
-      logger.info("x".repeat(80))
-    }
-
-    // After rotation the file should still exist
-    expect(existsSync(initialLog)).toBe(true)
-    const newContent = readFileSync(initialLog, "utf-8")
-    expect(newContent).toContain(LOG_HEADER_PREFIX)
+    const active = readFileSync(requireLogFile(logger), "utf-8")
+    expect(requireLogFile(logger)).toBe(getLogFilePath(logDir, 0))
+    expect(active.startsWith(LOG_HEADER_PREFIX)).toBe(true)
+    expect(active).not.toContain("rotation-marker")
   })
 })

@@ -75,12 +75,14 @@ describe("system tray", () => {
     expect(template.filter(i => i.label === "About").length).toBe(1)
 
     expect(mockTray.setToolTip).toHaveBeenCalledWith("Ferrofolio")
+    const menu = MockMenu.buildFromTemplate.mock.results[0].value
+    expect(mockTray.setContextMenu).toHaveBeenCalledWith(menu)
 
     // Click the Ferrofolio menu item
     const ferroItem = template.find(i => i.label === "Ferrofolio")!
     await ferroItem.click!()
     expect(onShow).toHaveBeenCalledOnce()
 
-    expect(tray).toBeDefined()
+    expect(tray).toBe(mockTray)
   })
 })
