@@ -159,10 +159,11 @@ trap cleanup EXIT
 # act names job containers and volumes after the workflow and the job only, and serves
 # artifacts on a fixed port of the host, so two runs at the same time, for example
 # from two worktrees, would collide. Runs on this machine therefore take turns.
-mkdir -p "$cache_dir"
+# The lock lives in one place per user, whatever the cache directory is.
+lock_base="/tmp/ferrofolio-ci-local-$(id -u)"
 if command -v flock > /dev/null; then
   # Released by the kernel when the run ends, however it ends.
-  exec 9> "$cache_dir/run.lock"
+  exec 9> "$lock_base.lock"
   if ! flock --nonblock 9; then
     echo "Waiting for another local CI run on this machine" >&2
     flock 9
@@ -170,8 +171,12 @@ if command -v flock > /dev/null; then
 else
   # Without flock (macOS), mkdir is the atomic step; a run that is killed leaves the
   # directory behind, and it is not removed automatically to never break a live run.
-  lock_path="$cache_dir/run.lock.d"
+  lock_path="$lock_base.lock.d"
   until mkdir "$lock_path" 2> /dev/null; do
+    if [[ ! -d "$lock_path" ]]; then
+      echo "Cannot create the lock directory $lock_path" >&2
+      exit 1
+    fi
     if [[ -z "${announced:-}" ]]; then
       echo "Waiting for another local CI run on this machine; if none is running," >&2
       echo "remove $lock_path" >&2
