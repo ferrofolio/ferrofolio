@@ -11,6 +11,7 @@ import appdirs
 APP_DIR_NAME = "Ferrofolio"
 LEGACY_APP_DIR_NAME = "Finanze"
 STAGING_SUFFIX = ".migrating"
+MIGRATED_SUFFIX = ".migrated"
 
 
 def default_data_dir() -> Path:
@@ -43,11 +44,20 @@ def _has_entries(path: Path) -> bool:
         return False
 
 
+def _is_populated_dir(path: Path) -> bool:
+    try:
+        return _has_entries(path)
+    except OSError:
+        return False
+
+
 def _copy_then_publish(legacy: Path, target: Path) -> None:
     """Copy into a staging directory and only publish it as target when complete.
 
     Each attempt uses its own staging directory, so a concurrent start can never
-    remove or publish another attempt's partial copy.
+    remove or publish another attempt's partial copy. The legacy directory is
+    set aside instead of deleted: a Finanze process still running could have
+    written to it after the copy, and those writes must not be lost.
     """
     staging = target.with_name(f"{target.name}{STAGING_SUFFIX}-{uuid.uuid4().hex}")
     try:
@@ -56,7 +66,14 @@ def _copy_then_publish(legacy: Path, target: Path) -> None:
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
-    shutil.rmtree(legacy, ignore_errors=True)
+    try:
+        os.rename(
+            legacy,
+            legacy.with_name(f"{legacy.name}{MIGRATED_SUFFIX}-{uuid.uuid4().hex}"),
+        )
+    except OSError:
+        # Kept in place; the next start reports it as a conflict
+        pass
 
 
 def migrate_legacy_data_dir(
@@ -74,8 +91,17 @@ def migrate_legacy_data_dir(
     try:
         if not _has_entries(legacy) or legacy.resolve() == target.resolve():
             return DataDirMigration(target)
+    except OSError as e:
+        if _is_populated_dir(target):
+            return DataDirMigration(target)
+        return DataDirMigration(legacy, error=f"{type(e).__name__}: {e}")
 
-        if target.exists() and (not target.is_dir() or _has_entries(target)):
+    try:
+        if target.exists() and not target.is_dir():
+            return DataDirMigration(
+                legacy, error=f"{target} exists and is not a directory"
+            )
+        if _has_entries(target):
             return DataDirMigration(target, conflict=legacy)
     except OSError as e:
         return DataDirMigration(legacy, error=f"{type(e).__name__}: {e}")

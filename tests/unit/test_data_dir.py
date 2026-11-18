@@ -84,7 +84,9 @@ def _rename_fails_across_devices(monkeypatch, legacy):
     real_rename = os.rename
 
     def rename(src, dst):
-        if os.fspath(src) == os.fspath(legacy):
+        # Setting legacy aside stays on its own file system and succeeds
+        aside = Path(dst).name.startswith(f"{legacy.name}{data_dir.MIGRATED_SUFFIX}")
+        if os.fspath(src) == os.fspath(legacy) and not aside:
             raise OSError(18, "Invalid cross-device link")
         return real_rename(src, dst)
 
@@ -356,7 +358,8 @@ def test_losing_concurrent_copy_uses_the_published_target(tmp_path, monkeypatch)
     real_copytree = shutil.copytree
 
     def other_start_publishes_first(src, dst, *args, **kwargs):
-        real_copytree(src, target, *args, **kwargs)
+        if os.fspath(src) == os.fspath(legacy):
+            real_copytree(src, target, *args, **kwargs)
         return real_copytree(src, dst, *args, **kwargs)
 
     monkeypatch.setattr(data_dir.shutil, "copytree", other_start_publishes_first)
@@ -365,6 +368,7 @@ def test_losing_concurrent_copy_uses_the_published_target(tmp_path, monkeypatch)
 
     assert result == DataDirMigration(target)
     assert (target / "user.db").read_bytes() == b"encrypted"
+    assert (target / "logs").is_dir()
     assert not list(tmp_path.glob(f"{target.name}{STAGING_SUFFIX}*"))
 
 
@@ -393,3 +397,45 @@ def test_failing_probe_keeps_using_legacy(tmp_path, monkeypatch):
 
     assert result.data_dir == legacy
     assert "Permission denied" in result.error
+
+
+def test_copy_sets_the_legacy_directory_aside_instead_of_deleting_it(
+    tmp_path, monkeypatch
+):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    _rename_fails_across_devices(monkeypatch, legacy)
+
+    migrate_legacy_data_dir(target, legacy)
+
+    (kept,) = tmp_path.glob(f"{legacy.name}{data_dir.MIGRATED_SUFFIX}-*")
+    assert (kept / "user.db").read_bytes() == b"encrypted"
+    assert not legacy.exists()
+
+
+def test_regular_file_at_target_keeps_using_legacy(tmp_path):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    target.write_bytes(b"")
+
+    result = migrate_legacy_data_dir(target, legacy)
+
+    assert result.data_dir == legacy
+    assert "not a directory" in result.error
+
+
+def test_failing_legacy_probe_uses_a_populated_target(tmp_path, monkeypatch):
+    legacy = _legacy_with_db(tmp_path)
+    target = tmp_path / "Ferrofolio"
+    target.mkdir()
+    (target / "user.db").write_bytes(b"new")
+    real_iterdir = Path.iterdir
+
+    def legacy_denied(self):
+        if self == legacy:
+            raise PermissionError(13, "Permission denied")
+        return real_iterdir(self)
+
+    monkeypatch.setattr(data_dir.Path, "iterdir", legacy_denied)
+
+    assert migrate_legacy_data_dir(target, legacy) == DataDirMigration(target)
