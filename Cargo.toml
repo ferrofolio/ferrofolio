@@ -19,6 +19,7 @@ publish = false
 
 [workspace.dependencies]
 core-domain = { path = "crates/core-domain" }
+core-app = { path = "crates/core-app" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
