@@ -119,6 +119,11 @@ EOF
 # "changes" job can still compare commits.
 git_common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
 container_options="--volume $git_common_dir:$git_common_dir:ro"
+# act asks for an OOM score adjustment of 0. A rootless Podman service started by
+# systemd runs at 200 and cannot go lower, so every command act runs in the container
+# would fail; the jobs get the highest value, which is also the first to be freed
+# when memory runs out.
+container_options+=" --oom-score-adj 1000"
 
 "$act_bin" pull_request \
   --workflows .github/workflows/ci.yml \
