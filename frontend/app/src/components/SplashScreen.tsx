@@ -89,9 +89,9 @@ export default function SplashScreen() {
       }`}
     >
       <img
-        src="finanze-fg.svg"
+        src="ferrofolio-fg.svg"
         alt={t.common.logoAlt}
-        className={`w-32 h-32 ${backendFailed ? "" : "animate-breathing"} drop-shadow ${isLight ? "invert" : ""} select-none pointer-events-none`}
+        className={`w-32 h-32 ${backendFailed ? "" : "animate-breathing"} drop-shadow select-none pointer-events-none`}
         draggable={false}
       />
       {!backendFailed && (

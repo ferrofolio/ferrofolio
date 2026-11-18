@@ -2,15 +2,14 @@
 > **Ferrofolio** is an independent, community-driven fork of [Finanze](https://github.com/finanze/finanze).
 > It is not affiliated with or endorsed by the Finanze project.
 >
-> The rename is in progress. This README and parts of the code still say "Finanze". Ferrofolio does not publish
-> its own releases or container images yet; the [Docker](#docker) setup builds the images from this repository.
-> See [NOTICE](./NOTICE) for the origin of the code.
+> Ferrofolio does not publish its own releases or container images yet; the [Docker](#docker) setup builds the
+> images from this repository. See [NOTICE](./NOTICE) for the origin of the code.
 
-<p align="center"><img src="frontend/app/public/finanze-app.png" alt="Finanze logo — self-hosted personal finance and net worth tracker" width="220px"></p>
-<h1 align="center">Finanze — Self-hosted Personal Finance & Net Worth Tracker</h1>
+<p align="center"><img src="frontend/app/public/ferrofolio-fg.svg" alt="Ferrofolio logo" width="220px"></p>
+<h1 align="center">Ferrofolio</h1>
 
 <p align="center">
-<a href="https://finanze.me">Finanze</a> is an Open Source, private, self-hosted personal finance and portfolio manager that aggregates your assets and investments across banks, brokers, crowdfunding platforms, crypto exchanges & wallets and real estate into a unified application.
+<a href="https://github.com/ferrofolio/ferrofolio">Ferrofolio</a> is an Open Source, private, self-hosted personal finance and portfolio manager that aggregates your assets and investments across banks, brokers, crowdfunding platforms, crypto exchanges & wallets and real estate into a unified application.
 It connects to real financial entities via public ways and open banking (PSD2), supports multiple asset types (real estate, crypto, funds, stocks, commodities...) and stores everything in a local encrypted database.
 </p>
 
@@ -38,14 +37,14 @@ It connects to real financial entities via public ways and open banking (PSD2), 
 <h2 align="center"></h2>
 
 <p align="middle">
-  <img src="resources/dashboard.png" alt="Finanze net worth dashboard aggregating banks, investments and crypto" width="49%" />
-  <img src="resources/m-stocks.png" alt="Finanze mobile stocks and ETFs portfolio view" width="19%" /> 
-  <img src="resources/integrations.png" alt="Finanze connected financial entities and open banking accounts" width="49%" /> 
-  <img src="resources/budget.png" alt="Finanze earnings and expenses tracking with contribution forecasting" width="49%" /> 
-  <img src="resources/realestate.png" alt="Finanze real estate investment tracking with KPIs and metrics" width="49%" />
-  <img src="resources/savingscalculator.png" alt="Finanze savings and retirement calculator with multiple scenarios" width="49%" /> 
-  <img src="resources/crypto.png" alt="Finanze crypto portfolio tracking across wallets and exchanges" width="49%" /> 
-  <img src="resources/activity.png" alt="Finanze crypto portfolio tracking across wallets and exchanges" width="49%" /> 
+  <img src="resources/dashboard.png" alt="Ferrofolio net worth dashboard aggregating banks, investments and crypto" width="49%" />
+  <img src="resources/m-stocks.png" alt="Ferrofolio mobile stocks and ETFs portfolio view" width="19%" /> 
+  <img src="resources/integrations.png" alt="Ferrofolio connected financial entities and open banking accounts" width="49%" /> 
+  <img src="resources/budget.png" alt="Ferrofolio earnings and expenses tracking with contribution forecasting" width="49%" /> 
+  <img src="resources/realestate.png" alt="Ferrofolio real estate investment tracking with KPIs and metrics" width="49%" />
+  <img src="resources/savingscalculator.png" alt="Ferrofolio savings and retirement calculator with multiple scenarios" width="49%" /> 
+  <img src="resources/crypto.png" alt="Ferrofolio crypto portfolio tracking across wallets and exchanges" width="49%" /> 
+  <img src="resources/activity.png" alt="Ferrofolio activity analysis with income, expenses, savings rate, a daily cashflow heatmap and spending by label" width="49%" /> 
 </p>
 
 ## Table of Contents
@@ -100,7 +99,7 @@ External endpoints must be reachable from the Ferrofolio server.
 
 ### MCP Server
 
-Finanze includes a Model Context Protocol (MCP) server that lets compatible AI clients access supported Finanze data and tools. In the app, open **Settings > MCP** to enable it, choose an access mode, and copy a connection snippet for your client. Read-only access is enabled by default. Write access allows supported tools to create, edit, and delete data, connect integrations, and fetch entity data.
+Ferrofolio includes a Model Context Protocol (MCP) server that lets compatible AI clients access supported Ferrofolio data and tools. In the app, open **Settings > MCP** to enable it, choose an access mode, and copy a connection snippet for your client. Read-only access is enabled by default. Write access allows supported tools to create, edit, and delete data, connect integrations, and fetch entity data.
 
 ### Supported Assets by Financial Entity & Crypto Exchanges
 
@@ -288,8 +287,8 @@ For the frontend use `pnpm`, and `node 24`.
 1. Clone the repository:
 
     ```sh
-    git clone https://github.com/finanze/finanze.git
-    cd finanze
+    git clone https://github.com/ferrofolio/ferrofolio.git
+    cd ferrofolio
     ```
 
 2. Create a virtual environment and activate it (recommended Pyenv for version management):
@@ -307,20 +306,35 @@ For the frontend use `pnpm`, and `node 24`.
     pre-commit install
     ```
 
-4. Setup frontend:
+4. Setup the frontend:
 
     ```sh
     cd frontend/app
     pnpm install
+    cd ../..
     ```
 
-5. Run it
+5. Run it. The server stays in the foreground, so start the frontend in a second terminal:
 
     ```sh
-    python ./finanze/finanze --port 7592 --data-dir .storage --log-dir .storage/logs --log-level DEBUG --third-party-log-level DEBUG
+    python ./finanze --port 7592 --data-dir .storage --log-dir .storage/logs --log-level DEBUG --third-party-log-level DEBUG
+    ```
 
-    cd frontend/app
-    pnpm dev            # For electron desktop app
+    Browser only, connecting to the server running in the first terminal. The default Vite dev URL is
+    http://localhost:5173:
+
+    ```sh
+    cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
+    WEB_ONLY=1 VITE_BASE_URL=http://localhost:7592 pnpm dev
+    ```
+
+    Or the Electron desktop app. It starts its own backend on port 7592 with the `python` on your `PATH`, so stop the
+    server in the first terminal and activate the virtual environment from step 2 first:
+
+    ```sh
+    cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
+    source ../../venv/bin/activate
+    pnpm dev
     ```
 
 #### Other

@@ -82,7 +82,7 @@ export interface BackendActionResult {
   error?: BackendErrorInfo
 }
 
-export interface FinanzeConfig {
+export interface FerrofolioConfig {
   backend?: BackendStartOptions
   serverUrl?: string
 }

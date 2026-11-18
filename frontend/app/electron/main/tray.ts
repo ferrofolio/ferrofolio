@@ -29,7 +29,7 @@ export function createTray(config: TrayConfig): Tray {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Finanze",
+      label: "Ferrofolio",
       click: async () => {
         await config.onShowWindow()
       },
@@ -50,7 +50,7 @@ export function createTray(config: TrayConfig): Tray {
     },
   ])
 
-  tray.setToolTip("Finanze")
+  tray.setToolTip("Ferrofolio")
   tray.setContextMenu(contextMenu)
 
   tray.on("click", async () => {

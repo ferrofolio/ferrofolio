@@ -33,7 +33,7 @@ from infrastructure.client.ai.http_ai_client import (
 from infrastructure.client.ai.input_modalities import parse_input_modalities
 from infrastructure.client.http.http_response import HttpResponse
 
-APP_TITLE = "Finanze"
+APP_TITLE = "Ferrofolio"
 DECISIONS_OUTPUT = "decisions"
 TEXT_OUTPUT = "text"
 STRUCTURED_OUTPUT_PARAMETERS = {"structured_outputs", "response_format"}

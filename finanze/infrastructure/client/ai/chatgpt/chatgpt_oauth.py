@@ -33,7 +33,7 @@ JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
 DISCOVERY_URL = f"{ISSUER}/.well-known/openid-configuration"
 RESOURCE = "https://api.openai.com/v1"
 DYNAMIC_CLIENT_ID = "dynamic_agent_client"
-AGENT_NAME = "Finanze"
+AGENT_NAME = "Ferrofolio"
 PLAN_SCOPE = "chatgpt.tokens.use.direct"
 SCOPES = (
     "openid",

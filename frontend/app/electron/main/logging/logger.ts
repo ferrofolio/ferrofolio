@@ -99,7 +99,7 @@ export class Logger {
       }
       // Create new main log file
       this.currentLogFile = mainLogFile
-      const header = `=== Finanze Electron Log Started at ${new Date().toISOString()} ===\n`
+      const header = `=== Ferrofolio Electron Log Started at ${new Date().toISOString()} ===\n`
       writeFileSync(this.currentLogFile, header)
       return
     }
@@ -109,7 +109,7 @@ export class Logger {
     if (size >= this.config.maxFileSize) {
       this.rotateLogFiles()
       this.currentLogFile = mainLogFile
-      const header = `=== Finanze Electron Log Started at ${new Date().toISOString()} ===\n`
+      const header = `=== Ferrofolio Electron Log Started at ${new Date().toISOString()} ===\n`
       writeFileSync(this.currentLogFile, header)
     }
   }

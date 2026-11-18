@@ -443,7 +443,7 @@ async def serve(server: uvicorn.Server):
     await server.serve()
 
 
-class FinanzeServer:
+class FerrofolioServer:
     def __init__(self, args: argparse.Namespace):
         self._args = args
         self._quart_app = None
@@ -578,7 +578,7 @@ class FinanzeServer:
                 ClaudeModelDiscovery(),
                 agent_runtime_pool,
                 agent_runtime_sandbox,
-                client_app=f"finanze/{resolve_version()}",
+                client_app=f"Ferrofolio/{resolve_version()}",
             )
 
         crypto_entity_fetchers = {

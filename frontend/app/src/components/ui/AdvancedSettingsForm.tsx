@@ -22,7 +22,7 @@ import {
   hasConfig,
 } from "@/services/configStorage"
 import type {
-  FinanzeConfig,
+  FerrofolioConfig,
   BackendLogLevel,
   BackendStartOptions,
 } from "@/types"
@@ -54,7 +54,7 @@ const isServerUrlFormatValid = (value: string): boolean => {
   return SERVER_URL_PATTERN.test(trimmed)
 }
 
-const normalizeConfig = (config: FinanzeConfig): FinanzeConfig => {
+const normalizeConfig = (config: FerrofolioConfig): FerrofolioConfig => {
   return {
     serverUrl: config.serverUrl?.trim() || undefined,
     backend: config.backend
@@ -70,7 +70,7 @@ const normalizeConfig = (config: FinanzeConfig): FinanzeConfig => {
   }
 }
 
-const areConfigsEqual = (a: FinanzeConfig, b: FinanzeConfig): boolean => {
+const areConfigsEqual = (a: FerrofolioConfig, b: FerrofolioConfig): boolean => {
   const normA = normalizeConfig(a)
   const normB = normalizeConfig(b)
   return JSON.stringify(normA) === JSON.stringify(normB)
@@ -82,8 +82,8 @@ export function AdvancedSettingsForm({
   idPrefix = "",
 }: AdvancedSettingsFormProps) {
   const { t } = useI18n()
-  const [config, setConfig] = useState<FinanzeConfig>({})
-  const [initialConfig, setInitialConfig] = useState<FinanzeConfig>({})
+  const [config, setConfig] = useState<FerrofolioConfig>({})
+  const [initialConfig, setInitialConfig] = useState<FerrofolioConfig>({})
   const [hasStoredConfig, setHasStoredConfig] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -171,7 +171,7 @@ export function AdvancedSettingsForm({
         return
       }
 
-      const configToSave: FinanzeConfig = {}
+      const configToSave: FerrofolioConfig = {}
 
       const trimmedServerUrl = config.serverUrl?.trim()
       if (trimmedServerUrl) {

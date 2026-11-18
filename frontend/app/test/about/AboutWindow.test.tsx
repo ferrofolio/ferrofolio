@@ -13,8 +13,12 @@ describe("AboutWindow", () => {
   })
 
   it("shows the localized product name, not the packaged app name", async () => {
-    // A packaged build reports the productName from the upstream build config.
-    const info: AboutAppInfo = { appName: "Finanze", version: "1.2.3" }
+    // The packaged app name comes from the build config and can lag behind the
+    // localized product name.
+    const info: AboutAppInfo = {
+      appName: "Stale Product Name",
+      version: "1.2.3",
+    }
     ;(window as { ipcAPI?: unknown }).ipcAPI = {
       getAboutInfo: vi.fn().mockResolvedValue(info),
     }
@@ -25,6 +29,7 @@ describe("AboutWindow", () => {
     expect(screen.getByText("About Ferrofolio")).toBeInTheDocument()
     expect(screen.getByAltText("Ferrofolio logo")).toBeInTheDocument()
     expect(document.title).toBe("About Ferrofolio")
+    expect(document.body.textContent).not.toContain("Stale Product Name")
     expect(document.body.textContent).not.toMatch(/\bFinanze\b/)
   })
 })

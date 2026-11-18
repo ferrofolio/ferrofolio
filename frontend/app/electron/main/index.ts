@@ -21,7 +21,7 @@ import {
   BackendStartOptions,
   BackendActionResult,
   BackendErrorInfo,
-  FinanzeConfig,
+  FerrofolioConfig,
 } from "../types"
 import { promptLogin } from "./loginHandlers"
 import { promptChallenge } from "./challengeWindow"
@@ -113,7 +113,7 @@ const backendController = new BackendController({
 const BACKEND_STATUS_CHANNEL = "backend:status"
 
 let mainWindow: BrowserWindow | null = null
-let rendererConfig: FinanzeConfig = {}
+let rendererConfig: FerrofolioConfig = {}
 
 backendController.on("status-changed", status => {
   sendToAllWindows(BACKEND_STATUS_CHANNEL, status)
@@ -170,7 +170,7 @@ async function createWindow() {
     height: mainWindowState.height,
     x: mainWindowState.x,
     y: mainWindowState.y,
-    icon: join(VITE_PUBLIC, "finanze-app-plain.png"),
+    icon: join(VITE_PUBLIC, "ferrofolio-fg.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -234,7 +234,7 @@ function sendToAllWindows(channel: string, ...args: any[]) {
   })
 }
 
-function getLogConfigFromRendererConfig(config: FinanzeConfig): {
+function getLogConfigFromRendererConfig(config: FerrofolioConfig): {
   logDir: string | undefined
   minLevel: LogLevel
   minFileLevel: LogLevel | undefined

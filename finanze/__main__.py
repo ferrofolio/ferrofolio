@@ -5,7 +5,7 @@ import traceback
 
 from args import parse_args
 from infrastructure.config.server_details_adapter import resolve_version
-from server import FinanzeServer
+from server import FerrofolioServer
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def main() -> None:
         args = parse_args()
 
         log.info(f"Initializing Ferrofolio server v{resolve_version()}...")
-        server = FinanzeServer(args)
+        server = FerrofolioServer(args)
 
         asyncio.run(server.run())
 

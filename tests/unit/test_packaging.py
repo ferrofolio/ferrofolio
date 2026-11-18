@@ -26,7 +26,7 @@ def test_package_can_replace_previous_ci_output(monkeypatch, tmp_path, noconfirm
                 assert "--noconfirm" in command
             backend_output.mkdir(parents=True, exist_ok=True)
         elif command.startswith("pnpm run dist"):
-            (release / "Finanze-test.dmg").write_text(f"build {len(commands)}")
+            (release / "Ferrofolio-test.dmg").write_text(f"build {len(commands)}")
         return 0
 
     monkeypatch.setattr(subprocess, "call", run_command)
@@ -43,7 +43,7 @@ def test_package_can_replace_previous_ci_output(monkeypatch, tmp_path, noconfirm
     pyinstaller_commands = [cmd for cmd in commands if cmd.startswith("pyinstaller ")]
     assert len(pyinstaller_commands) == (2 if noconfirm else 1)
     assert all(("--noconfirm" in cmd) == noconfirm for cmd in pyinstaller_commands)
-    assert (tmp_path / "dist" / "Finanze-test.dmg").read_text() == (
+    assert (tmp_path / "dist" / "Ferrofolio-test.dmg").read_text() == (
         "build 6" if noconfirm else "build 3"
     )
 
@@ -51,10 +51,10 @@ def test_package_can_replace_previous_ci_output(monkeypatch, tmp_path, noconfirm
 def test_package_preserves_existing_output_by_default(monkeypatch, tmp_path):
     release = tmp_path / "frontend" / "app" / "release"
     release.mkdir(parents=True)
-    (release / "Finanze-test.dmg").write_text("new build")
+    (release / "Ferrofolio-test.dmg").write_text("new build")
     dist = tmp_path / "dist"
     dist.mkdir()
-    existing = dist / "Finanze-test.dmg"
+    existing = dist / "Ferrofolio-test.dmg"
     existing.write_text("existing build")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["package.py", "--target", "frontend"])

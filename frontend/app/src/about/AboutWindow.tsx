@@ -112,7 +112,7 @@ export function AboutWindow() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="flex flex-col items-center text-center space-y-3">
           <img
-            src="finanze-app.png"
+            src="ferrofolio-app.png"
             alt={aboutStrings.logoAlt.replace("{appName}", appName)}
             className="h-12 w-12 rounded-lg shadow-sm object-cover"
           />
