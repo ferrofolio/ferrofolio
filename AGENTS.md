@@ -21,6 +21,7 @@ repositories (`ferrofolio/ios`, later `ferrofolio/android`), not here: do not ad
 | `finanze/domain` | Types, errors and use case interfaces. No dependencies on other layers |
 | `finanze/application` | Use cases and ports. Depends on `domain` only |
 | `finanze/infrastructure` | Controllers, repositories, connectors. Implements the ports |
+| `crates/core-domain` | Rust port of `finanze/domain`. Depends on no other workspace crate |
 | `frontend/app` | React web app |
 | `tests` | Python unit and integration tests |
 | `e2e/standard` | Playwright end-to-end tests against the web app |
@@ -67,7 +68,10 @@ change a check, change the workflow, never the script.
 
 ## Hard rules
 
-- **Money is never a float.** Use `Dezimal` from `finanze/domain/dezimal.py`.
+- **Money is never a float.** Use `Dezimal` from `finanze/domain/dezimal.py`, in Rust `core_domain::Dezimal`.
+  Amounts become JSON numbers only when a response is serialised.
+- **Rust code does not panic.** No `unwrap`, `expect`, `panic!` or `unsafe` outside tests; the workspace lints
+  enforce it.
 - **SQL uses bound parameters.** Never build statements with string formatting.
 - **No secrets in output.** Credentials, tokens, session payloads and IBANs must not appear in logs, error messages,
   test fixtures or commits.

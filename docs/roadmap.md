@@ -159,7 +159,7 @@ flowchart LR
 
 | Crate | Corresponds to | Content |
 |---|---|---|
-| `core-domain` | `finanze/domain` | Types, errors, `Dezimal` becomes `rust_decimal` |
+| `core-domain` | `finanze/domain` | Types, errors, `Dezimal` with the arithmetic of Python's `decimal` (28 significant digits; `rust_decimal`'s bounded scale proved unable to reproduce Python's results, see `docs/rust-backend.md`) |
 | `core-app` | `finanze/application` | Use cases, ports as traits |
 | `infra-db` | `infrastructure/repository` | `rusqlite` with SQLCipher, migrations |
 | `infra-http` | `infrastructure/client/http` | HTTP client |
@@ -429,6 +429,8 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 
 ### Phase 3 – Rust foundation · L
 
+Status: started with the workspace, CI and `Dezimal` in `core-domain`; details in [rust-backend.md](rust-backend.md).
+
 - Workspace, CI, `cargo deny`
 - Parity harness from section 5.1
 - `core-domain` complete
@@ -533,7 +535,8 @@ reviews:
   path_instructions:
     - path: "crates/**/*.rs"
       instructions: |
-        Money is never f32/f64, always rust_decimal.
+        Money is never computed, stored or compared as f32/f64, always as core_domain::Dezimal;
+        converting it to f64 only to serialise an API response is allowed.
         No unwrap/expect/panic outside tests.
         SQL only with bound parameters.
         No credentials, tokens or IBANs in logs.
@@ -616,7 +619,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Trade Republic changes its interface or bot protection | Watch `pytr` and upstream; keep the connector on Python for a long time |
 | Other connectors that use an Electron login window | Decide per connector in phase 2; drop those without a server path |
 | Connectors break and nobody can test | Port only connectors with a real test account |
-| Amounts differ because of rounding | `rust_decimal`, property tests against Python |
+| Amounts differ because of rounding | `Dezimal` follows Python's decimal context; differential tests against Python |
 | Data loss during migration or sync | Fixtures per schema version, automatic backup before every migration |
 | Server exposed on the network | Hardened auth and TLS in phase 2, before any external access |
 | Agents produce plausible but wrong code | Parity harness as a hard gate, human approval in risk areas |
