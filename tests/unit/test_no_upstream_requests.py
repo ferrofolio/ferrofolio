@@ -32,9 +32,6 @@ PENDING = {
     # e-mail addresses only, nothing is requested.
     "frontend/app/src/components/settings/CloudTab.tsx": ("upstream cloud UI", 3),
     "frontend/app/src/components/ui/PlusMessage.tsx": ("upstream cloud UI", 1),
-    # Feature flags and public keychain (#31)
-    "finanze/infrastructure/client/features/feature_flag_client.py": ("#31", 1),
-    "finanze/infrastructure/client/keychain/public_keychain_client.py": ("#31", 1),
 }
 
 

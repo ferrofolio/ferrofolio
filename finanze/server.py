@@ -239,7 +239,6 @@ from infrastructure.client.entity.exchange.polymarket.polymarket_fetcher import 
 from infrastructure.client.entity.financial.cajamar.cajamar_fetcher import (
     CajamarFetcher,
 )
-from infrastructure.client.entity.financial.b100.b100_fetcher import B100Fetcher
 from infrastructure.client.entity.financial.crescenta.crescenta_fetcher import (
     CrescentaFetcher,
 )
@@ -254,27 +253,21 @@ from infrastructure.client.entity.financial.indexa_capital.indexa_capital_fetche
 )
 from infrastructure.client.entity.financial.ing.ing_fetcher import INGFetcher
 from infrastructure.client.entity.financial.mintos.mintos_fetcher import MintosFetcher
-from infrastructure.client.entity.financial.myinvestor import MyInvestorScraper
 from infrastructure.client.entity.financial.psd2.enablebanking_fetcher import (
     EnableBankingFetcher,
 )
 from infrastructure.client.entity.financial.psd2.gocardless_fetcher import (
     GoCardlessFetcher,
 )
-from infrastructure.client.entity.financial.sego.sego_fetcher import SegoFetcher
 from infrastructure.client.entity.financial.tr.trade_republic_fetcher import (
     TradeRepublicFetcher,
 )
 from infrastructure.client.entity.financial.unicaja.unicaja_fetcher import (
     UnicajaFetcher,
 )
-from infrastructure.client.entity.financial.urbanitae.urbanitae_fetcher import (
-    UrbanitaeFetcher,
-)
 from infrastructure.client.entity.financial.wecity.wecity_fetcher import WecityFetcher
 from infrastructure.client.features.feature_flag_client import FeatureFlagClient
 from infrastructure.client.interests.ecb_client import ECBClient
-from infrastructure.client.keychain.public_keychain_client import PublicKeychainClient
 from infrastructure.client.financial.gocardless.gocardless_client import (
     GoCardlessClient,
 )
@@ -318,7 +311,6 @@ from infrastructure.crypto.public_key_derivation_adapter import (
     PublicKeyDerivationAdapter,
 )
 from infrastructure.features.env_feature_flag_adapter import EnvFeatureFlagAdapter
-from infrastructure.keychain.public_keychain_adapter import PublicKeychainAdapter
 from infrastructure.client.ai.ai_model_presets import AI_MODEL_PRESETS
 from infrastructure.labeling.ai_labeling_presets import (
     LABELING_BATCH_SIZES,
@@ -383,9 +375,6 @@ from infrastructure.repository.fetch.last_fetches_repository import (
 )
 from infrastructure.repository.fetch.fetch_pointers_repository import (
     FetchPointersRepository,
-)
-from infrastructure.repository.keychain.public_keychain_repository import (
-    PublicKeychainRepository,
 )
 from infrastructure.repository.labeling.label_repository import LabelRepository
 from infrastructure.repository.mcp.mcp_config_repository import McpConfigRepository
@@ -610,12 +599,9 @@ class FinanzeServer:
             financial_entity_fetchers = get_e2e_financial_fetchers()
         else:
             financial_entity_fetchers = {
-                domain.native_entities.MY_INVESTOR: MyInvestorScraper(),
                 domain.native_entities.TRADE_REPUBLIC: TradeRepublicFetcher(),
                 domain.native_entities.UNICAJA: UnicajaFetcher(),
-                domain.native_entities.URBANITAE: UrbanitaeFetcher(),
                 domain.native_entities.WECITY: WecityFetcher(),
-                domain.native_entities.SEGO: SegoFetcher(),
                 domain.native_entities.MINTOS: MintosFetcher(),
                 domain.native_entities.F24: F24Fetcher(),
                 domain.native_entities.INDEXA_CAPITAL: IndexaCapitalFetcher(),
@@ -623,7 +609,6 @@ class FinanzeServer:
                 domain.native_entities.CAJAMAR: CajamarFetcher(),
                 domain.native_entities.DEGIRO: DegiroFetcher(),
                 domain.native_entities.IBKR: IBKRFetcher(),
-                domain.native_entities.B100: B100Fetcher(),
                 domain.native_entities.CRESCENTA: CrescentaFetcher(),
                 domain.native_entities.TRADING212: Trading212Fetcher(),
                 domain.native_entities.BINANCE: BinanceFetcher(),
@@ -706,13 +691,6 @@ class FinanzeServer:
             client=db_client
         )
 
-        public_keychain_data_repository = PublicKeychainRepository(client=db_client)
-        public_keychain_fetcher_client = PublicKeychainClient()
-        public_keychain = PublicKeychainAdapter(
-            data_port=public_keychain_data_repository,
-            fetcher_port=public_keychain_fetcher_client,
-        )
-
         file_storage_repository = LocalFileStorage(
             upload_dir=static_upload_dir, static_url_prefix="/static"
         )
@@ -774,7 +752,8 @@ class FinanzeServer:
             db_manager, data_manager, settings_repository
         )
         server_options_port = ServerDetailsAdapter(args)
-        if os.getenv("ENV_FF"):
+        if not os.getenv("FEATURE_FLAG_URL"):
+            # Feature flags are local configuration unless a remote source is set
             feature_flag_port = EnvFeatureFlagAdapter()
         else:
             users = await data_manager.get_users()
@@ -828,7 +807,6 @@ class FinanzeServer:
             crypto_asset_repository,
             crypto_asset_info_client,
             transaction_handler,
-            public_keychain,
             entity_account_repository,
             loan_calculator,
             real_estate_repository,
@@ -918,7 +896,6 @@ class FinanzeServer:
             credentials_port,
             sessions_repository,
             transaction_handler,
-            public_keychain,
             entity_account_repository,
             feature_flag_port,
         )

@@ -5,10 +5,11 @@ from uuid import uuid4
 import pytest
 from application.use_cases.get_available_entities import GetAvailableEntitiesImpl
 from domain.available_sources import FinancialEntityStatus
-from domain.entity import Entity, EntityOrigin, EntityType, TransactionKind
+from domain.entity import Entity, EntityOrigin, EntityType, Feature, TransactionKind
 from domain.entity_account import EntityAccount
 from domain.external_entity import ExternalEntity, ExternalEntityStatus
 from domain.external_integration import ExternalIntegrationId
+from domain.fetch_record import FetchRecord
 from domain.native_entities import (
     B100,
     CAJAMAR,
@@ -18,11 +19,14 @@ from domain.native_entities import (
     ING,
     MY_INVESTOR,
     POLYMARKET,
+    SEGO,
     TRADE_REPUBLIC,
     TRADING212,
     UNICAJA,
+    URBANITAE,
 )
 from domain.native_entity import FinancialEntityCredentialsEntry
+from domain.virtual_data import VirtualDataImport, VirtualDataSource
 
 
 def _build_use_case(
@@ -34,6 +38,8 @@ def _build_use_case(
     logged_entities=None,
     accounts=None,
     entity_fetchers=None,
+    last_fetch_records=None,
+    virtual_imports=None,
 ):
     entity_port = AsyncMock()
     entity_port.get_all = AsyncMock(return_value=[entity])
@@ -53,10 +59,14 @@ def _build_use_case(
 
     crypto_wallet_port = AsyncMock()
     last_fetches_port = AsyncMock()
-    last_fetches_port.get_by_entity_id = AsyncMock(return_value=[])
+    last_fetches_port.get_by_entity_id = AsyncMock(
+        return_value=last_fetch_records or []
+    )
 
     virtual_import_registry = AsyncMock()
-    virtual_import_registry.get_last_import_records = AsyncMock(return_value=[])
+    virtual_import_registry.get_last_import_records = AsyncMock(
+        return_value=virtual_imports or []
+    )
 
     entity_account_port = AsyncMock()
     entity_account_port.get_by_ids = AsyncMock(return_value=accounts or [])
@@ -143,6 +153,88 @@ async def test_external_entity_not_fetchable_when_provider_not_bundled():
 
     result = await use_case.execute()
 
+    assert result.entities[0].fetchable is False
+
+
+RETIRED = [B100, MY_INVESTOR, SEGO, URBANITAE]
+NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def _build_retired(entity, **kwargs):
+    kwargs.setdefault("entity_fetchers", {ING: MagicMock()})
+    return _build_use_case(
+        entity=entity,
+        external_entity=None,
+        enabled_provider_payloads={},
+        external_entity_fetchers={},
+        **kwargs,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entity", RETIRED)
+async def test_retired_entity_without_data_is_hidden(entity):
+    result = await _build_retired(entity).execute()
+
+    assert result.entities == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entity", RETIRED)
+async def test_retired_entity_with_fetched_data_stays_listed(entity):
+    record = FetchRecord(entity_id=entity.id, feature=Feature.POSITION, date=NOW)
+
+    result = await _build_retired(entity, last_fetch_records=[record]).execute()
+
+    assert [e.id for e in result.entities] == [entity.id]
+    assert result.entities[0].name == entity.name
+    assert result.entities[0].fetchable is False
+
+
+@pytest.mark.asyncio
+async def test_retired_entity_with_credentials_stays_listed():
+    entry = FinancialEntityCredentialsEntry(
+        entity_id=URBANITAE.id, entity_account_id=uuid4()
+    )
+
+    result = await _build_retired(URBANITAE, logged_entities=[entry]).execute()
+
+    assert [e.id for e in result.entities] == [URBANITAE.id]
+
+
+@pytest.mark.asyncio
+async def test_retired_entity_with_imported_data_stays_listed():
+    virtual_import = VirtualDataImport(
+        import_id=uuid4(),
+        global_position_id=None,
+        source=VirtualDataSource.SHEETS,
+        date=NOW,
+        feature=Feature.TRANSACTIONS,
+        entity_id=SEGO.id,
+    )
+
+    result = await _build_retired(SEGO, virtual_imports=[virtual_import]).execute()
+
+    assert [e.id for e in result.entities] == [SEGO.id]
+
+
+@pytest.mark.asyncio
+async def test_retired_entity_with_a_fetcher_is_listed():
+    # E2E test mode registers mock fetchers for these entities
+    result = await _build_retired(
+        URBANITAE, entity_fetchers={URBANITAE: MagicMock()}
+    ).execute()
+
+    assert [e.id for e in result.entities] == [URBANITAE.id]
+    assert result.entities[0].fetchable is True
+
+
+@pytest.mark.asyncio
+async def test_other_entity_without_a_fetcher_stays_listed():
+    # e.g. connectors missing from the mobile build
+    result = await _build_retired(DEGIRO).execute()
+
+    assert [e.id for e in result.entities] == [DEGIRO.id]
     assert result.entities[0].fetchable is False
 
 

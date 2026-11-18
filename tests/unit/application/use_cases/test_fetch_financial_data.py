@@ -60,7 +60,6 @@ from domain.native_entities import (
     UNICAJA,
     URBANITAE,
 )
-from domain.public_keychain import PublicKeychain
 from domain.transactions import AccountTx, Transactions, TxType
 from infrastructure.config.base_config import BASE_CONFIG
 
@@ -220,7 +219,6 @@ def _build_use_case(error_reporter=None):
         crypto_asset_registry_port=AsyncMock(),
         crypto_asset_info_provider=AsyncMock(),
         transaction_handler_port=transaction_handler_port,
-        keychain_loader=AsyncMock(),
         entity_account_port=AsyncMock(),
         loan_calculator=loan_calculator,
         real_estate_port=real_estate_port,
@@ -508,7 +506,6 @@ class TestExecute:
             expiration=None,
             payload={"cookies": []},
         )
-        uc._keychain_loader.load.return_value = PublicKeychain({})
         uc._entity_fetchers[TRADE_REPUBLIC] = fetcher
 
         result = await uc.execute(
@@ -521,6 +518,24 @@ class TestExecute:
         assert result.code == FetchResultCode.LOGIN_REQUIRED
         uc._sessions_port.delete.assert_awaited_once_with(account_id)
         uc._credentials_port.update_expiration.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_entity_without_fetcher_is_not_supported(self):
+        uc, _, _, _ = _build_use_case()
+        account_id = uuid4()
+        uc._entity_account_port.get_by_id.return_value = EntityAccount(
+            id=account_id,
+            entity_id=MY_INVESTOR.id,
+            created_at=datetime.now(tzlocal()),
+        )
+
+        result = await uc.execute(
+            FetchRequest(entity_account_id=account_id, features=[Feature.POSITION])
+        )
+
+        assert result.code == FetchResultCode.FEATURE_NOT_SUPPORTED
+        uc._credentials_port.get.assert_not_awaited()
+        uc._sessions_port.get.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -1064,7 +1079,6 @@ async def _prepare_logged_in_execute(
         "password": "1234",
     }
     uc._sessions_port.get.return_value = None
-    uc._keychain_loader.load.return_value = PublicKeychain({})
     uc._entity_fetchers[entity] = fetcher
     return fetcher
 

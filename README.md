@@ -106,9 +106,6 @@ Finanze includes a Model Context Protocol (MCP) server that lets compatible AI c
 
 | Financial Entity    | Accounts        | Cards | Funds | Stock/<br>ETFs       | Deposits | Portfolios | Loans/<br>Mortgages | Crypto | Bonds | Specific                  |
 | ------------------- | --------------- | ----- | ----- | -------------------- | -------- | ---------- | ------------------- | ------ | ----- | ------------------------- |
-| Urbanitae           | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Lending Investments       |
-| MyInvestor          | ✅              | ✅    | ✅    | ✅                   | ✅       | ✅         | Credits             | -      | -     |                           |
-| SEGO                | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Factoring                 |
 | Trade Republic      | ✅              | -     | ✅    | ✅                   | -        | -          | -                   | ✅     | ❌    | Private Markets           |
 | Unicaja             | ✅              | ✅    | ❌    | ❌                   | ❌       | -          | ✅                  | -      | -     |                           |
 | Wecity              | ✅              | -     | -     | -                    | -        | -          | -                   | -      | -     | Investments               |
@@ -119,7 +116,6 @@ Finanze includes a Model Context Protocol (MCP) server that lets compatible AI c
 | Grupo Cajamar       | ✅              | ✅    | ❌️    | ❌                   | ❌       | -          | ✅                  | -      | -     |                           |
 | DEGIRO              | ✅              | -     | ✅️    | ✅️                   | -        | -          | -                   | -      | -     |                           |
 | Interactive Brokers | ✅              | -     | ❌    | ✅️ Stocks            | -        | -          | -                   | -      | ❌    |                           |
-| B100                | ✅              | ✅    | -     | -                    | -        | -          | -                   | -      | -     |                           |
 | Crescenta           | -               | -     | ✅    | -                    | -        | -          | -                   | -      | -     |                           |
 | Trading 212 (Beta)  | ✅              | -     | -     | ✅                   | -        | -          | -                   | ❌     | -     |                           |
 
@@ -142,8 +138,8 @@ Not all entities support the same features, in general we can group data in the 
 
 - **Global Position**: current financial position including the current state of assets mentioned above, this is
   supported by all entities.
-- **Periodic Contributions**: automatic periodic contributions made to investments such as Funds (MyInvestor) or
-  Stocks/ETFs (Trade Republic).
+- **Periodic Contributions**: automatic periodic contributions made to investments such as Stocks/ETFs (Trade
+  Republic).
 - **Transactions**: all the account/investment related transactions, interest payments, stock of fund operations, asset
   maturity, fees...
 - **Investment Historic**: aggregates past positions and TXs to create a history of past and current investments (
@@ -151,9 +147,6 @@ Not all entities support the same features, in general we can group data in the 
 
 | Financial Entity    | Global Position | Periodic<br>Contributions | Transactions<br>(inv. related) | Investment<br>Historic |
 | ------------------- | --------------- | ------------------------- | ------------------------------ | ---------------------- |
-| Urbanitae           | ✅              | -                         | ✅                             | ✅                     |
-| MyInvestor          | ✅              | ✅                        | ✅                             | ❌                     |
-| SEGO                | ✅              | -                         | ✅                             | ✅                     |
 | Trade Republic      | ✅              | ✅                        | ✅                             | -                      |
 | Unicaja             | ✅              | ✅                        | ❌                             | -                      |
 | Wecity              | ✅              | -                         | ✅                             | ✅                     |
@@ -164,7 +157,6 @@ Not all entities support the same features, in general we can group data in the 
 | Grupo Cajamar       | ✅              | -                         | ❌                             | -                      |
 | DEGIRO              | ✅              | ❌                        | ✅                             | -                      |
 | Interactive Brokers | ✅              | ❌                        | ✅⚠️                           | -                      |
-| B100                | ✅              | ❌                        | ✅ (interest)                  | -                      |
 | Crescenta           | ✅              | -                         | ✅                             | -                      |
 | Trading 212 (Beta)  | ✅              | ❌                        | ✅                             | -                      |
 
@@ -177,10 +169,8 @@ Not all entities support the same features, in general we can group data in the 
 Some entities require a 2FA to login or get its data, which doesn't allow to background update, this applies to the
 following ones:
 
-- **SEGO** (e-mail)
 - **Trade Republic** (mobile app or SMS)
 - **Wecity** (SMS)
-- Sometimes **MyInvestor** (SMS) and may ask sometimes for captcha
 - **DEGIRO** (mobile app confirmation)
 
 Important points to remark:
@@ -375,6 +365,11 @@ important ones are::
   Without this variable the address is taken from the request, including the `X-Forwarded-Proto` and
   `X-Forwarded-Host` headers of a reverse proxy. The browser carries the authorization code back to the app, so serve
   the server over HTTPS unless it only runs in a trusted local network; over plain HTTP that code is sent unencrypted.
+- `FF_<NAME>` optional, sets a feature flag, for example `FF_TR_V2_AUTH_API=OFF` to use the previous Trade Republic
+  sign-in. Feature flags are local configuration; the upstream cloud (`FF_CLOUD`) is off by default. `FF_` variables
+  only apply while `FEATURE_FLAG_URL` is unset.
+- `FEATURE_FLAG_URL` optional, a remote source for feature flags. When it is set, all flags come from that source and
+  `FF_` variables are ignored. It is not set by default, so no request leaves the server for it.
 - `CRYPTO_DATASET_URL`, `METAL_RATES_URL` and `CLOUD_URL` optional, sources for a crypto coin snapshot, historic
   metal prices and cloud backups. None is set by default, so the server does not contact upstream services for them.
 - Other Selenium related ones.

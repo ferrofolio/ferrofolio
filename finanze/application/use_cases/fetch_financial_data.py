@@ -21,7 +21,6 @@ from application.ports.historic_port import HistoricPort
 from application.ports.last_fetches_port import LastFetchesPort
 from application.ports.loan_calculator_port import LoanCalculatorPort
 from application.ports.position_port import PositionPort
-from application.ports.public_keychain_loader import PublicKeychainLoader
 from application.ports.real_estate_port import RealEstatePort
 from application.ports.sessions_port import SessionsPort
 from application.ports.transaction_handler_port import TransactionHandlerPort
@@ -176,7 +175,6 @@ class FetchFinancialDataImpl(FetchFinancialData):
         crypto_asset_registry_port: CryptoAssetRegistryPort,
         crypto_asset_info_provider: CryptoAssetInfoProvider,
         transaction_handler_port: TransactionHandlerPort,
-        keychain_loader: PublicKeychainLoader,
         entity_account_port: EntityAccountPort,
         loan_calculator: LoanCalculatorPort,
         real_estate_port: RealEstatePort,
@@ -198,7 +196,6 @@ class FetchFinancialDataImpl(FetchFinancialData):
         self._crypto_asset_info_provider = crypto_asset_info_provider
         self._crypto_asset_registry_port = crypto_asset_registry_port
         self._transaction_handler_port = transaction_handler_port
-        self._keychain_loader = keychain_loader
         self._entity_account_port = entity_account_port
         self._loan_calculator = loan_calculator
         self._real_estate_port = real_estate_port
@@ -251,6 +248,10 @@ class FetchFinancialDataImpl(FetchFinancialData):
         if not entity:
             raise EntityNotFound(account.entity_id)
 
+        if entity not in self._entity_fetchers:
+            # The connector for this entity was removed; existing data stays readable
+            return FetchResult(FetchResultCode.FEATURE_NOT_SUPPORTED)
+
         features = fetch_request.features
 
         if features and not all(f in entity.features for f in features):
@@ -302,15 +303,12 @@ class FetchFinancialDataImpl(FetchFinancialData):
 
             specific_fetcher = self._entity_fetchers[entity]
 
-            keychain = await self._keychain_loader.load()
-
             stored_session = await self._sessions_port.get(entity_account_id)
             login_request = EntityLoginParams(
                 credentials=credentials,
                 two_factor=fetch_request.two_factor,
                 options=fetch_request.login_options,
                 session=stored_session,
-                keychain=keychain,
                 feature_flags=self._feature_flag_port.get_all(),
             )
             login_result = await specific_fetcher.login(login_request)

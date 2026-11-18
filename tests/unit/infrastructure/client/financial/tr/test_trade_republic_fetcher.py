@@ -15,7 +15,6 @@ from domain.global_position import (
     ProductType,
     StockDetail,
 )
-from domain.public_keychain import PublicKeychain
 from domain.status import FFStatus
 from domain.transactions import StockTx, TxType
 from infrastructure.client.entity.financial.tr.trade_republic_fetcher import (
@@ -29,10 +28,6 @@ def _make_fetcher():
     return fetcher
 
 
-def _make_keychain():
-    return MagicMock(spec=PublicKeychain)
-
-
 class TestFetcherLogin:
     @pytest.mark.asyncio
     async def test_v2_code_completes_the_existing_login(self):
@@ -42,7 +37,6 @@ class TestFetcherLogin:
         )
         params = EntityLoginParams(
             credentials={"phone": "+49123", "password": "1234", "awsWafToken": "waf"},
-            keychain=_make_keychain(),
             two_factor=TwoFactor(process_id="proc-123", code="654321"),
             feature_flags={"TR_V2_AUTH_API": FFStatus.ON},
         )
@@ -62,7 +56,6 @@ class TestFetcherLogin:
 
         params = EntityLoginParams(
             credentials={"phone": "+49123", "password": "1234"},
-            keychain=_make_keychain(),
         )
         result = await fetcher.login(params)
 
@@ -77,7 +70,6 @@ class TestFetcherLogin:
 
         params = EntityLoginParams(
             credentials={"phone": "+49123", "password": "1234", "awsWafToken": "waf"},
-            keychain=_make_keychain(),
             two_factor=TwoFactor(process_id="proc-123"),
         )
         result = await fetcher.login(params)
@@ -94,7 +86,6 @@ class TestFetcherLogin:
 
         params = EntityLoginParams(
             credentials={"phone": "+49123", "password": "1234", "awsWafToken": "waf"},
-            keychain=_make_keychain(),
             two_factor=TwoFactor(process_id="proc-123", code="654321"),
         )
         result = await fetcher.login(params)

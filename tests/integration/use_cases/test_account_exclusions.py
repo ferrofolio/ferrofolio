@@ -391,7 +391,6 @@ async def test_native_fetch_filters_snapshots_and_deep_history_with_real_reposit
         crypto_asset_registry_port=AsyncMock(),
         crypto_asset_info_provider=AsyncMock(),
         transaction_handler_port=TransactionHandler(env.db),
-        keychain_loader=AsyncMock(),
         entity_account_port=accounts,
         loan_calculator=AsyncMock(),
         real_estate_port=AsyncMock(),

@@ -5,9 +5,13 @@ from uuid import uuid4
 import pytest
 
 from application.use_cases.add_entity_credentials import AddEntityCredentialsImpl
-from domain.entity_login import EntityLoginRequest, EntityLoginResult, EntitySession
-from domain.native_entities import POLYMARKET, URBANITAE
-from domain.public_keychain import PublicKeychain
+from domain.entity_login import (
+    EntityLoginRequest,
+    EntityLoginResult,
+    EntitySession,
+    LoginResultCode,
+)
+from domain.native_entities import MY_INVESTOR, POLYMARKET, URBANITAE
 
 
 class TestAddEntityCredentials:
@@ -26,8 +30,6 @@ class TestAddEntityCredentials:
         sessions_port = AsyncMock()
         transaction_handler_port = MagicMock()
         transaction_handler_port.start.return_value = AsyncMock()
-        keychain_loader = AsyncMock()
-        keychain_loader.load.return_value = PublicKeychain({})
         entity_account_port = AsyncMock()
         feature_flag_port = MagicMock()
         feature_flag_port.get_all.return_value = {}
@@ -37,7 +39,6 @@ class TestAddEntityCredentials:
             credentials_port=credentials_port,
             sessions_port=sessions_port,
             transaction_handler_port=transaction_handler_port,
-            keychain_loader=keychain_loader,
             entity_account_port=entity_account_port,
             feature_flag_port=feature_flag_port,
         )
@@ -74,6 +75,25 @@ class TestAddEntityCredentials:
 
         account = entity_account_port.create.await_args.args[0]
         assert account.name == expected_name
+
+    @pytest.mark.asyncio
+    async def test_entity_without_fetcher_is_unavailable(self):
+        use_case, fetcher, credentials_port, sessions_port, entity_account_port = (
+            self._build_use_case(POLYMARKET)
+        )
+
+        result = await use_case.execute(
+            EntityLoginRequest(
+                entity_id=MY_INVESTOR.id,
+                credentials={"user": "investor", "password": "secret"},
+            )
+        )
+
+        assert result.code == LoginResultCode.CURRENTLY_UNAVAILABLE
+        fetcher.login.assert_not_awaited()
+        credentials_port.save.assert_not_awaited()
+        sessions_port.save.assert_not_awaited()
+        entity_account_port.create.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_market_forecast_login_creates_account(self):
