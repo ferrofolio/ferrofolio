@@ -17,3 +17,5 @@ __pycache__
 *instructions.md
 
 .python-version
+# Rust
+/target

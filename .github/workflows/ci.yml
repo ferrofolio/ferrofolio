@@ -23,12 +23,13 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       python: ${{ steps.filter.outputs.python }}
+      rust: ${{ steps.filter.outputs.rust }}
       frontend: ${{ steps.filter.outputs.frontend }}
       e2e: ${{ steps.filter.outputs.e2e }}
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -44,7 +45,7 @@ jobs:
           # Directories the filters below rely on. If one is moved or renamed the
           # filters would stop matching it and its jobs would be skipped silently,
           # so the job fails until this list and the filters are updated.
-          for dir in finanze tests frontend/app e2e/standard; do
+          for dir in finanze tests crates frontend/app e2e/standard; do
             if [[ ! -d "$dir" ]]; then
               echo "::error::$dir no longer exists; update the path filters in ci.yml."
               exit 1
@@ -75,6 +76,10 @@ jobs:
           workflow='^\.github/workflows/ci\.yml$'
           # Root files that configure Python dependencies, pytest or ruff.
           python_config='^(pyproject\.toml|requirements[^/]*\.txt|pytest\.ini|tox\.ini|setup\.cfg|conftest\.py|\.?ruff\.toml)$'
+          # The Rust workspace and its configuration.
+          rust_config='^(crates/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|clippy\.toml$|deny\.toml$)'
+          # Files generated from Python, which the backend job checks are current.
+          parity_fixtures='^(crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$)'
 
           match() {
             local file
@@ -88,8 +93,9 @@ jobs:
           }
 
           {
-            echo "backend=$(match "^(finanze|tests)/|$python_config")"
+            echo "backend=$(match "^(finanze|tests)/|$python_config|$parity_fixtures")"
             echo "python=$(match "\.(py|pyi|ipynb)$|$python_config")"
+            echo "rust=$(match "$rust_config")"
             echo "frontend=$(match '^frontend/app/')"
             echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_config")"
           } | tee -a "$GITHUB_OUTPUT"
@@ -119,6 +125,39 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+      - name: Check the Rust Unicode tables against Python
+        run: python tests/parity/generate_unicode_tables.py --check
+
+      - name: Check the Rust decimal fixtures against Python
+        run: python tests/parity/generate_decimal_fixtures.py --check crates/core-domain/tests/fixtures/decimal_parity.json
+
+  rust:
+    name: Rust
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.rust == 'true') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Run tests
+        run: cargo test --workspace --locked
+
+      - name: Check licences, advisories and sources
+        uses: EmbarkStudios/cargo-deny-action@70f81531115945ba6eb6b941ec9d39d063438eb9 # v2.1.2
 
   format-check:
     name: Format Check
