@@ -149,12 +149,11 @@ Each case states what it compares:
 | A JSON number with a fraction or an exponent whose value a float cannot hold exactly, up to 38 significant digits | Rounded to a float first | Kept exactly |
 | A request body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; a decoded JSON value takes many times the memory of its text |
 | An object whose first key is `$serde_json::private::Number`, serde_json's private token for exact numbers | An unknown field, ignored | `400 INVALID_REQUEST` |
-| A loan date that is neither a string nor `null` | `500` | `400 INVALID_REQUEST` |
 | A request body that is JSON but neither an object nor empty (for example `[1]`), or a `retirement` that is neither an object nor `null` | `500` | `400 INVALID_REQUEST` |
 | Malformed JSON | `400` with an HTML page | `400 INVALID_REQUEST` as JSON |
 | The literals `NaN`, `Infinity` and `-Infinity`, which are not JSON | Accepted by the `json` module, the calculation fails with `500` | `400 INVALID_REQUEST`, the body is not JSON |
 | An integer field beyond the float range, such as `"years": 1e400` | Read as infinity, fails with `500` | `400 INVALID_REQUEST` with Python's message |
-| An integer field beyond 64 bits, such as `fixed_years` | Accepted, fails later with `500` | `400 INVALID_REQUEST` |
+| `fixed_years` beyond 64 bits | Accepted; the fixed period never ends | `400 INVALID_REQUEST` |
 | `withdrawal_years` beyond 64 bits | Computed; without a `withdrawal_amount` the withdrawal loop runs for that many periods and does not finish in practice | `400 INVALID_REQUEST` |
 | An amount whose exponent is beyond 32 bits, such as `"1e-2147483649"` | Accepted by `Decimal`, which takes any exponent | `400 INVALID_REQUEST` |
 | A number in the response beyond the float range, such as a rate of `1e400` echoed back when no amount has to be rounded | `200` with `Infinity`, which is not JSON | `500 UNEXPECTED_ERROR` |
@@ -182,6 +181,9 @@ The parity fixtures record the new answers of both implementations.
 | S3 | Savings, horizon solved for a target | The search applied unrounded returns while the projection rounds them to cents, so the projection could fall short of the target. The search now rounds the same way; a target the rounded returns never reach has no horizon |
 | S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
 | S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
+| L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST` |
+| L7 | Loan, end of the calendar | Counting and stepping the schedule went one period past `end`, so a schedule ending at the end of the calendar, or a fixed period of a mixed loan that ends beyond it, failed with `500`; a step beyond 31 December 9999 now ends there |
+| L8 | Loan, request dates | A date that was neither a string nor `null` failed with `500`; it is now rejected with `400 INVALID_REQUEST`, as by the Rust route |
 
 #### Open
 
@@ -192,8 +194,6 @@ The parity fixtures record the new answers of both implementations.
 | L3 | Loan, fixed rate with a known amount | An installment counts as paid only once the next installment date is reached, so right after a payment the reported balance still includes it |
 | L4 | Loan, remaining balance | Once the count of payments reaches the count of periods, the balance is zero whatever is still unpaid |
 | L5 | Loan, fixed rate with a known amount | The schedule has an installment on `start` and one on `end`, but the annuity is spread over the intervals between them, one fewer than the installments |
-| L6 | Loan, dates | An `end` before `start` is accepted; the next installment is then `start`, after the end of the loan |
-| L7 | Loan, end of the calendar | Counting the periods steps once past `end`, so a schedule ending in the last period before 31 December 9999 fails with `500` and "date value out of range" |
 
 ## Running locally
 
