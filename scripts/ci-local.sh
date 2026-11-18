@@ -173,6 +173,8 @@ else
   # directory behind, and it is not removed automatically to never break a live run.
   lock_path="$lock_base.lock.d"
   until mkdir "$lock_path" 2> /dev/null; do
+    # Gone in the meantime: the other run has finished, so try again at once.
+    [[ -e "$lock_path" ]] || continue
     if [[ ! -d "$lock_path" ]]; then
       echo "Cannot create the lock directory $lock_path" >&2
       exit 1
