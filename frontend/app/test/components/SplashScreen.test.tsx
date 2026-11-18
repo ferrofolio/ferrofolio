@@ -16,11 +16,9 @@ vi.mock("@/context/ThemeContext", () => ({
   useTheme: () => ({ theme: "dark" }),
 }))
 
-vi.mock("@/services/configStorage", () => ({ hasConfig: () => false }))
 vi.mock("@/services/api", () => ({
   getApiServerInfo: () => new Promise(() => {}),
 }))
-vi.mock("@/hooks/useBackendStatus", () => ({ useBackendStatus: () => ({}) }))
 
 describe("SplashScreen", () => {
   afterEach(() => {

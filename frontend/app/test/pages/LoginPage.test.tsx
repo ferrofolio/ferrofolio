@@ -30,9 +30,6 @@ vi.mock("@/services/api", () => ({
 vi.mock("@/context/featureFlagsStore", () => ({
   setFeatureFlags: vi.fn(),
 }))
-vi.mock("@/lib/platform", () => ({
-  isElectron: false,
-}))
 vi.mock("@/hooks/useModalBackHandler", () => ({
   useModalBackHandler: () => {},
 }))
