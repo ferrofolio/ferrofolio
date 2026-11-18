@@ -21,7 +21,15 @@
 set -euo pipefail
 
 ACT_VERSION="0.2.96"
-ACT_SHA256="b861e901c9062d841c6e8ecd36cdf27e0ce39ea0124cfd93de6efcebea0e16e7"
+# SHA-256 digests of the release archives, from the release's checksums.txt.
+act_sha256() {
+  case "$1" in
+    Linux_x86_64) echo "b861e901c9062d841c6e8ecd36cdf27e0ce39ea0124cfd93de6efcebea0e16e7" ;;
+    Linux_arm64) echo "158a16eee7394c266ee87dee9f15ca5f219d47193f7a1df9bad9093774e340c4" ;;
+    Darwin_x86_64) echo "84a95ddc407e66a5bb84e8debfe27b50fb83f009487a4be84e17f90a82b05992" ;;
+    Darwin_arm64) echo "fba2638fb6e1def14fbbb704b27888c7b697d041da5b08cac7d06d055ef9d690" ;;
+  esac
+}
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
@@ -46,18 +54,45 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+sha256() {
+  if command -v sha256sum > /dev/null; then
+    sha256sum "$1" | cut -d ' ' -f 1
+  else
+    shasum -a 256 "$1" | cut -d ' ' -f 1
+  fi
+}
+
+# act runs on the host, so the archive is the one for the host's system.
+case "$(uname -m)" in
+  x86_64 | amd64) arch="x86_64" ;;
+  aarch64 | arm64) arch="arm64" ;;
+  *) arch="$(uname -m)" ;;
+esac
+platform="$(uname -s)_$arch"
+expected_sha256="$(act_sha256 "$platform")"
+if [[ -z "$expected_sha256" ]]; then
+  echo "No act release is pinned for $platform; install act $ACT_VERSION and add it." >&2
+  exit 1
+fi
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ferrofolio"
-act_bin="$cache_dir/act-$ACT_VERSION/act"
+act_bin="$cache_dir/act-$ACT_VERSION-$platform/act"
 if [[ ! -x "$act_bin" ]]; then
+  mkdir -p "$cache_dir"
+  # Unpacked next to its final place and renamed when complete, so an interrupted
+  # download never leaves a partial executable in the cache.
+  staging="$(mktemp -d "$cache_dir/act-download.XXXXXX")"
+  trap 'rm -rf "$staging"' EXIT
+  echo "Downloading act $ACT_VERSION for $platform"
+  curl --fail --silent --show-error --location --max-time 300 --output "$staging/act.tar.gz" \
+    "https://github.com/nektos/act/releases/download/v$ACT_VERSION/act_$platform.tar.gz"
+  if [[ "$(sha256 "$staging/act.tar.gz")" != "$expected_sha256" ]]; then
+    echo "The act archive does not match its pinned SHA-256 digest." >&2
+    exit 1
+  fi
+  tar -xzf "$staging/act.tar.gz" -C "$staging" act
   mkdir -p "$(dirname "$act_bin")"
-  archive="$(mktemp)"
-  trap 'rm -f "$archive"' EXIT
-  echo "Downloading act $ACT_VERSION"
-  curl --fail --silent --show-error --location --max-time 300 --output "$archive" \
-    "https://github.com/nektos/act/releases/download/v$ACT_VERSION/act_Linux_x86_64.tar.gz"
-  echo "$ACT_SHA256  $archive" | sha256sum --check --quiet
-  tar --extract --gzip --file "$archive" --directory "$(dirname "$act_bin")" act
-  rm -f "$archive"
+  mv "$staging/act" "$act_bin"
+  rm -rf "$staging"
   trap - EXIT
 fi
 
@@ -73,6 +108,12 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
 elif [[ "$DOCKER_HOST" == *podman* ]]; then
   podman=true
 fi
+if [[ -z "${DOCKER_HOST:-}" && ! -S /var/run/docker.sock ]] && command -v podman > /dev/null; then
+  echo "Podman's API socket is not running. Start it, for example with" >&2
+  echo "  systemctl --user start podman.socket" >&2
+  echo "or point DOCKER_HOST at a running Docker or Podman API." >&2
+  exit 1
+fi
 
 # The runner image: act's Ubuntu image plus what GitHub's runner has preinstalled
 # (scripts/ci-local.Containerfile). It is built once per version of that file.
@@ -82,7 +123,7 @@ if [[ -z "$engine" ]]; then
   exit 1
 fi
 containerfile="scripts/ci-local.Containerfile"
-runner_image="localhost/ferrofolio-ci-runner:$(sha256sum "$containerfile" | cut -c1-12)"
+runner_image="localhost/ferrofolio-ci-runner:$(sha256 "$containerfile" | cut -c1-12)"
 if ! "$engine" image inspect "$runner_image" > /dev/null 2>&1; then
   echo "Building the runner image $runner_image"
   "$engine" build --tag "$runner_image" --file "$containerfile" scripts
@@ -145,5 +186,5 @@ fi
   --artifact-server-path "$artifacts" \
   --container-options "$container_options" \
   --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env "GIT_CONFIG_VALUE_0=*" \
-  "${engine_env[@]}" \
-  "${act_args[@]}"
+  ${engine_env[@]+"${engine_env[@]}"} \
+  ${act_args[@]+"${act_args[@]}"}
