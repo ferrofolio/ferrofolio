@@ -166,9 +166,24 @@ Each case states what it compares:
 
 ### Known issues of the Python reference
 
-Reviews of the port found these weaknesses in the Python calculators. The Rust code reproduces them on purpose, marked
-with a comment at each place: a ported route keeps its behaviour, and changes to money arithmetic and rounding need
-a maintainer's decision (AGENTS.md). Each should be fixed in Python and Rust together, with regenerated fixtures.
+Reviews of the port found weaknesses in the Python calculators. Each is fixed in Python and Rust together, with
+regenerated fixtures, and the pull request points the change out to a maintainer, because it changes money arithmetic
+(AGENTS.md). Until a weakness is fixed, the Rust code reproduces it on purpose, marked with a comment at each place,
+because a ported route keeps its behaviour.
+
+#### Fixed
+
+The parity fixtures record the new answers of both implementations.
+
+| | Where | Fix |
+|---|---|---|
+| S1 | Savings, contribution solved for a retirement | The search counted a withdrawal the balance could not cover as paid. It now counts every withdrawal that is not funded in full, widens its upper bound until that bound funds all of them, stops at once when the base alone does, and raises the contribution rounded to cents until the projection funds every withdrawal |
+| S2 | Savings, contribution solved for a target | The solved contribution used the factor of an ordinary annuity, while the projection lets each contribution earn its period's return, so the projection missed the target by about one period's return. It now uses the factor of an annuity due and raises the contribution rounded to cents until the projection reaches the target |
+| S3 | Savings, horizon solved for a target | The search applied unrounded returns while the projection rounds them to cents, so the projection could fall short of the target. The search now rounds the same way; a target the rounded returns never reach has no horizon |
+| S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
+| S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
+
+#### Open
 
 | | Where | Issue |
 |---|---|---|
@@ -179,11 +194,6 @@ a maintainer's decision (AGENTS.md). Each should be fixed in Python and Rust tog
 | L5 | Loan, fixed rate with a known amount | The schedule has an installment on `start` and one on `end`, but the annuity is spread over the intervals between them, one fewer than the installments |
 | L6 | Loan, dates | An `end` before `start` is accepted; the next installment is then `start`, after the end of the loan |
 | L7 | Loan, end of the calendar | Counting the periods steps once past `end`, so a schedule ending in the last period before 31 December 9999 fails with `500` and "date value out of range" |
-| S1 | Savings, contribution solved for a retirement | When the balance cannot cover a withdrawal, the withdrawal is cut to the balance without counting the shortfall, so the search can accept a contribution that does not fund the last withdrawal in full |
-| S2 | Savings, contribution solved for a target | The ordinary annuity factor ignores that the projection applies the return after each contribution, so the projected balance misses the target by about one period's return: above it for positive returns, below it for negative ones |
-| S3 | Savings, horizon solved for a target | The search applies unrounded returns while the projection rounds them to cents, so with very small balances or rates the reported horizon can fall short of the target |
-| S4 | Savings, retirement | A negative `withdrawal_amount` is accepted and adds to the balance instead of being rejected |
-| S5 | Savings, contribution solved for a target | A rate so small that `1 + rate` rounds to 1 makes the annuity factor zero, and the division fails with `500` instead of treating the rate as zero |
 
 ## Running locally
 
