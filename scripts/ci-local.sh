@@ -15,13 +15,13 @@
 #
 # Uncommitted changes are included: act copies the working tree into the containers.
 # Needs Docker or Podman; act itself is downloaded once, checked against a pinned
-# SHA-256 digest and kept in ${XDG_CACHE_HOME:-~/.cache}/ferrofolio.
+# SHA-256 digest and kept in ${XDG_CACHE_HOME:-~/.cache}/ferrofolio, and the runner
+# image is built locally from scripts/ci-local.Containerfile.
 
 set -euo pipefail
 
 ACT_VERSION="0.2.96"
 ACT_SHA256="b861e901c9062d841c6e8ecd36cdf27e0ce39ea0124cfd93de6efcebea0e16e7"
-RUNNER_IMAGE="ghcr.io/catthehacker/ubuntu:act-24.04"
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
@@ -70,6 +70,20 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
   fi
 fi
 
+# The runner image: act's Ubuntu image plus what GitHub's runner has preinstalled
+# (scripts/ci-local.Containerfile). It is built once per version of that file.
+engine="$(command -v docker || command -v podman || true)"
+if [[ -z "$engine" ]]; then
+  echo "Docker or Podman is needed." >&2
+  exit 1
+fi
+containerfile="scripts/ci-local.Containerfile"
+runner_image="localhost/ferrofolio-ci-runner:$(sha256sum "$containerfile" | cut -c1-12)"
+if ! "$engine" image inspect "$runner_image" > /dev/null 2>&1; then
+  echo "Building the runner image $runner_image"
+  "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+fi
+
 # The pull_request event the workflow expects. A base commit that does not exist
 # makes the "changes" job fail to list the changed files, and the workflow then runs
 # every job, as it does in CI.
@@ -109,7 +123,8 @@ container_options="--volume $git_common_dir:$git_common_dir:ro"
 "$act_bin" pull_request \
   --workflows .github/workflows/ci.yml \
   --eventpath "$event" \
-  --platform "ubuntu-latest=$RUNNER_IMAGE" \
+  --platform "ubuntu-latest=$runner_image" \
+  --pull=false \
   --artifact-server-path "$artifacts" \
   --container-options "$container_options" \
   --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env "GIT_CONFIG_VALUE_0=*" \
