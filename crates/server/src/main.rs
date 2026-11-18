@@ -25,8 +25,8 @@ fn main() -> ExitCode {
         }
     };
     let exit_code = runtime.block_on(server::run(cli));
-    // Dropping the runtime would wait without limit for work still running on
-    // blocking threads.
+    // Dropping the runtime would wait without limit for calculations still running
+    // on blocking threads.
     runtime.shutdown_timeout(server::RUNTIME_SHUTDOWN_GRACE);
     exit_code
 }
