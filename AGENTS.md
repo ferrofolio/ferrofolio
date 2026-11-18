@@ -33,7 +33,7 @@ issues and review replies. The only exception is the content of locale files und
 
 1. Work on a branch created from `develop`. Never push to `develop` or `main` directly and never force-push them.
 2. Keep pull requests small: one concern each, as a guideline under 500 changed lines not counting tests and fixtures.
-3. Run the checks below before opening a pull request.
+3. Run the checks below, on your machine, before opening a pull request.
 4. Open the pull request against `develop` with a description of what changed and why.
 5. Address every review comment by fixing it or by explaining why not. Do not resolve a thread that still needs a
    decision from a maintainer.
@@ -49,28 +49,18 @@ issues and review replies. The only exception is the content of locale files und
 
 ## Checks
 
-Each block is run from the repository root.
+The checks are the jobs of `.github/workflows/ci.yml`, which is their only definition. Before every commit that is
+meant for a pull request, run them on your machine:
 
 ```bash
-# Backend
-ruff check .
-ruff format --check .
-pytest
+scripts/ci-local.sh
 ```
 
-```bash
-# Frontend
-cd frontend/app
-pnpm run lint
-pnpm exec prettier --check .
-pnpm test
-```
-
-```bash
-# End to end
-cd e2e/standard
-pnpm test
-```
+The script runs the workflow with [act](https://github.com/nektos/act) in containers and needs Docker or Podman.
+It runs the jobs that CI would run for a pull request to `develop`, or every job when the working tree has
+uncommitted changes; `--all` runs every job, `--job <id>` a single one. Every job it runs must pass. A job that
+fails only because of the local environment, not the change, is named in the pull request with the reason. To
+change a check, change the workflow, never the script.
 
 ## Hard rules
 
