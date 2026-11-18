@@ -55,7 +55,7 @@ async function fillClaudeSetup(page: Page, cliPath?: string) {
     await expect(card.getByText('Disabled', { exact: true })).toBeVisible()
     await expect(
         card.getByText(
-            /through Claude Code installed and signed in on this computer/,
+            /through Claude Code installed and signed in on the server/,
         ),
     ).toBeVisible()
     await expect(card.locator(`#${INTEGRATION_ID}-api_key`)).toHaveCount(0)
@@ -94,7 +94,7 @@ test.describe('Claude Agent integration', () => {
 
         await expect(
             page.getByText(
-                'The program required by Claude Agent is not signed in. Sign in to it on this computer and try again.',
+                'The program required by Claude Agent is not signed in. Sign in to it on the server and try again.',
             ),
         ).toBeVisible({ timeout: 20_000 })
         await expect(card.getByText('Disabled', { exact: true })).toBeVisible()

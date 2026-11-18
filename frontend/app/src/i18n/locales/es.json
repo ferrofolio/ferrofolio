@@ -103,7 +103,7 @@
     "pinAsset": "Fijar activo",
     "unpinAsset": "Quitar activo",
     "continueInBackground": "Continuar por detrás",
-    "connectingToServer": "Conectando a",
+    "connectingToServer": "Conectando con el servidor...",
     "details": "Detalles",
     "optional": "Opcional",
     "clear": "Limpiar",
@@ -118,10 +118,8 @@
     "latestVersion": "Última versión",
     "publishedOn": "Publicado el",
     "whatsNew": "Novedades",
-    "downloadAssets": "Opciones de descarga",
     "releaseNotes": "Notas de la versión",
-    "skipThisVersion": "Omitir versión",
-    "releasePageLink": "Visitar página de versión"
+    "skipThisVersion": "Omitir versión"
   },
   "investments": {
     "type": "Tipo",
@@ -510,10 +508,10 @@
     "AI_FILE_TOO_LARGE": "El archivo es demasiado grande para procesarlo con IA.",
     "EXECUTION_CONFLICT": "Ya hay otra importación en curso. Espera a que termine.",
     "NOT_ENTITLED": "Tu cuenta no tiene acceso a {integration}. Comprueba que tu plan está activo y que tu organización lo permite.",
-    "RUNTIME_FAILED": "No se pudo iniciar {integration} en este dispositivo. Comprueba tu conexión e inténtalo de nuevo.",
-    "RUNTIME_NOT_FOUND": "No se ha encontrado en este ordenador el programa que necesita {integration}. Instálalo o indica la ruta completa a su ejecutable.",
+    "RUNTIME_FAILED": "No se pudo iniciar {integration} en el servidor. Comprueba la conexión a internet del servidor e inténtalo de nuevo.",
+    "RUNTIME_NOT_FOUND": "No se ha encontrado en el servidor el programa que necesita {integration}. Instálalo allí o indica la ruta completa a su ejecutable.",
     "RUNTIME_OUTDATED": "El programa que necesita {integration} está desactualizado. Actualízalo e inténtalo de nuevo.",
-    "RUNTIME_NOT_AUTHENTICATED": "El programa que necesita {integration} no tiene la sesión iniciada. Inicia sesión en él en este ordenador e inténtalo de nuevo.",
+    "RUNTIME_NOT_AUTHENTICATED": "El programa que necesita {integration} no tiene la sesión iniciada. Inicia sesión en él en el servidor e inténtalo de nuevo.",
     "REAUTHENTICATION_REQUIRED": "Tu sesión de {integration} ha caducado. Vuelve a iniciar sesión en Integraciones."
   },
   "errorBoundary": {
@@ -1354,7 +1352,7 @@
       },
       "LOCAL_MODELS": {
         "name": "Modelos locales",
-        "description": "Ejecuta modelos de IA de forma privada en este dispositivo o en tu propio servidor llama.cpp. Descarga aquí los modelos compatibles.",
+        "description": "Ejecuta modelos de IA de forma privada en el servidor de Ferrofolio o en tu propio servidor llama.cpp. Descarga aquí los modelos compatibles.",
         "help": "Cómo funciona",
         "hint": {
           "title": "Modelos locales",
@@ -1380,7 +1378,7 @@
       },
       "CLAUDE_AGENT": {
         "name": "Agente de Claude",
-        "description": "Usa Claude a través de Claude Code instalado y con la sesión iniciada en este ordenador. El uso cuenta para los límites de tu plan de Claude y las solicitudes las procesa Anthropic.",
+        "description": "Usa Claude a través de Claude Code instalado y con la sesión iniciada en el servidor. El uso cuenta para los límites de tu plan de Claude y las solicitudes las procesa Anthropic.",
         "help": "Cómo configurarlo",
         "hint": {
           "title": "Configurar Claude Agent",
@@ -1396,7 +1394,7 @@
             },
             {
               "type": "text",
-              "value": " en este ordenador, ejecuta claude en una terminal e inicia sesión con tu cuenta de Claude. Ferrofolio reutiliza esa sesión y nunca te pide tus credenciales ni una clave API. Indica la ruta solo si Claude Code no se encuentra automáticamente."
+              "value": " en el servidor, ejecuta allí claude en una terminal e inicia sesión con tu cuenta de Claude. Ferrofolio reutiliza esa sesión y nunca te pide tus credenciales ni una clave API. Indica la ruta solo si Claude Code no se encuentra automáticamente. Con Docker, instala Claude Code e inicia sesión dentro del contenedor del servidor, porque una sesión iniciada en el host no llega a él."
             }
           ]
         }
@@ -1450,7 +1448,7 @@
     "localModels": {
       "builtInMode": "Motor integrado",
       "serverMode": "Mi servidor llama.cpp",
-      "builtInNotice": "Los modelos se ejecutan en este dispositivo con el motor integrado. Solo se inicia cuando hace falta y se detiene tras un tiempo sin uso.",
+      "builtInNotice": "Los modelos se ejecutan en el servidor con el motor integrado. Solo se inicia cuando hace falta y se detiene tras un tiempo sin uso.",
       "serverNotice": "Introduce la URL de un servidor llama.cpp iniciado en modo router (sin -m). Ollama, LM Studio o un llama-server con un solo modelo van en Custom AI.",
       "envUrlNotice": "El entorno del servidor ya define FINANZE_LLAMA_SERVER_URL = {url}{key}. Deja los campos vacíos para usarlo, los valores introducidos aquí lo sustituyen.",
       "envKeySuffix": " y una clave API",
@@ -1469,12 +1467,12 @@
       "models": "Modelos",
       "noModels": "Aún no hay modelos. Descarga uno recomendado o cualquier modelo GGUF de Hugging Face.",
       "externalHint": "Los modelos de la carpeta de modelos de tu servidor también aparecen aquí. Después de añadir archivos, pulsa Actualizar.",
-      "folderHint": "Deja archivos GGUF en la carpeta de modelos y pulsa Actualizar. Para leer imágenes, deja el archivo mmproj del modelo en la misma carpeta.",
+      "folderHint": "Deja archivos GGUF en la carpeta models/local dentro de la carpeta de datos del servidor y pulsa Actualizar. Para leer imágenes, deja el archivo mmproj del modelo en la misma carpeta.",
       "recommended": "Recomendados",
       "params": "{params} parámetros",
       "downloadSize": "{size} de descarga",
       "ram": "~{ram} de RAM",
-      "ramWarning": "Puede no caber en la memoria de este dispositivo",
+      "ramWarning": "Puede no caber en la memoria del servidor",
       "languages": "Idiomas: {languages}",
       "downloadStarted": "Descargando {model}",
       "cancelDownload": "Cancelar descarga",
@@ -1561,7 +1559,7 @@
       "noModels": "El servidor no muestra ningún modelo.",
       "unknownHint": "La versión, los modelos cargados y el tamaño de contexto se muestran para Ollama, LM Studio, llama.cpp y vLLM.",
       "errors": {
-        "UNREACHABLE": "No se ha podido conectar. Comprueba que el servidor está en marcha, que la URL es correcta y que acepta conexiones desde este dispositivo.",
+        "UNREACHABLE": "No se ha podido conectar. Comprueba que el servidor está en marcha, que la URL es correcta y que acepta conexiones desde el servidor de Ferrofolio.",
         "UNAUTHORIZED": "El servidor ha rechazado la clave API.",
         "NOT_FOUND": "No hay una lista de modelos en esta URL. Revisa la ruta, normalmente termina en /v1.",
         "SERVER_ERROR": "El servidor ha devuelto un error al listar sus modelos.",
@@ -2564,7 +2562,7 @@
       "provider": "Proveedor",
       "connected": "Conectado",
       "notConnected": "No conectado",
-      "unavailableHere": "No disponible en este dispositivo",
+      "unavailableHere": "No disponible en este servidor",
       "providerUnavailable": "{provider} no está disponible en esta plataforma y se omitirá esta entrada. Las demás prioridades listas pueden seguir funcionando. Se conserva su configuración para las plataformas compatibles.",
       "connectProvider": "Configúralo en integraciones",
       "connectRequired": "Conecta el proveedor o desactiva las sugerencias externas para guardar.",

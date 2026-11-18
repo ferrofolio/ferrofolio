@@ -77,9 +77,12 @@ describe("isDeviceInRestrictedRegion", () => {
     expect(await isDeviceInRestrictedRegion({})).toBe(false)
   })
 
-  it("uses the language region on web", async () => {
-    mockTimezone("Europe/London")
-    mockLanguage("en-GB")
+  it.each([
+    ["Europe/London", "en-GB"],
+    ["Europe/Dublin", "ga-IE"],
+  ])("uses the language region in %s with %s", async (tz, language) => {
+    mockTimezone(tz)
+    mockLanguage(language)
     const { isDeviceInRestrictedRegion } = await importModule()
 
     expect(await isDeviceInRestrictedRegion(FLAG_ON)).toBe(true)
@@ -140,14 +143,10 @@ describe("useRegionRestriction", () => {
       typeof import("@/lib/regionRestriction")
     >("@/lib/regionRestriction")
     const checkRegion = vi.fn(async (current: FeatureFlags) => {
-      try {
-        const code = await countryCode.promise
-        return actual.isRegionRestricted(current, actual.getDeviceTimezone(), [
-          code,
-        ])
-      } catch {
-        return false
-      }
+      const code = await countryCode.promise
+      return actual.isRegionRestricted(current, actual.getDeviceTimezone(), [
+        code,
+      ])
     })
     vi.doMock("@/lib/regionRestriction", () => ({
       ...actual,
@@ -283,13 +282,24 @@ describe("useRegionRestriction", () => {
   })
 
   it("allows access when the country lookup fails", async () => {
-    const { countryCode, useRegionRestriction } =
-      await setupPendingRegionCheck(FLAG_ON)
+    mockTimezone("Europe/London")
+    vi.spyOn(navigator, "language", "get").mockImplementation(() => {
+      throw new Error("Country unavailable")
+    })
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {})
+    vi.resetModules()
+    const { setFeatureFlags } = await import("@/context/featureFlagsStore")
+    const { useRegionRestriction } =
+      await import("@/hooks/useRegionRestriction")
+    setFeatureFlags(FLAG_ON)
+
     const { result } = renderHook(() => useRegionRestriction())
     expect(result.current).toBeNull()
 
-    await act(async () => countryCode.reject(new Error("Country unavailable")))
-
-    expect(result.current).toBe(false)
+    await waitFor(() => expect(result.current).toBe(false))
+    expect(debug).toHaveBeenCalledWith(
+      "[RegionRestriction] Failed to detect device country",
+      expect.objectContaining({ timezone: "Europe/London" }),
+    )
   })
 })

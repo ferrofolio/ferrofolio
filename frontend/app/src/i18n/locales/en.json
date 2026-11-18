@@ -105,7 +105,7 @@
     "pinAsset": "Pin asset",
     "unpinAsset": "Unpin asset",
     "continueInBackground": "Continue in background",
-    "connectingToServer": "Connecting to",
+    "connectingToServer": "Connecting to the server...",
     "details": "Details",
     "optional": "Optional",
     "clear": "Clear",
@@ -120,10 +120,8 @@
     "latestVersion": "Latest Version",
     "publishedOn": "Published on",
     "whatsNew": "What's New",
-    "downloadAssets": "Download Options",
     "releaseNotes": "Release Notes",
-    "skipThisVersion": "Skip version",
-    "releasePageLink": "Visit Release Page"
+    "skipThisVersion": "Skip version"
   },
   "investments": {
     "type": "Type",
@@ -512,10 +510,10 @@
     "AI_FILE_TOO_LARGE": "The file is too large to be processed with AI.",
     "EXECUTION_CONFLICT": "Another import is already running. Wait for it to finish.",
     "NOT_ENTITLED": "Your account does not have access to {integration}. Check that your plan is active and that your organization allows it.",
-    "RUNTIME_FAILED": "{integration} could not be started on this device. Check your connection and try again.",
-    "RUNTIME_NOT_FOUND": "The program required by {integration} was not found on this computer. Install it or enter the full path to its executable.",
+    "RUNTIME_FAILED": "{integration} could not be started on the server. Check the server's internet connection and try again.",
+    "RUNTIME_NOT_FOUND": "The program required by {integration} was not found on the server. Install it there or enter the full path to its executable.",
     "RUNTIME_OUTDATED": "The program required by {integration} is too old. Update it and try again.",
-    "RUNTIME_NOT_AUTHENTICATED": "The program required by {integration} is not signed in. Sign in to it on this computer and try again.",
+    "RUNTIME_NOT_AUTHENTICATED": "The program required by {integration} is not signed in. Sign in to it on the server and try again.",
     "REAUTHENTICATION_REQUIRED": "Your {integration} sign-in expired. Sign in again in Integrations."
   },
   "errorBoundary": {
@@ -1356,7 +1354,7 @@
       },
       "LOCAL_MODELS": {
         "name": "Local models",
-        "description": "Run AI models privately on this device or on your own llama.cpp server. Download supported models here.",
+        "description": "Run AI models privately on the Ferrofolio server or on your own llama.cpp server. Download supported models here.",
         "help": "How it works",
         "hint": {
           "title": "Local models",
@@ -1382,7 +1380,7 @@
       },
       "CLAUDE_AGENT": {
         "name": "Claude Agent",
-        "description": "Use Claude through Claude Code installed and signed in on this computer. Usage counts toward your Claude plan limits, and requests are processed by Anthropic.",
+        "description": "Use Claude through Claude Code installed and signed in on the server. Usage counts toward your Claude plan limits, and requests are processed by Anthropic.",
         "help": "How to set it up",
         "hint": {
           "title": "Set up Claude Agent",
@@ -1398,7 +1396,7 @@
             },
             {
               "type": "text",
-              "value": " on this computer, run claude in a terminal and sign in with your Claude account. Ferrofolio reuses that sign-in and never asks for your credentials or an API key. Fill in the path only if Claude Code is not found automatically."
+              "value": " on the server, run claude in a terminal there and sign in with your Claude account. Ferrofolio reuses that sign-in and never asks for your credentials or an API key. Fill in the path only if Claude Code is not found automatically. With Docker, install and sign in inside the server container, since a sign-in on the host does not reach it."
             }
           ]
         }
@@ -1452,7 +1450,7 @@
     "localModels": {
       "builtInMode": "Built-in engine",
       "serverMode": "My llama.cpp server",
-      "builtInNotice": "Models run on this device with the built-in engine. It only starts when needed and stops after a while without use.",
+      "builtInNotice": "Models run on the server with the built-in engine. It only starts when needed and stops after a while without use.",
       "serverNotice": "Enter the URL of a llama.cpp server started in router mode (without -m). Ollama, LM Studio or a single-model llama-server go in Custom AI.",
       "envUrlNotice": "The server environment already sets FINANZE_LLAMA_SERVER_URL = {url}{key}. Leave the fields blank to use it, values entered here override it.",
       "envKeySuffix": " and an API key",
@@ -1471,12 +1469,12 @@
       "models": "Models",
       "noModels": "No models yet. Download a recommended one or any GGUF model from Hugging Face.",
       "externalHint": "Models in your server's models folder are also listed here. After adding files there, press Refresh.",
-      "folderHint": "Drop GGUF files in the models folder and press Refresh. To read images, keep the model's mmproj file in the same folder.",
+      "folderHint": "Drop GGUF files in the models/local folder inside the server's data folder and press Refresh. To read images, keep the model's mmproj file in the same folder.",
       "recommended": "Recommended",
       "params": "{params} parameters",
       "downloadSize": "{size} download",
       "ram": "~{ram} RAM",
-      "ramWarning": "May not fit in this device's memory",
+      "ramWarning": "May not fit in the server's memory",
       "languages": "Languages: {languages}",
       "downloadStarted": "Downloading {model}",
       "cancelDownload": "Cancel download",
@@ -1563,7 +1561,7 @@
       "noModels": "The server does not list any models.",
       "unknownHint": "Version, loaded models and context size are shown for Ollama, LM Studio, llama.cpp and vLLM.",
       "errors": {
-        "UNREACHABLE": "Could not connect. Check that the server is running, the URL is correct and it accepts connections from this device.",
+        "UNREACHABLE": "Could not connect. Check that the server is running, the URL is correct and it accepts connections from the Ferrofolio server.",
         "UNAUTHORIZED": "The server rejected the API key.",
         "NOT_FOUND": "There is no model list at this URL. Check the path, it usually ends in /v1.",
         "SERVER_ERROR": "The server returned an error when listing its models.",
@@ -2565,7 +2563,7 @@
       "provider": "Provider",
       "connected": "Connected",
       "notConnected": "Not connected",
-      "unavailableHere": "Not available on this device",
+      "unavailableHere": "Not available on this server",
       "providerUnavailable": "{provider} is unavailable on this platform and this entry will be skipped. Other ready priorities can still run. Its settings are kept for supported platforms.",
       "connectProvider": "Configure it in integrations",
       "connectRequired": "Connect the provider or turn off external suggestions to save.",

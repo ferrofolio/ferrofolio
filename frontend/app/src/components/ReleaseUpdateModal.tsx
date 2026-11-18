@@ -98,26 +98,6 @@ export function ReleaseUpdateModal({
 
             <CardContent className="flex-1 overflow-y-auto min-h-0 space-y-4 p-4 sm:p-6">
               <div className="space-y-3">
-                <h4 className="font-medium text-sm">
-                  {t.release.downloadAssets}
-                </h4>
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {t.release.releasePageLink}
-                  </p>
-                  <Button
-                    onClick={handleViewRelease}
-                    size="sm"
-                    className="w-full sm:w-auto"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    {t.common.viewRelease}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Release Notes */}
-              <div className="space-y-3">
                 <h4 className="font-medium text-sm">{t.release.whatsNew}</h4>
                 <div className="bg-muted p-3 sm:p-4 rounded-lg">
                   <ReleaseNotes
