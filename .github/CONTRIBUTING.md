@@ -37,6 +37,7 @@ grant nobody the right to relicense it.
 3. **Testing:**
    - Add unit tests or integration tests for new features and infrastructure adapters in `tests/` and `e2e/` if possible.
    - Ensure all tests pass: `pytest` (backend) and `pnpm test` (frontend).
+   - `scripts/ci-local.sh` runs every CI check locally in containers (needs Docker or Podman).
    - More on this in [README.md](../README.md).
 4. **Submit:** Open the Pull Request against the `develop` branch with a clear title and description of your changes.
 
