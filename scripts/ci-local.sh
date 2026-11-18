@@ -143,6 +143,12 @@ if [[ -z "$engine" ]]; then
   echo "Docker or Podman is needed." >&2
   exit 1
 fi
+# The Podman CLI, also behind a docker command, takes its service from CONTAINER_HOST
+# rather than DOCKER_HOST; both name the same service, so the runner image is built
+# where act looks for it. A Docker CLI ignores CONTAINER_HOST.
+if [[ "$podman" == true && -n "${DOCKER_HOST:-}" && -z "${CONTAINER_HOST:-}" ]]; then
+  export CONTAINER_HOST="$DOCKER_HOST"
+fi
 containerfile="scripts/ci-local.Containerfile"
 runner_image="localhost/ferrofolio-ci-runner:$(sha256 "$containerfile" | cut -c1-12)"
 if ! "$engine" image inspect "$runner_image" > /dev/null 2>&1; then
