@@ -112,6 +112,12 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
     fi
     export DOCKER_HOST="unix://$podman_socket"
     podman=true
+  elif docker_host="$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2> /dev/null)" \
+    && [[ -n "$docker_host" ]]; then
+    # act does not read Docker contexts and only looks for sockets in a few fixed
+    # places (Docker Desktop on Linux is not one), so it is given the context's
+    # endpoint to use the same engine as the Docker CLI.
+    export DOCKER_HOST="$docker_host"
   fi
 elif [[ "$DOCKER_HOST" == *podman* ]]; then
   podman=true
