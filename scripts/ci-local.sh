@@ -97,22 +97,24 @@ if [[ ! -x "$act_bin" ]]; then
 fi
 
 # Podman serves the Docker API on a socket of its own; act and the "docker" job
-# inside the runner talk to whichever engine DOCKER_HOST names.
+# inside the runner talk to whichever engine DOCKER_HOST names. Without DOCKER_HOST,
+# a working Docker (in whatever context it is configured) is used as it is.
 podman=false
 if [[ -z "${DOCKER_HOST:-}" ]]; then
-  podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
-  if [[ -S "$podman_socket" ]]; then
+  # Only Docker reports a ServerVersion; Podman's docker command fails on it.
+  if ! docker info --format '{{.ServerVersion}}' > /dev/null 2>&1; then
+    podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+    if [[ ! -S "$podman_socket" ]]; then
+      echo "Neither Docker nor Podman's API socket is running. Start one, for example" >&2
+      echo "  systemctl --user start podman.socket" >&2
+      echo "or point DOCKER_HOST at a running Docker or Podman API." >&2
+      exit 1
+    fi
     export DOCKER_HOST="unix://$podman_socket"
     podman=true
   fi
 elif [[ "$DOCKER_HOST" == *podman* ]]; then
   podman=true
-fi
-if [[ -z "${DOCKER_HOST:-}" && ! -S /var/run/docker.sock ]] && command -v podman > /dev/null; then
-  echo "Podman's API socket is not running. Start it, for example with" >&2
-  echo "  systemctl --user start podman.socket" >&2
-  echo "or point DOCKER_HOST at a running Docker or Podman API." >&2
-  exit 1
 fi
 
 # The runner image: act's Ubuntu image plus what GitHub's runner has preinstalled
@@ -163,7 +165,9 @@ EOF
 # does not copy. The repository is mounted read-only at its own path so that the
 # "changes" job can still compare commits.
 git_common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
-container_options="--volume $git_common_dir:$git_common_dir:ro"
+# act splits these options like a shell, so a path with spaces is escaped.
+printf -v git_volume '%q' "$git_common_dir:$git_common_dir:ro"
+container_options="--volume $git_volume"
 # act asks for an OOM score adjustment of 0. A rootless Podman service started by
 # systemd runs at 200 and cannot go lower, so every command act runs in the container
 # would fail; the jobs get the highest value, which is also the first to be freed
