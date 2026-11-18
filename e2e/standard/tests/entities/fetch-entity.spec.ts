@@ -228,7 +228,7 @@ test.describe('Fetch Entity Data - 2FA (Wecity)', () => {
 })
 
 test.describe('Fetch Entity Data - Manual Login (Trade Republic)', () => {
-    test('manual login entity shows use app error when external login unavailable', async ({
+    test('manual login entity shows an error when external login is unavailable', async ({
         authenticatedPage: page,
     }) => {
         // Temporarily disable the mock external login API so getExternalLoginAPI() returns null
@@ -263,7 +263,9 @@ test.describe('Fetch Entity Data - Manual Login (Trade Republic)', () => {
         }
 
         await expect(
-            page.getByText('Use the app in order to do manual log in.'),
+            page.getByText(
+                'Signing in to this entity is not available on the server yet.',
+            ),
         ).toBeVisible({ timeout: 10_000 })
 
         // Re-enable the mock for subsequent tests

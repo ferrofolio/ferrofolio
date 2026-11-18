@@ -43,7 +43,6 @@ vi.mock("@/context/ModalRegistryContext", () => ({
 }))
 vi.mock("@/i18n", () => ({ useI18n: () => ({ t: {} }) }))
 vi.mock("@/lib/platform", () => ({
-  getPlatformType: () => "WEB",
   isPWAStandalone: () => false,
 }))
 vi.mock("@/components/telemetry/TelemetryConsentDialog", () => ({

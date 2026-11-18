@@ -98,52 +98,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
-  delete (window as { platform?: unknown }).platform
 })
 
 describe("ChatGPT sign-in", () => {
-  it("shows only supported platforms as icon badges in a popover without toggling the card", async () => {
-    renderTab(chatgpt({ platforms: ["DESKTOP", "SELF_HOSTED"] }))
-    expect(
-      screen.queryByText(en.settings.aiPlatformsLabel),
-    ).not.toBeInTheDocument()
-    const trigger = screen.getByRole("button", {
-      name: en.settings.aiPlatformsLabel,
-    })
-    expect(trigger.textContent).toBe("")
-    expect(trigger.querySelector("svg.lucide-info")).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: copy.continue })).toBeVisible(),
-    )
-    fireEvent.click(trigger)
-    const popover = await screen.findByRole("dialog")
-    expect(
-      within(popover)
-        .getByText(en.settings.aiPlatforms.DESKTOP)
-        .querySelector("svg"),
-    ).toBeInTheDocument()
-    expect(
-      within(popover)
-        .getByText(en.settings.aiPlatforms.SELF_HOSTED)
-        .querySelector("svg"),
-    ).toBeInTheDocument()
-    expect(
-      within(popover).queryByText(en.settings.aiPlatforms.MOBILE),
-    ).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: copy.continue })).toBeVisible()
-    expect(setupIntegration).not.toHaveBeenCalled()
-  })
-
-  it.each([{ platforms: undefined }, { platforms: [] }])(
-    "omits the platform trigger without supported-platform metadata",
-    overrides => {
-      renderTab(chatgpt(overrides))
-      expect(
-        screen.queryByRole("button", { name: en.settings.aiPlatformsLabel }),
-      ).not.toBeInTheDocument()
-    },
-  )
-
   it("shows a beta badge on the AI providers section", () => {
     renderTab()
 
@@ -163,7 +120,6 @@ describe("ChatGPT sign-in", () => {
           id: "OPENAI",
           name: "OpenAI",
           family: { id: "OPENAI", name: "OpenAI" },
-          platforms: ["DESKTOP", "SELF_HOSTED", "MOBILE"],
           type: ExternalIntegrationType.AI_PROVIDER,
           status: ExternalIntegrationStatus.ON,
           available: true,
@@ -171,7 +127,6 @@ describe("ChatGPT sign-in", () => {
         },
         chatgpt({
           family: { id: "OPENAI", name: "OpenAI" },
-          platforms: ["DESKTOP", "SELF_HOSTED", "MOBILE"],
         }),
       ],
       fetchExternalIntegrations: vi.fn(),
@@ -197,13 +152,6 @@ describe("ChatGPT sign-in", () => {
     expect(focusedMethod).toHaveClass("after:h-px", "last:after:hidden")
     expect(focusedMethod).not.toHaveClass("border-b")
     expect(screen.queryByText("1/2 connected")).not.toBeInTheDocument()
-    for (const id of ["OPENAI", "CHATGPT"]) {
-      const trigger = within(
-        screen.getByTestId(`integration-card-${id}`),
-      ).getByRole("button", { name: en.settings.aiPlatformsLabel })
-      expect(trigger.textContent).toBe("")
-      expect(trigger.querySelector("svg.lucide-info")).toBeInTheDocument()
-    }
     expect(
       screen.getByText(en.settings.aiProviderMethods.OPENAI),
     ).toBeInTheDocument()

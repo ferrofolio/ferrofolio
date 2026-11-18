@@ -10,10 +10,11 @@ Ferrofolio is a self-hosted personal finance and net worth tracker and an indepe
 backend from Python to Rust, is in `docs/roadmap.md`. Read it before starting work that touches architecture.
 
 This repository contains the server and the web app, which users build and run as two Docker images, the server and
-the nginx frontend `ferrofolio-front` (the project does not publish images yet). The web app is becoming a PWA. There
-is no desktop app: do not add desktop builds or extend `frontend/app/electron`, which stays only as a reference until
-Trade Republic can log in on the server. The native mobile apps live in their own repositories (`ferrofolio/ios`,
-later `ferrofolio/android`), not here; Capacitor and Pyodide are being removed from this repository.
+the nginx frontend `ferrofolio-front` (the project does not publish images yet). The web app is becoming a PWA and the
+browser is its only runtime. There is no desktop app: do not add Electron, desktop builds or other desktop code. The
+Electron login windows for Trade Republic, ING, IBKR, Mintos and Unicaja were removed with it; they remain in the Git
+history (last at `890f604e`) as a reference for the server-side sign-in. The native mobile apps live in their own
+repositories (`ferrofolio/ios`, later `ferrofolio/android`), not here: do not add Capacitor, Pyodide or native shells.
 
 | Path | Content |
 |---|---|

@@ -36,7 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/Popover"
-import { PlatformType, CloudRole } from "@/types"
+import { CloudRole } from "@/types"
 import { ProductType } from "@/types/position"
 import { getIconForProductType } from "@/utils/dashboardUtils"
 import {
@@ -44,7 +44,6 @@ import {
   type PinnedShortcutId,
 } from "@/context/PinnedShortcutsContext"
 import { BackupStatusPopover } from "@/components/layout/BackupStatusPopover"
-import { getPlatformType } from "@/lib/platform"
 
 export function Sidebar() {
   const { t } = useI18n()
@@ -273,8 +272,6 @@ export function Sidebar() {
     { path: "/export", label: t.export.title, icon: <FileUp size={20} /> },
   ]
 
-  const platform = getPlatformType()
-
   const toggleSidebar = () => {
     setCollapsed(!collapsed)
   }
@@ -321,10 +318,8 @@ export function Sidebar() {
     overlayVisible ? "" : "transition-all duration-300",
     containerWidthClass,
   )
-  const baseSidebarClass = cn(
-    "h-screen min-h-0 flex flex-col bg-gray-100 dark:bg-black border-r border-gray-200 dark:border-gray-800 overflow-hidden",
-    platform === PlatformType.MAC ? "pt-4" : "",
-  )
+  const baseSidebarClass =
+    "h-screen min-h-0 flex flex-col bg-gray-100 dark:bg-black border-r border-gray-200 dark:border-gray-800 overflow-hidden"
 
   const sidebarClass = overlayVisible
     ? cn(

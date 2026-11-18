@@ -13,7 +13,7 @@ import en from "@/i18n/locales/en.json"
 import es from "@/i18n/locales/es.json"
 import itTranslations from "@/i18n/locales/it.json"
 import de from "@/i18n/locales/de.json"
-import { FFStatus, PlatformType } from "@/types"
+import { FFStatus } from "@/types"
 
 const { state, setupIntegration, disableIntegration } = vi.hoisted(() => ({
   state: {
@@ -61,10 +61,6 @@ vi.mock("@/context/DataDisplayModeContext", () => ({
 vi.mock("@/components/settings/GeneralTab", () => ({ GeneralTab: () => null }))
 vi.mock("@/components/settings/CloudTab", () => ({ CloudTab: () => null }))
 vi.mock("@/components/settings/McpTab", () => ({ McpTab: () => null }))
-vi.mock("@/lib/platform", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/platform")>()),
-  getPlatformType: () => PlatformType.WEB,
-}))
 vi.mock("@/services/api", async importOriginal => ({
   ...(await importOriginal<typeof import("@/services/api")>()),
   setupIntegration,

@@ -57,7 +57,7 @@
     "each": "cada uno",
     "comingSoon": "Próximamente",
     "confirm": "Confirmar",
-    "incompatibleLoginPlatform": "Usa la app de escritorio para iniciar sesión manualmente.",
+    "incompatibleLoginPlatform": "El inicio de sesión en esta entidad todavía no está disponible en el servidor.",
     "selectOptions": "Seleccionar opciones...",
     "searchOptions": "Buscar opciones...",
     "noOptionsFound": "No se encontraron opciones",
@@ -104,8 +104,6 @@
     "unpinAsset": "Quitar activo",
     "continueInBackground": "Continuar por detrás",
     "connectingToServer": "Conectando a",
-    "startingServer": "Iniciando servidor",
-    "backendFailedToStart": "Error al iniciar el servidor",
     "details": "Detalles",
     "optional": "Opcional",
     "clear": "Limpiar",
@@ -119,51 +117,11 @@
     "currentVersion": "Versión actual",
     "latestVersion": "Última versión",
     "publishedOn": "Publicado el",
-    "downloadFor": "Descargar para {platform}",
     "whatsNew": "Novedades",
     "downloadAssets": "Opciones de descarga",
     "releaseNotes": "Notas de la versión",
     "skipThisVersion": "Omitir versión",
-    "releasePageLink": "Visitar página de versión",
-    "autoUpdate": {
-      "title": "Actualización automática",
-      "description": "Descarga e instala la actualización sin salir de la app.",
-      "download": "Descargar actualización",
-      "downloading": "Descargando actualización…",
-      "install": "Reiniciar e instalar",
-      "ready": "Actualización descargada. Reinicia para completar la instalación.",
-      "progress": "{percent}% • {downloaded} / {total}",
-      "progressFallback": "{percent}% descargado"
-    },
-    "manualDownloads": {
-      "show": "Mostrar descargas manuales",
-      "hide": "Ocultar descargas manuales"
-    }
-  },
-  "about": {
-    "title": "Acerca de {appName}",
-    "projectDescription": "{appName} te ayuda a centralizar y seguir tus finanzas en un solo lugar.",
-    "maintainedBy": "Mantenido por {author}.",
-    "unknownAuthor": "Desconocido",
-    "version": "Versión",
-    "author": "Autor",
-    "electronVersion": "Electron",
-    "chromiumVersion": "Chromium",
-    "nodeVersion": "Node.js",
-    "website": "Sitio web",
-    "repository": "Repositorio",
-    "logoAlt": "Logotipo de {appName}",
-    "runtimeSection": "Aplicación",
-    "platformSection": "Plataforma",
-    "linksSection": "Enlaces",
-    "operatingSystem": "Sistema operativo",
-    "architecture": "Arquitectura",
-    "osVersion": "Versión del SO",
-    "platformNames": {
-      "mac": "macOS",
-      "windows": "Windows",
-      "linux": "Linux"
-    }
+    "releasePageLink": "Visitar página de versión"
   },
   "investments": {
     "type": "Tipo",
@@ -896,9 +854,6 @@
       "description": "Conecta tu cuenta para habilitar funciones en la nube y sincronizar entre dispositivos",
       "signInTitle": "Iniciar sesión en Cloud",
       "signInDescription": "Accede a funciones extra y sincroniza tus datos entre dispositivos",
-      "signInWithGoogle": "Iniciar sesión con Google",
-      "signInWithApple": "Iniciar sesión con Apple",
-      "googleDesktopOnly": "Disponible solo en la app de escritorio",
       "signInWithEmail": "Iniciar sesión con Email",
       "signUp": "Crear cuenta",
       "emailPlaceholder": "Correo electrónico",
@@ -909,7 +864,6 @@
       "noAccountAction": "Regístrate",
       "alreadyHaveAccountPrefix": "¿Ya tienes cuenta?",
       "alreadyHaveAccountAction": "Inicia sesión",
-      "orContinueWith": "o continuar con",
       "legalNoticePrefix": "Al continuar, aceptas los",
       "termsOfService": "Términos del servicio",
       "legalNoticeAnd": "y la",
@@ -963,23 +917,6 @@
       "cancelPasswordReset": "Cancelar",
       "passwordUpdateSuccess": "Contraseña actualizada correctamente.",
       "passwordUpdateError": "No se pudo actualizar la contraseña. Inténtalo de nuevo.",
-      "oauthErrors": {
-        "access_denied": "Acceso denegado. Puede que hayas cancelado el inicio de sesión.",
-        "invalid_request": "Solicitud de inicio de sesión inválida. Inténtalo de nuevo.",
-        "unauthorized_client": "Esta aplicación no está autorizada. Contacta con soporte.",
-        "server_error": "El servidor de autenticación encontró un error. Inténtalo más tarde.",
-        "user_banned": "Tu cuenta está bloqueada. Si crees que es un error, contacta con soporte.",
-        "temporarily_unavailable": "El servicio de autenticación no está disponible temporalmente. Inténtalo más tarde.",
-        "signup_disabled": "No se ha podido encontrar una cuenta asociada, ¿te has registrado?",
-        "otp_expired": "El enlace de confirmación ha expirado. Por favor, solicita uno nuevo.",
-        "unknown": "Error de autenticación ({error}). Inténtalo de nuevo."
-      },
-      "oauthRedirectTitle": "Finalizando inicio de sesión",
-      "oauthRedirectDescription": "Volviendo a la app de escritorio…",
-      "oauthRedirectCloseHint": "Si esta pestaña no se cierra automáticamente, puedes cerrarla ahora.",
-      "oauthRedirectOpenApp": "Abrir Ferrofolio",
-      "oauthRedirectErrorTitle": "Error de autenticación",
-      "oauthRedirectErrorDescription": "Volviendo a la app de escritorio para mostrar el error…",
       "logoutError": "Error al cerrar sesión. Inténtalo de nuevo.",
       "syncError": "Error al sincronizar con el servidor. Inténtalo de nuevo.",
       "sessionExpired": "Tu sesión ha expirado. Inicia sesión de nuevo."
@@ -1439,11 +1376,11 @@
         }
       },
       "GITHUB_COPILOT": {
-        "description": "Usa los modelos incluidos en tu plan de GitHub Copilot. GitHub factura el uso en créditos de IA según el precio por token de cada modelo, y las solicitudes las procesan GitHub y el proveedor del modelo. Solo en escritorio y autoalojado."
+        "description": "Usa los modelos incluidos en tu plan de GitHub Copilot. GitHub factura el uso en créditos de IA según el precio por token de cada modelo, y las solicitudes las procesan GitHub y el proveedor del modelo."
       },
       "CLAUDE_AGENT": {
         "name": "Agente de Claude",
-        "description": "Usa Claude a través de Claude Code instalado y con la sesión iniciada en este ordenador. El uso cuenta para los límites de tu plan de Claude y las solicitudes las procesa Anthropic. Solo en escritorio y autoalojado.",
+        "description": "Usa Claude a través de Claude Code instalado y con la sesión iniciada en este ordenador. El uso cuenta para los límites de tu plan de Claude y las solicitudes las procesa Anthropic.",
         "help": "Cómo configurarlo",
         "hint": {
           "title": "Configurar Claude Agent",
@@ -1490,12 +1427,6 @@
       "LOCAL_MODELS": "Entorno local o servidor",
       "OPENAI_COMPATIBLE": "API compatible"
     },
-    "aiPlatforms": {
-      "DESKTOP": "Escritorio",
-      "SELF_HOSTED": "Autoalojado",
-      "MOBILE": "Móvil"
-    },
-    "aiPlatformsLabel": "Plataformas compatibles:",
     "aiConnectedMethods": "{count}/{total} conectados",
     "chatgpt": {
       "continue": "Continuar con ChatGPT",
@@ -1538,11 +1469,7 @@
       "models": "Modelos",
       "noModels": "Aún no hay modelos. Descarga uno recomendado o cualquier modelo GGUF de Hugging Face.",
       "externalHint": "Los modelos de la carpeta de modelos de tu servidor también aparecen aquí. Después de añadir archivos, pulsa Actualizar.",
-      "import": "Importar GGUF",
-      "importTitle": "Selecciona un archivo de modelo GGUF",
-      "importSuccess": "{model} importado",
-      "importHint": "Los archivos importados se usan desde su ubicación, no se copian. También puedes dejar archivos GGUF en la carpeta de modelos y pulsar Actualizar. Para leer imágenes, deja el archivo mmproj del modelo en la misma carpeta.",
-      "openFolder": "Abrir carpeta",
+      "folderHint": "Deja archivos GGUF en la carpeta de modelos y pulsa Actualizar. Para leer imágenes, deja el archivo mmproj del modelo en la misma carpeta.",
       "recommended": "Recomendados",
       "params": "{params} parámetros",
       "downloadSize": "{size} de descarga",
@@ -3583,19 +3510,6 @@
           "plural": "Hay {{count}} carteras manuales de fondos vinculadas a esta cuenta. Al eliminarlas se desvincularán y cada cartera quedará guardada sin una cuenta asociada."
         }
       },
-      "about": {
-        "title": "Acerca de {appName}",
-        "projectDescription": "{appName} te ayuda a centralizar y seguir tus finanzas en un solo lugar.",
-        "maintainedBy": "Mantenido por {author}.",
-        "unknownAuthor": "Desconocido",
-        "version": "Versión",
-        "author": "Autor",
-        "electronVersion": "Electron",
-        "chromiumVersion": "Chromium",
-        "nodeVersion": "Node.js",
-        "website": "Sitio web",
-        "repository": "Repositorio"
-      },
       "bankCards": {
         "title": "Tarjetas manuales",
         "description": "Controla tarjetas de crédito o débito gestionadas manualmente.",
@@ -4439,37 +4353,5 @@
       "travel": "Viajes",
       "weather": "Clima"
     }
-  },
-  "advancedSettings": {
-    "title": "Configuración avanzada",
-    "subtitle": "Ajusta la configuración técnica de la aplicación como la ubicación de los datos, el registro del backend, el servidor...",
-    "serverUrl": "URL del servidor remoto",
-    "serverUrlDesc": "Opcional: apunta a un backend remoto para desactivar el backend local.",
-    "serverUrlPlaceholder": "http://192.168.1.10:7592",
-    "probeButton": "Probar",
-    "probeSuccess": "Servidor disponible.",
-    "probeSuccessVersionMismatch": "Servidor disponible pero la versión difiere.",
-    "localVersion": "Local",
-    "remoteVersion": "Remota",
-    "probeError": "No se pudo contactar el servidor.",
-    "probeMissingUrl": "Ingresa una URL de servidor para probar.",
-    "serverUrlInvalid": "La URL del servidor debe comenzar con http:// o https://.",
-    "remoteServerNotice": "Usando un servidor remoto. El directorio de datos y el nivel de log de terceros son gestionados por el servidor. La configuración de logs aplica solo a esta aplicación.",
-    "dataDir": "Directorio de datos",
-    "dataDirPlaceholder": "Ubicación por defecto",
-    "logDir": "Directorio de logs",
-    "logDirPlaceholder": "Ubicación por defecto",
-    "openFolder": "Abrir carpeta",
-    "logLevel": "Nivel de log en consola",
-    "logFileLevel": "Nivel de log en archivo",
-    "inheritLogLevel": "Igual que el nivel de log",
-    "otherSection": "Otras opciones",
-    "thirdPartyLogLevel": "Nivel de log de terceros",
-    "restartWarning": "La aplicación se reiniciará al guardar estos ajustes.",
-    "resetToDefaults": "Restablecer",
-    "resetConfirmTitle": "Restablecer configuración",
-    "resetConfirmMessage": "¿Estás seguro de que quieres restablecer la configuración avanzada a sus valores por defecto?",
-    "resetConfirmWarning": "La aplicación se reiniciará después de restablecer.",
-    "availableAfterLoading": "Disponible después de cargar"
   }
 }

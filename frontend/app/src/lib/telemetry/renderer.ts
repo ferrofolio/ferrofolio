@@ -1,6 +1,4 @@
 import { BS_ENVIRONMENT, BS_FRONTEND_DSN } from "@/env"
-import { getPlatformInfo } from "@/lib/platform"
-import { PlatformType } from "@/types"
 
 import { getCachedConsent, loadConsent } from "./consent"
 import {
@@ -25,21 +23,10 @@ const IBAN_RE = /\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/g
 const V8_FRAME_RE = /^at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/
 const WEBKIT_FRAME_RE = /^(?:(.*?)@)?(\S+?):(\d+):(\d+)$/
 
-// Kept aligned with the backend OS enum so events can be filtered across components.
-const PLATFORM_OS: Partial<Record<PlatformType, string>> = {
-  [PlatformType.WINDOWS]: "WINDOWS",
-  [PlatformType.MAC]: "MACOS",
-  [PlatformType.LINUX]: "LINUX",
-  [PlatformType.IOS]: "IOS",
-  [PlatformType.ANDROID]: "ANDROID",
-}
-
 const OS_NAMES: Record<string, string> = {
   WINDOWS: "Windows",
   MACOS: "macOS",
   LINUX: "Linux",
-  IOS: "iOS",
-  ANDROID: "Android",
 }
 
 let listenersAttached = false
@@ -62,17 +49,8 @@ export function setTelemetryContext(context: {
   backendOsVersion = context.backendOsVersion ?? undefined
 }
 
-function distribution(): string {
-  if (window.ipcAPI) return "desktop"
-  return "web"
-}
-
-// On web the browser exposes no OS, so the backend one is reported instead.
+// The browser exposes no OS, so the backend one is reported instead.
 function operatingSystem(): { os?: string; version?: string } {
-  const info = getPlatformInfo()
-  const os = PLATFORM_OS[info.type]
-  if (os) return { os, version: info.osVersion }
-
   return { os: backendOs, version: backendOsVersion }
 }
 
@@ -239,7 +217,7 @@ function emit(
       extra,
       tags: {
         component: "renderer",
-        distribution: distribution(),
+        distribution: "web",
         ...(os ? { platform_os: os } : {}),
         ...(osVersion ? { os_version: osVersion } : {}),
         ...(userId ? { user_id: userId } : {}),

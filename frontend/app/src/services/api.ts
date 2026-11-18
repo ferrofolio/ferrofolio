@@ -126,7 +126,6 @@ import type {
   AITask,
   DownloadLocalModelRequest,
   HuggingFaceQuants,
-  ImportedLocalModel,
   LocalModelsOverview,
 } from "../types/ai"
 import type {
@@ -142,23 +141,16 @@ import type {
   McpConfigResponse,
   UpdateMcpConfigRequest,
 } from "../types/mcp"
-import { handleApiError } from "@/utils/apiErrors"
 import { getApiClient } from "./apiClient"
 import { setTelemetryContext } from "@/lib/telemetry"
 import { AppSettings, type SettingsKey } from "@/context/AppContext"
 
 export interface ApiServerInfo {
-  isCustomServer: boolean
-  serverDisplay: string | null
   baseUrl: string
 }
 
 export const getApiServerInfo = async (): Promise<ApiServerInfo> => {
   return (await getApiClient()).getApiServerInfo()
-}
-
-export const refreshApiBaseUrl = async (): Promise<void> => {
-  return (await getApiClient()).refreshApiBaseUrl()
 }
 
 export async function getEntities(): Promise<EntitiesResponse> {
@@ -319,26 +311,7 @@ export async function saveSettings(settings: Partial<AppSettings>) {
   return (await getApiClient()).post("/settings", settings)
 }
 
-interface CheckStatusOptions {
-  baseUrlOverride?: string
-}
-
-export async function checkStatus(
-  options?: CheckStatusOptions,
-): Promise<StatusResponse> {
-  if (options?.baseUrlOverride) {
-    let baseUrl = options.baseUrlOverride.trim()
-    while (baseUrl.endsWith("/")) {
-      baseUrl = baseUrl.slice(0, -1)
-    }
-    if (!baseUrl.endsWith("/api/v1")) {
-      baseUrl = `${baseUrl}/api/v1`
-    }
-    const response = await fetch(`${baseUrl}/status`)
-    if (!response.ok) await handleApiError(response)
-    return response.json()
-  }
-
+export async function checkStatus(): Promise<StatusResponse> {
   const result = await (await getApiClient()).get<StatusResponse>("/status")
 
   setTelemetryContext({
@@ -559,12 +532,6 @@ export async function deleteLocalModel(
   return (await getApiClient()).delete(
     `/ai/local/models?${visionOnly ? `${query}&vision_only=true` : query}`,
   )
-}
-
-export async function importLocalModel(
-  path: string,
-): Promise<ImportedLocalModel> {
-  return (await getApiClient()).post("/ai/local/models/import", { path })
 }
 
 export async function getHuggingFaceQuants(

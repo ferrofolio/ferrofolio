@@ -1,50 +1,41 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  getPlatformInfo,
-  getPlatformType,
-  isElectron,
-  isWeb,
-} from "@/lib/platform"
-import { PlatformType } from "@/types"
+import { isPWAStandalone } from "@/lib/platform"
+
+function mockDisplayMode(standalone: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches: standalone && query === "(display-mode: standalone)",
+    })),
+  )
+}
 
 afterEach(() => {
-  delete (window as { platform?: unknown }).platform
-  delete (window as { ipcAPI?: unknown }).ipcAPI
+  vi.unstubAllGlobals()
+  delete (navigator as { standalone?: boolean }).standalone
 })
 
-describe("platform detection", () => {
-  it("defaults to the web platform when nothing is injected", () => {
-    expect(getPlatformInfo()).toEqual({ type: PlatformType.WEB })
-    expect(getPlatformType()).toBe(PlatformType.WEB)
-    expect(isElectron()).toBe(false)
-    expect(isWeb()).toBe(true)
+describe("isPWAStandalone", () => {
+  it("is false in a browser tab", () => {
+    mockDisplayMode(false)
+
+    expect(isPWAStandalone()).toBe(false)
   })
 
-  it.each([
-    PlatformType.WEB,
-    PlatformType.IOS,
-    PlatformType.ANDROID,
-    PlatformType.WINDOWS,
-  ])("treats %s without the Electron bridge as web", type => {
-    window.platform = { type }
+  it("is true in the standalone display mode", () => {
+    mockDisplayMode(true)
 
-    expect(getPlatformType()).toBe(type)
-    expect(isElectron()).toBe(false)
-    expect(isWeb()).toBe(true)
+    expect(isPWAStandalone()).toBe(true)
   })
 
-  it.each([
-    PlatformType.WINDOWS,
-    PlatformType.MAC,
-    PlatformType.LINUX,
-    PlatformType.IOS,
-    PlatformType.ANDROID,
-  ])("treats %s with the Electron bridge as Electron", type => {
-    window.platform = { type }
-    window.ipcAPI = {} as typeof window.ipcAPI
+  it("is true when Safari reports a home screen launch", () => {
+    mockDisplayMode(false)
+    Object.defineProperty(navigator, "standalone", {
+      value: true,
+      configurable: true,
+    })
 
-    expect(isElectron()).toBe(true)
-    expect(isWeb()).toBe(false)
+    expect(isPWAStandalone()).toBe(true)
   })
 })

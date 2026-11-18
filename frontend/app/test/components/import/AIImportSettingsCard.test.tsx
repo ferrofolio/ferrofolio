@@ -30,7 +30,6 @@ vi.mock("@/services/api", () => ({
   getAIModels,
   validateAIModel: vi.fn(),
   getLocalModels: vi.fn(),
-  getApiServerInfo: vi.fn().mockResolvedValue({ isCustomServer: false }),
 }))
 vi.mock("@/hooks/useModalBackHandler", () => ({ useModalBackHandler: vi.fn() }))
 

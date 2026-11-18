@@ -1,5 +1,4 @@
 import { GitHubRelease, ReleaseUpdateInfo } from "@/types/release"
-import { PlatformType } from "@/types"
 import { formatDate } from "@/lib/formatters"
 
 export type { GitHubRelease, ReleaseUpdateInfo } from "@/types/release"
@@ -142,45 +141,6 @@ export async function getReleaseUpdateInfo(): Promise<ReleaseUpdateInfo> {
     hasUpdate,
     release,
   }
-}
-
-/**
- * Gets platform-specific download assets
- */
-export function getPlatformAssets(
-  release: GitHubRelease,
-  platform: PlatformType | null,
-): Array<{ name: string; url: string; size: number }> {
-  if (!release.assets || release.assets.length === 0) {
-    return []
-  }
-
-  const platformAssets = release.assets.filter(asset => {
-    const name = asset.name.toLowerCase()
-
-    switch (platform) {
-      case PlatformType.MAC:
-        return (
-          name.endsWith(".dmg") ||
-          (name.includes("mac") && name.endsWith(".zip"))
-        )
-      case PlatformType.WINDOWS:
-        return name.endsWith(".exe")
-      case PlatformType.LINUX:
-        return name.endsWith(".appimage")
-      case PlatformType.ANDROID:
-        return name.endsWith("android-full.apk")
-      case PlatformType.WEB:
-      default:
-        return false
-    }
-  })
-
-  return platformAssets.map(asset => ({
-    name: asset.name,
-    url: asset.browser_download_url,
-    size: asset.size,
-  }))
 }
 
 /**

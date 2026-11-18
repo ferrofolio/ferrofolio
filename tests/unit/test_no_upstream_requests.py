@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SCANNED = [
     ROOT / "finanze",
     ROOT / "frontend" / "app" / "src",
-    ROOT / "frontend" / "app" / "electron",
     ROOT / "frontend" / "generate-env-config.sh",
     ROOT / "Dockerfile",
     ROOT / "frontend" / "Dockerfile",

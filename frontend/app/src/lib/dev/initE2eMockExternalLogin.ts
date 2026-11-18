@@ -1,4 +1,4 @@
-import { setMobileLoginAPI } from "@/lib/externalLogin"
+import { setExternalLoginAPI } from "@/lib/externalLogin"
 import type { ExternalLoginAPI, LoginHandlerResult } from "@/lib/externalLogin"
 
 const MOCK_INTERNAL_CREDENTIALS: Record<string, Record<string, string>> = {
@@ -59,14 +59,14 @@ export function initE2eMockExternalLogin() {
     },
   }
 
-  setMobileLoginAPI(mockAPI)
+  setExternalLoginAPI(mockAPI)
 
   // Expose toggle for e2e tests that need to verify the "requires app" error
   ;(window as any).__e2eDisableMockExternalLogin = () => {
-    setMobileLoginAPI(null)
+    setExternalLoginAPI(null)
   }
   ;(window as any).__e2eEnableMockExternalLogin = () => {
-    setMobileLoginAPI(mockAPI)
+    setExternalLoginAPI(mockAPI)
   }
 
   console.log("[Dev] E2E mock external login API registered")

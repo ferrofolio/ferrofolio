@@ -41,10 +41,6 @@ export function useReleaseUpdate(options: UseReleaseUpdateOptions = {}) {
     setState(prev => ({ ...prev, isChecking: true, error: null }))
 
     try {
-      if (typeof window !== "undefined" && window.ipcAPI?.checkForUpdates) {
-        void window.ipcAPI.checkForUpdates()
-      }
-
       const updateInfo = await getReleaseUpdateInfo()
 
       setState(prev => ({

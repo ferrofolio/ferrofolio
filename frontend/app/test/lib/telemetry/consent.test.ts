@@ -1,6 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
-import { PlatformType } from "@/types"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const TELEMETRY_CONSENT_KEY = "telemetry_consent"
 
@@ -48,20 +46,7 @@ describe("telemetry consent store", () => {
     expect(consent.installId).toBeTruthy()
   })
 
-  describe.each([
-    PlatformType.WEB,
-    PlatformType.IOS,
-    PlatformType.ANDROID,
-    PlatformType.LINUX,
-  ])("on %s", type => {
-    beforeEach(() => {
-      window.platform = { type }
-    })
-
-    afterEach(() => {
-      delete (window as { platform?: unknown }).platform
-    })
-
+  describe("in localStorage", () => {
     it("reads the consent stored in localStorage", async () => {
       localStorage.setItem(
         TELEMETRY_CONSENT_KEY,

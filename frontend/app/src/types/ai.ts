@@ -219,12 +219,3 @@ export interface HuggingFaceQuants {
   quants: HuggingFaceQuantOption[]
   kind: HuggingFaceModelKind
 }
-
-export interface ImportedLocalModel {
-  id: string
-  path: string
-  exists: boolean
-  size?: number | null
-  mmproj_path?: string | null
-  mmproj_size?: number | null
-}

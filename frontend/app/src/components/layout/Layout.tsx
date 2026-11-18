@@ -5,10 +5,9 @@ import { FloatingBottomNav } from "./FloatingBottomNav"
 import { Toast } from "@/components/ui/Toast"
 import { useAppContext } from "@/context/AppContext"
 import { motion, AnimatePresence } from "framer-motion"
-import { PlatformType } from "@/types"
 import { useI18n } from "@/i18n"
 import { useLocation } from "react-router-dom"
-import { getPlatformType, isPWAStandalone } from "@/lib/platform"
+import { isPWAStandalone } from "@/lib/platform"
 import { StatusBarBlur } from "./StatusBarBlur"
 import {
   LayoutScrollProvider,
@@ -33,7 +32,6 @@ function LayoutContent({ children }: LayoutProps) {
   const { t } = useI18n()
   const location = useLocation()
   const prevPathnameRef = useRef(location.pathname)
-  const platform = getPlatformType()
   const { handleScroll, resetScroll, scrollRootRef } = useLayoutScroll()
   const isMobileViewport = isPWAStandalone()
   const { enabled: isErrorReportingEnabled, refresh: refreshErrorReporting } =
@@ -73,9 +71,6 @@ function LayoutContent({ children }: LayoutProps) {
           className={cn(
             "flex-1 min-h-0 overflow-auto",
             isMobileViewport && "pt-[max(12px,var(--safe-area-inset-top,0px))]",
-            (platform === PlatformType.WINDOWS ||
-              platform === PlatformType.LINUX) &&
-              "pt-4",
           )}
           onScroll={isNarrowView ? handleScroll : undefined}
         >

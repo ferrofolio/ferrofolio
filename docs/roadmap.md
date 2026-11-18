@@ -2,7 +2,7 @@
 
 Rust backend, web app as a PWA, native iOS app, an open licence and an agent-driven workflow.
 
-Last updated: 2026-11-17 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
+Last updated: 2026-11-18 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
 
 ---
 
@@ -218,11 +218,11 @@ Crate names reflect the state of knowledge when this roadmap was written and are
 
 **The desktop app is removed.** This drops the `electron` folder (about 3,700 lines), the 73 Electron branches in UI code, the PyInstaller packaging (`package.py`, `package_llama.py`, `finanze.spec`), the auto-updater and the build matrix for three operating systems including signing. Afterwards the frontend knows exactly one environment, the browser, and the server ships only as a container.
 
-One consequence: five connectors sign in to the bank through their own Electron windows today, namely IBKR, ING, Mintos, Trade Republic and Unicaja (`frontend/app/electron/main/loginHandlers`). According to the upstream README, Trade Republic, ING and IBKR therefore do not work in Docker operation at all today. A replacement path exists for Trade Republic (section 4.7); the other four have not been investigated. Enable Banking is not affected.
+One consequence: five connectors signed in to the bank through their own Electron windows, namely IBKR, ING, Mintos, Trade Republic and Unicaja (`frontend/app/electron/main/loginHandlers`, last at `890f604e`). According to the upstream README, Trade Republic, ING and IBKR therefore do not work in Docker operation at all today. A replacement path exists for Trade Republic (section 4.7); the other four have not been investigated. Enable Banking is not affected.
 
-**Ferrofolio does not build or ship the desktop app. Its code stays in the repository as a reference until Trade Republic demonstrably works in server operation.**
+**Ferrofolio does not build or ship the desktop app, and its code has been removed from the repository.** The Electron login windows remain in the Git history (last at `890f604e`) and in upstream Finanze as a reference for the server-side sign-in.
 
-This leaves a known gap. Until the server-side sign-in exists (phase 4, slice 4), no Ferrofolio build offers Trade Republic sign-in, just as the upstream Docker image does not today. In the interim the connector can be used by building the Electron app from source or through the upstream desktop app. The gap is accepted because Scalable Capital has priority. The server-side sign-in is still Python work with no dependency on the Rust foundation, so it can be pulled forward into phase 2 if the gap becomes a problem.
+This leaves a known gap. Until the server-side sign-in exists (phase 4, slice 4), no Ferrofolio build offers Trade Republic sign-in, just as the upstream Docker image does not today. In the interim the connector can only be used through the upstream desktop app. The gap is accepted because Scalable Capital has priority. The server-side sign-in is still Python work with no dependency on the Rust foundation, so it can be pulled forward into phase 2 if the gap becomes a problem.
 
 **Native iOS app.**
 
@@ -288,14 +288,14 @@ What follows for Ferrofolio:
 
 Trade Republic has no public interface. The connector (about 3,700 lines, built on the MIT-licensed `pytr`) reproduces the interface of the Trade Republic app.
 
-**What Electron actually does here.** Fetching and processing run entirely in the backend, over HTTP and WebSocket. Electron only opens `app.traderepublic.com/login` in a real browser window once per sign-in and captures a bot-protection token there (AWS WAF, the response from `token.awswaf.com`). That token is passed to the backend as `awsWafToken`. Phone number, PIN and confirmation code are entered in the normal UI.
+**What Electron actually does here.** Fetching and processing run entirely in the backend, over HTTP and WebSocket. Electron only opened `app.traderepublic.com/login` in a real browser window once per sign-in and captured a bot-protection token there (AWS WAF, the response from `token.awswaf.com`). That token is passed to the backend as `awsWafToken`. Phone number, PIN and confirmation code are entered in the normal UI.
 
 So no scraping process has to be replaced, only the acquisition of this one token. Three options, to be tried in this order:
 
 | Option | Idea | Status |
 |---|---|---|
 | 1. Sign-in without the token | `pytr` describes a newer sign-in ("v2") that works through a push confirmation in the Trade Republic app and, according to its documentation, needs no WAF token. The code here already knows v2 but still requires a token first (`finanze/infrastructure/client/entity/financial/tr/trade_republic_client.py`) | Hypothesis; a small change, to be tested first |
-| 2. Browser in the container | A Chromium next to the server loads the login page and reads the token through the same interface Electron uses today. `pytr` does this by default (Playwright). An optional Selenium container already exists for Mintos | Proven pattern; risk that the bot protection detects a headless browser |
+| 2. Browser in the container | A Chromium next to the server loads the login page and reads the token through the same interface the Electron window used. `pytr` does this by default (Playwright). An optional Selenium container already exists for Mintos | Proven pattern; risk that the bot protection detects a headless browser |
 | 3. iOS app as a helper | The native app opens the login page in a web view, captures the token and sends it to the server | Only available once the iOS app exists; open whether a token from the phone is accepted for requests from the server |
 
 Further points:
@@ -399,7 +399,7 @@ flowchart LR
 | `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | In review (#31); the upstream host is still the default until it is merged. After #31 the public keychain for four scraping connectors is opt-in as well |
 | `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | In review (#32); the icon URLs are still hard-coded until it is merged. After #32 the source is configurable and off by default; the crypto snapshot and historic metal prices as well |
 | Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |
-| Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2; disabled until then | In review (#33) |
+| Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2 | Done: removed with the desktop app |
 
 - Set up CI secrets anew; clean up workflows that expect upstream secrets
 
@@ -418,8 +418,8 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 - Harden authentication, rate limiting and CORS (section 4.4), building on the existing API sessions
 - Web app and API in one container
 - PWA: service worker, installability, width-dependent mobile layout (section 4.3)
-- Remove Capacitor, Pyodide and the native shells
-- Remove the desktop build and PyInstaller packaging workflows; the Electron code stays for now, and Trade Republic sign-in remains unavailable in Ferrofolio builds until phase 4 (section 4.3)
+- Remove Capacitor, Pyodide and the native shells (done)
+- Remove the desktop app: Electron code, desktop build, auto-updater and PyInstaller packaging (done); Trade Republic sign-in remains unavailable in Ferrofolio builds until phase 4 (section 4.3)
 - In parallel: start the `connectors-scalable` crate and test it from the command line against a real account (section 4.6)
 - Extend `GET /api/v1/status` with the server version and capabilities
 - Generate the OpenAPI specification and publish it as a release artifact
@@ -445,7 +445,7 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 | 1 | Status, login, settings | Small; rehearses the process |
 | 2 | Read paths: positions, transactions, timelines, history, cash flow | High value, no external access; also what the iOS app needs first |
 | 3 | **Scalable Capital** (new) | First Rust connector, not a port; needs the write paths for positions and transactions |
-| 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7); afterwards the Electron code is removed |
+| 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7) |
 | 5 | **Enable Banking** | Proven connector, official interface, ~1,100 lines |
 | 6 | Manual data: transactions, positions, flows, real estate, commodities | Plain CRUD |
 | 7 | Labels, rules, recurring movements | |
@@ -612,7 +612,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Two large efforts at once (rewrite and iOS app) | The iOS app covers everyday tasks only; the desktop app is dropped |
 | Scalable changes or blocks the CLI interface | Watch the official CLI; as a way out, invoke the CLI itself in the container |
 | The Scalable access can trade | Fixed allow-list of read queries, human approval for this code |
-| No Ferrofolio build offers Trade Republic sign-in until phase 4 | Accepted gap with a documented workaround (section 4.3); the server-side sign-in can be pulled forward into phase 2; the Electron code is removed only after it works (section 4.7) |
+| No Ferrofolio build offers Trade Republic sign-in until phase 4 | Accepted gap with a documented workaround (section 4.3); the server-side sign-in can be pulled forward into phase 2; the removed Electron login window stays available as a reference in the Git history (section 4.7) |
 | Trade Republic changes its interface or bot protection | Watch `pytr` and upstream; keep the connector on Python for a long time |
 | Other connectors that use an Electron login window | Decide per connector in phase 2; drop those without a server path |
 | Connectors break and nobody can test | Port only connectors with a real test account |

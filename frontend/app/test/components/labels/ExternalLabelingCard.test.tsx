@@ -33,9 +33,7 @@ const {
   getLocalModels,
   downloadLocalModel,
   deleteLocalModel,
-  importLocalModel,
   getHuggingFaceQuants,
-  getApiServerInfo,
   navigate,
   appContext,
 } = vi.hoisted(() => ({
@@ -45,9 +43,7 @@ const {
   getLocalModels: vi.fn(),
   downloadLocalModel: vi.fn(),
   deleteLocalModel: vi.fn(),
-  importLocalModel: vi.fn(),
   getHuggingFaceQuants: vi.fn(),
-  getApiServerInfo: vi.fn(),
   navigate: vi.fn(),
   appContext: {
     current: {} as Record<string, unknown>,
@@ -77,9 +73,7 @@ vi.mock("@/services/api", () => ({
   getLocalModels,
   downloadLocalModel,
   deleteLocalModel,
-  importLocalModel,
   getHuggingFaceQuants,
-  getApiServerInfo,
 }))
 vi.mock("@/hooks/useModalBackHandler", () => ({ useModalBackHandler: vi.fn() }))
 
@@ -170,7 +164,6 @@ beforeEach(() => {
   cleanup()
   vi.clearAllMocks()
   appContext.locale = "en-US"
-  getApiServerInfo.mockResolvedValue({ isCustomServer: false })
 })
 
 afterEach(() => {

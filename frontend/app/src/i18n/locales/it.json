@@ -90,7 +90,7 @@
     "copy": "Copia",
     "copied": "Copiato",
     "each": "ciascuno",
-    "incompatibleLoginPlatform": "Usa l'app per effettuare l'accesso manuale.",
+    "incompatibleLoginPlatform": "L'accesso a questa entità non è ancora disponibile sul server.",
     "selectOptions": "Seleziona opzioni...",
     "searchOptions": "Cerca opzioni...",
     "noOptionsFound": "Nessuna opzione trovata",
@@ -106,8 +106,6 @@
     "unpinAsset": "Rimuovi bene",
     "continueInBackground": "Continua in background",
     "connectingToServer": "Connessione a",
-    "startingServer": "Avvio del server",
-    "backendFailedToStart": "Avvio del server non riuscito",
     "details": "Dettagli",
     "optional": "Opzionale",
     "clear": "Cancella",
@@ -121,51 +119,11 @@
     "currentVersion": "Versione attuale",
     "latestVersion": "Ultima versione",
     "publishedOn": "Pubblicata il",
-    "downloadFor": "Scarica per {platform}",
     "whatsNew": "Novità",
     "downloadAssets": "Opzioni di download",
     "releaseNotes": "Note di rilascio",
     "skipThisVersion": "Salta versione",
-    "releasePageLink": "Visita la pagina della versione",
-    "autoUpdate": {
-      "title": "Aggiornamento automatico",
-      "description": "Scarica e installa l'aggiornamento senza uscire dall'app.",
-      "download": "Scarica aggiornamento",
-      "downloading": "Download dell'aggiornamento…",
-      "install": "Riavvia e installa",
-      "ready": "Aggiornamento scaricato. Riavvia per completare l'installazione.",
-      "progress": "{percent}% • {downloaded} / {total}",
-      "progressFallback": "{percent}% scaricato"
-    },
-    "manualDownloads": {
-      "show": "Mostra opzioni di download manuale",
-      "hide": "Nascondi opzioni di download manuale"
-    }
-  },
-  "about": {
-    "title": "Informazioni su {appName}",
-    "projectDescription": "{appName} ti aiuta a centralizzare e monitorare le tue finanze in un unico posto.",
-    "maintainedBy": "Mantenuto da {author}.",
-    "unknownAuthor": "Sconosciuto",
-    "version": "Versione",
-    "author": "Autore",
-    "electronVersion": "Electron",
-    "chromiumVersion": "Chromium",
-    "nodeVersion": "Node.js",
-    "website": "Sito web",
-    "repository": "Repository",
-    "logoAlt": "Logo di {appName}",
-    "runtimeSection": "Applicazione",
-    "platformSection": "Piattaforma",
-    "linksSection": "Collegamenti",
-    "operatingSystem": "Sistema operativo",
-    "architecture": "Architettura",
-    "osVersion": "Versione del SO",
-    "platformNames": {
-      "mac": "macOS",
-      "windows": "Windows",
-      "linux": "Linux"
-    }
+    "releasePageLink": "Visita la pagina della versione"
   },
   "investments": {
     "type": "Tipo",
@@ -897,9 +855,6 @@
       "description": "Connetti il tuo account per abilitare le funzionalità cloud e sincronizzare tra dispositivi",
       "signInTitle": "Accedi al Cloud",
       "signInDescription": "Accedi a funzionalità extra e sincronizza i tuoi dati tra dispositivi",
-      "signInWithGoogle": "Accedi con Google",
-      "signInWithApple": "Accedi con Apple",
-      "googleDesktopOnly": "Disponibile solo nell'app desktop",
       "signInWithEmail": "Accedi con Email",
       "signUp": "Crea Account",
       "emailPlaceholder": "Indirizzo email",
@@ -910,7 +865,6 @@
       "noAccountAction": "Registrati",
       "alreadyHaveAccountPrefix": "Hai già un account?",
       "alreadyHaveAccountAction": "Accedi",
-      "orContinueWith": "oppure continua con",
       "legalNoticePrefix": "Continuando, accetti i",
       "termsOfService": "Termini di Servizio",
       "legalNoticeAnd": "e la",
@@ -964,26 +918,9 @@
       "cancelPasswordReset": "Annulla",
       "passwordUpdateSuccess": "Password aggiornata con successo.",
       "passwordUpdateError": "Impossibile aggiornare la password. Riprova.",
-      "oauthErrors": {
-        "access_denied": "Accesso negato. Potresti aver annullato l'accesso.",
-        "invalid_request": "Richiesta di accesso non valida. Riprova.",
-        "unauthorized_client": "Questa app non è autorizzata. Contatta il supporto.",
-        "server_error": "Il server di autenticazione ha riscontrato un errore. Riprova più tardi.",
-        "user_banned": "Il tuo account è bloccato. Contatta il supporto se non te lo aspettavi.",
-        "temporarily_unavailable": "Il servizio di autenticazione è temporaneamente non disponibile. Riprova più tardi.",
-        "signup_disabled": "Impossibile trovare un account associato, ti sei già registrato?",
-        "otp_expired": "Il link di conferma è scaduto. Richiedine uno nuovo.",
-        "unknown": "Autenticazione non riuscita ({error}). Riprova."
-      },
-      "oauthRedirectTitle": "Completamento accesso",
-      "oauthRedirectDescription": "Ritorno all'app desktop…",
-      "oauthRedirectCloseHint": "Se questa scheda non si chiude automaticamente, puoi chiuderla ora.",
-      "oauthRedirectErrorTitle": "Autenticazione non riuscita",
-      "oauthRedirectErrorDescription": "Ritorno all'app desktop per mostrare l'errore…",
       "logoutError": "Disconnessione non riuscita. Riprova.",
       "syncError": "Sincronizzazione con il server non riuscita. Riprova.",
-      "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo.",
-      "oauthRedirectOpenApp": "Apri Ferrofolio"
+      "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo."
     },
     "backup": {
       "title": "Backup",
@@ -1440,11 +1377,11 @@
         }
       },
       "GITHUB_COPILOT": {
-        "description": "Usa i modelli inclusi nel tuo piano GitHub Copilot. GitHub addebita l'utilizzo in crediti IA in base al prezzo per token di ogni modello e le richieste vengono elaborate da GitHub e dal fornitore del modello. Solo desktop e self-hosted."
+        "description": "Usa i modelli inclusi nel tuo piano GitHub Copilot. GitHub addebita l'utilizzo in crediti IA in base al prezzo per token di ogni modello e le richieste vengono elaborate da GitHub e dal fornitore del modello."
       },
       "CLAUDE_AGENT": {
         "name": "Agente di Claude",
-        "description": "Usa Claude tramite Claude Code installato e con l'accesso effettuato su questo computer. L'utilizzo conta per i limiti del tuo piano Claude e le richieste vengono elaborate da Anthropic. Solo desktop e self-hosted.",
+        "description": "Usa Claude tramite Claude Code installato e con l'accesso effettuato su questo computer. L'utilizzo conta per i limiti del tuo piano Claude e le richieste vengono elaborate da Anthropic.",
         "help": "Come configurarlo",
         "hint": {
           "title": "Configura Claude Agent",
@@ -1491,12 +1428,6 @@
       "LOCAL_MODELS": "Runtime locale o server",
       "OPENAI_COMPATIBLE": "API compatibile"
     },
-    "aiPlatforms": {
-      "DESKTOP": "Desktop",
-      "SELF_HOSTED": "Self-hosted",
-      "MOBILE": "Mobile"
-    },
-    "aiPlatformsLabel": "Piattaforme supportate:",
     "aiConnectedMethods": "{count}/{total} connessi",
     "chatgpt": {
       "continue": "Continua con ChatGPT",
@@ -1539,11 +1470,7 @@
       "models": "Modelli",
       "noModels": "Ancora nessun modello. Scaricane uno consigliato o qualsiasi modello GGUF da Hugging Face.",
       "externalHint": "Anche i modelli nella cartella dei modelli del tuo server compaiono qui. Dopo aver aggiunto dei file, premi Aggiorna.",
-      "import": "Importa GGUF",
-      "importTitle": "Seleziona un file di modello GGUF",
-      "importSuccess": "{model} importato",
-      "importHint": "I file importati vengono usati dalla loro posizione, non vengono copiati. Puoi anche mettere file GGUF nella cartella dei modelli e premere Aggiorna. Per leggere immagini, tieni il file mmproj del modello nella stessa cartella.",
-      "openFolder": "Apri cartella",
+      "folderHint": "Metti file GGUF nella cartella dei modelli e premi Aggiorna. Per leggere immagini, tieni il file mmproj del modello nella stessa cartella.",
       "recommended": "Consigliati",
       "params": "{params} parametri",
       "downloadSize": "{size} da scaricare",
@@ -4419,37 +4346,5 @@
       "travel": "Viaggi",
       "weather": "Meteo"
     }
-  },
-  "advancedSettings": {
-    "title": "Impostazioni avanzate",
-    "subtitle": "Regola le impostazioni tecniche dell'applicazione come la posizione dei dati, il logging del backend, il server...",
-    "serverUrl": "URL server backend",
-    "serverUrlDesc": "Opzionalmente punta a un backend remoto per disabilitare quello locale.",
-    "serverUrlPlaceholder": "http://192.168.1.10:7592",
-    "probeButton": "Testa",
-    "probeSuccess": "Il server è raggiungibile.",
-    "probeSuccessVersionMismatch": "Il server è raggiungibile ma la versione differisce.",
-    "localVersion": "Locale",
-    "remoteVersion": "Remota",
-    "probeError": "Impossibile raggiungere il server.",
-    "probeMissingUrl": "Inserisci un URL del server per testarlo.",
-    "serverUrlInvalid": "L'URL del server deve iniziare con http:// o https://.",
-    "remoteServerNotice": "In uso un server remoto. La directory dati e il livello di log di terze parti sono gestiti dal server. Le impostazioni di log si applicano solo a questa applicazione.",
-    "dataDir": "Directory dati",
-    "dataDirPlaceholder": "Posizione predefinita",
-    "logDir": "Directory log",
-    "logDirPlaceholder": "Posizione predefinita",
-    "openFolder": "Apri cartella",
-    "logLevel": "Livello di log in console",
-    "logFileLevel": "Livello di log su file",
-    "inheritLogLevel": "Uguale al livello di log della console",
-    "otherSection": "Altre opzioni",
-    "thirdPartyLogLevel": "Livello di log di terze parti",
-    "restartWarning": "L'app si riavvierà al salvataggio di queste impostazioni.",
-    "resetToDefaults": "Ripristina predefiniti",
-    "resetConfirmTitle": "Ripristina impostazioni",
-    "resetConfirmMessage": "Sei sicuro di voler ripristinare tutte le impostazioni avanzate ai valori predefiniti?",
-    "resetConfirmWarning": "L'app si riavvierà dopo il ripristino.",
-    "availableAfterLoading": "Disponibile dopo il caricamento"
   }
 }

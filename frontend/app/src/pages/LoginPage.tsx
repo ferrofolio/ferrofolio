@@ -25,16 +25,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/Popover"
-import {
-  LoginQuickSettings,
-  VersionMismatchInfo,
-} from "@/components/ui/ThemeSelector"
-import { AdvancedSettings } from "@/components/ui/AdvancedSettings"
-import { getApiServerInfo, checkStatus } from "@/services/api"
-import { setFeatureFlags } from "@/context/featureFlagsStore"
-import { isElectron } from "@/lib/platform"
+import { LoginQuickSettings } from "@/components/ui/ThemeSelector"
 import { useTheme } from "@/context/ThemeContext"
-import { useModalBackHandler } from "@/hooks/useModalBackHandler"
 import { generateFloatingLogos } from "@/lib/floatingLogos"
 import { copyToClipboard } from "@/lib/clipboard"
 import { CloudRestore } from "@/components/auth/CloudRestore"
@@ -62,21 +54,13 @@ export default function LoginPage() {
   const [errorCode, setErrorCode] = useState<AuthResultCode | null>(null)
   const [errorDetails, setErrorDetails] = useState<string | null>(null)
   const [isSignupMode, setIsSignupMode] = useState(false)
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
-  const [isDesktopApp, setIsDesktopApp] = useState(false)
   const [detailsCopied, setDetailsCopied] = useState(false)
   const [cloudRestoreMode, setCloudRestoreMode] = useState(false)
   const [showConsentDialog, setShowConsentDialog] = useState(false)
-  const [isCustomServer, setIsCustomServer] = useState(false)
   const [rememberSession, setRememberSession] = useState(
     () => localStorage.getItem(REMEMBER_SESSION_KEY) === "true",
   )
 
-  useModalBackHandler(showAdvancedSettings, () =>
-    setShowAdvancedSettings(false),
-  )
-  const [versionMismatch, setVersionMismatch] =
-    useState<VersionMismatchInfo | null>(null)
   const {
     login,
     signup,
@@ -105,10 +89,7 @@ export default function LoginPage() {
 
   const isLoginMode = !isSignupMode && !isChangingPassword
 
-  const showRememberOption =
-    apiSessionEnabled &&
-    !isChangingPassword &&
-    (!isElectron() || isCustomServer)
+  const showRememberOption = apiSessionEnabled && !isChangingPassword
   const remember = showRememberOption && rememberSession
 
   const handleRememberSessionChange = (checked: boolean) => {
@@ -138,45 +119,6 @@ export default function LoginPage() {
     pendingPasswordChangeUser,
     pendingRegister,
   ])
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    if (window.ipcAPI) {
-      setIsDesktopApp(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkVersionMismatch = async () => {
-      try {
-        const serverInfo = await getApiServerInfo()
-        setIsCustomServer(serverInfo.isCustomServer)
-        if (!serverInfo.isCustomServer) {
-          setVersionMismatch(null)
-          return
-        }
-
-        const statusResponse = await checkStatus()
-        setFeatureFlags(statusResponse.features)
-        const remoteVersion = statusResponse.server?.version
-        const localVersion = __APP_VERSION__
-
-        if (remoteVersion && remoteVersion !== localVersion) {
-          setVersionMismatch({ localVersion, remoteVersion })
-        } else {
-          setVersionMismatch(null)
-        }
-      } catch (error) {
-        console.error("Failed to check version mismatch:", error)
-        setVersionMismatch(null)
-      }
-    }
-
-    checkVersionMismatch()
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -361,11 +303,7 @@ export default function LoginPage() {
         ))}
       </motion.div>
       <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2">
-        <LoginQuickSettings
-          isDesktop={isDesktopApp}
-          onOpenAdvancedSettings={() => setShowAdvancedSettings(true)}
-          versionMismatch={versionMismatch}
-        />
+        <LoginQuickSettings />
         {renderConsentQuickAction()}
       </div>
       <motion.div
@@ -409,7 +347,6 @@ export default function LoginPage() {
             <CloudRestore
               onBack={() => setCloudRestoreMode(false)}
               onRestoreComplete={() => {}}
-              isDesktop={true}
               pendingUsername={
                 pendingRegister ? lastLoggedUser || undefined : undefined
               }
@@ -622,10 +559,6 @@ export default function LoginPage() {
           </form>
         )}
       </motion.div>
-      <AdvancedSettings
-        isOpen={showAdvancedSettings}
-        onClose={() => setShowAdvancedSettings(false)}
-      />
       {consentDialog}
     </div>
   )

@@ -5,7 +5,6 @@ import { CloudRestore } from "@/components/auth/CloudRestore"
 import { CloudTab } from "@/components/settings/CloudTab"
 import { ModalRegistryProvider } from "@/context/ModalRegistryContext"
 import en from "@/i18n/locales/en.json"
-import { PlatformType } from "@/types"
 
 vi.mock("@/i18n", () => ({ useI18n: () => ({ t: en, locale: "en-US" }) }))
 vi.mock("@/context/CloudContext", () => ({
@@ -15,10 +14,6 @@ vi.mock("@/context/CloudContext", () => ({
     permissions: [],
     isLoading: false,
     isInitialized: true,
-    oauthError: null,
-    clearOAuthError: vi.fn(),
-    signInWithGoogle: vi.fn(),
-    signInWithApple: vi.fn(),
     signInWithEmail: vi.fn(),
     signUpWithEmail: vi.fn(),
     requestPasswordReset: vi.fn(),
@@ -57,8 +52,6 @@ vi.mock("@/components/telemetry/ErrorReportingToggle", () => ({
 
 afterEach(() => {
   cleanup()
-  delete (window as { platform?: unknown }).platform
-  delete (window as { ipcAPI?: unknown }).ipcAPI
 })
 
 const surfaces = [
@@ -73,58 +66,24 @@ const surfaces = [
   ],
   [
     "CloudRestore",
-    () =>
-      render(
-        <CloudRestore
-          onBack={vi.fn()}
-          onRestoreComplete={vi.fn()}
-          isDesktop={false}
-        />,
-      ),
+    () => render(<CloudRestore onBack={vi.fn()} onRestoreComplete={vi.fn()} />),
   ],
 ] as const
 
-describe.each(surfaces)("social sign-in in %s", (_name, renderSurface) => {
-  it.each([PlatformType.WEB, PlatformType.IOS, PlatformType.ANDROID])(
-    "is unavailable on %s without the Electron bridge",
-    type => {
-      window.platform = { type }
-      renderSurface()
+describe.each(surfaces)("cloud sign-in in %s", (_name, renderSurface) => {
+  it("offers email sign-in only", () => {
+    renderSurface()
 
-      expect(
-        screen.getByRole("button", {
-          name: en.settings.cloud.signInWithGoogle,
-        }),
-      ).toBeDisabled()
-      expect(
-        screen.getByText(en.settings.cloud.googleDesktopOnly),
-      ).toBeInTheDocument()
-      expect(
-        screen.queryByRole("button", {
-          name: en.settings.cloud.signInWithApple,
-        }),
-      ).not.toBeInTheDocument()
-    },
-  )
-
-  it.each([PlatformType.WINDOWS, PlatformType.MAC, PlatformType.LINUX])(
-    "is available on %s with the Electron bridge",
-    type => {
-      window.platform = { type }
-      window.ipcAPI = {} as typeof window.ipcAPI
-      renderSurface()
-
-      expect(
-        screen.getByRole("button", {
-          name: en.settings.cloud.signInWithGoogle,
-        }),
-      ).toBeEnabled()
-      expect(
-        screen.queryByText(en.settings.cloud.googleDesktopOnly),
-      ).not.toBeInTheDocument()
-      expect(
-        screen.getByRole("button", { name: en.settings.cloud.signInWithApple }),
-      ).toBeEnabled()
-    },
-  )
+    expect(
+      screen.getByRole("button", { name: en.settings.cloud.signInWithEmail }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /google/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /apple/i }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/google/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/apple/i)).not.toBeInTheDocument()
+  })
 })

@@ -322,5 +322,3 @@ sketch
 
 # End of https://www.toptal.com/developers/gitignore/api/intellij,visualstudiocode,react,macos,node
 
-/dist-electron
-/release

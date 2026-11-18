@@ -38,8 +38,8 @@ export class SupabaseAuthProvider implements CloudAuthProvider {
         // client has already consumed the refresh token.
         persistSession: false,
         detectSessionInUrl: true,
-        // Use PKCE flow for OAuth (Google) and for email links that return a
-        // PKCE code, relying on the verifier stored by auth-js.
+        // Use PKCE flow for email links that return a PKCE code, relying on
+        // the verifier stored by auth-js.
         flowType: "pkce",
       },
     })
@@ -50,89 +50,6 @@ export class SupabaseAuthProvider implements CloudAuthProvider {
       throw new Error("SupabaseAuthProvider not initialized")
     }
     return this.client
-  }
-
-  async handleAuthCallbackUrl(url: string): Promise<void> {
-    const urlObj = new URL(url)
-
-    const hash = urlObj.hash.startsWith("#")
-      ? urlObj.hash.substring(1)
-      : urlObj.hash
-    const hashParams = new URLSearchParams(hash)
-    const accessToken = hashParams.get("access_token")
-    const refreshToken = hashParams.get("refresh_token")
-
-    if (accessToken && refreshToken) {
-      await this.setSession(accessToken, refreshToken)
-      return
-    }
-
-    const code = urlObj.searchParams.get("code")
-    if (code) {
-      await this.exchangeCodeForSession(code)
-      return
-    }
-
-    // No session material in the URL (could be a non-auth deeplink).
-  }
-
-  async signInWithIdToken(
-    provider: "google" | "apple",
-    idToken: string,
-    nonce?: string,
-  ): Promise<void> {
-    const { error } = await this.getClient().auth.signInWithIdToken({
-      provider,
-      token: idToken,
-      nonce,
-    })
-    if (error) {
-      throw error
-    }
-  }
-
-  async signInWithGoogle(callbackUrl: string): Promise<void> {
-    const isElectron = typeof window !== "undefined" && !!window.ipcAPI
-
-    if (!isElectron) {
-      throw new Error("Google sign-in is only available in the desktop app")
-    }
-
-    const { data, error } = await this.getClient().auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: callbackUrl,
-        skipBrowserRedirect: true,
-      },
-    })
-    if (error) {
-      throw error
-    }
-    if (data?.url) {
-      window.open(data.url, "_blank", "noopener,noreferrer")
-    }
-  }
-
-  async signInWithApple(callbackUrl: string): Promise<void> {
-    const isElectron = typeof window !== "undefined" && !!window.ipcAPI
-
-    if (!isElectron) {
-      throw new Error("Apple sign-in is only available in the desktop app")
-    }
-
-    const { data, error } = await this.getClient().auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: callbackUrl,
-        skipBrowserRedirect: true,
-      },
-    })
-    if (error) {
-      throw error
-    }
-    if (data?.url) {
-      window.open(data.url, "_blank", "noopener,noreferrer")
-    }
   }
 
   async signInWithEmail(email: string, password: string): Promise<void> {
@@ -254,13 +171,6 @@ export class SupabaseAuthProvider implements CloudAuthProvider {
       authAny.startAutoRefresh?.()
     } else {
       authAny.stopAutoRefresh?.()
-    }
-  }
-
-  async exchangeCodeForSession(code: string): Promise<void> {
-    const { error } = await this.getClient().auth.exchangeCodeForSession(code)
-    if (error) {
-      throw error
     }
   }
 

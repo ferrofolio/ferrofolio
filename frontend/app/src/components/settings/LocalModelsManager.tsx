@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   Download,
-  FileUp,
-  FolderOpen,
   Image as ImageIcon,
   RefreshCw,
   Search,
@@ -21,9 +19,7 @@ import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog"
 import {
   deleteLocalModel,
   downloadLocalModel,
-  getApiServerInfo,
   getHuggingFaceQuants,
-  importLocalModel,
 } from "@/services/api"
 import { cn } from "@/lib/utils"
 import { formatFileSize } from "@/utils/releaseUtils"
@@ -187,7 +183,6 @@ export function LocalModelsManager({
   const { t } = useI18n()
   const { showToast } = useAppContext()
   const copy = t.settings.localModels
-  const [customServer, setCustomServer] = useState(true)
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [refreshing, setRefreshing] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<{
@@ -204,12 +199,6 @@ export function LocalModelsManager({
   const builtIn = overview.mode === LocalRuntimeMode.BUILT_IN
   const capabilities = overview.capabilities
 
-  useEffect(() => {
-    getApiServerInfo()
-      .then(info => setCustomServer(info.isCustomServer))
-      .catch(() => setCustomServer(true))
-  }, [])
-
   const installedIds = useMemo(
     () => new Set(overview.models.map(model => model.id)),
     [overview.models],
@@ -218,17 +207,6 @@ export function LocalModelsManager({
   const selectedOption = quants?.quants.find(
     option => option.quant === selectedQuant,
   )
-
-  const canImport =
-    builtIn &&
-    capabilities.can_import_files &&
-    !customServer &&
-    !!window.ipcAPI?.selectFile
-  const canOpenFolder =
-    builtIn &&
-    !!overview.models_folder &&
-    !customServer &&
-    !!window.ipcAPI?.showItemInFolder
 
   const errorMessage = useCallback(
     (error: unknown) => {
@@ -323,19 +301,6 @@ export function LocalModelsManager({
       repo: quants.repo,
       quant: selectedOption.quant,
       vision: !!selectedOption.vision_size && !!vision.huggingface,
-    })
-  }
-
-  const handleImport = async () => {
-    const path = await window.ipcAPI?.selectFile?.({
-      title: copy.importTitle,
-      extensions: ["gguf"],
-    })
-    if (!path) return
-    await runAction("import", async () => {
-      const imported = await importLocalModel(path)
-      showToast(copy.importSuccess.replace("{model}", imported.id), "success")
-      await onReload()
     })
   }
 
@@ -628,35 +593,6 @@ export function LocalModelsManager({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-sm font-semibold">{copy.models}</h4>
           <div className="flex flex-wrap items-center gap-1">
-            {canOpenFolder && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  void window.ipcAPI?.showItemInFolder?.(
-                    overview.models_folder as string,
-                  )
-                }
-              >
-                <FolderOpen className="h-4 w-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">{copy.openFolder}</span>
-              </Button>
-            )}
-            {canImport && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleImport()}
-                disabled={!!busy.import}
-              >
-                {busy.import ? (
-                  <LoadingSpinner size="sm" className="sm:mr-1.5" />
-                ) : (
-                  <FileUp className="h-4 w-4 sm:mr-1.5" />
-                )}
-                <span className="hidden sm:inline">{copy.import}</span>
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="sm"
@@ -685,7 +621,7 @@ export function LocalModelsManager({
         )}
 
         <p className="text-xs text-muted-foreground">
-          {builtIn ? copy.importHint : copy.externalHint}
+          {builtIn ? copy.folderHint : copy.externalHint}
         </p>
       </section>
 

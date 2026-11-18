@@ -6,22 +6,14 @@ export interface ChallengeWindowAPI {
   onChallengeCompleted(callback: (token: string | null) => void): () => void
 }
 
-let mobileChallengeAPI: ChallengeWindowAPI | null = null
+// No challenge window is available in the browser. Only the end-to-end tests
+// register an implementation.
+let challengeWindowAPI: ChallengeWindowAPI | null = null
 
 export function getChallengeWindowAPI(): ChallengeWindowAPI | null {
-  if (typeof window !== "undefined" && window.ipcAPI) {
-    return {
-      requestChallengeWindow: (siteKey, domain) =>
-        window.ipcAPI!.requestChallengeWindow(siteKey, domain),
-      onChallengeCompleted: callback => {
-        return window.ipcAPI!.onChallengeCompleted(callback)
-      },
-    }
-  }
-
-  return mobileChallengeAPI
+  return challengeWindowAPI
 }
 
-export function setMobileChallengeAPI(api: ChallengeWindowAPI | null) {
-  mobileChallengeAPI = api
+export function setChallengeWindowAPI(api: ChallengeWindowAPI | null) {
+  challengeWindowAPI = api
 }

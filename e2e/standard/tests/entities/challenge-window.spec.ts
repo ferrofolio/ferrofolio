@@ -115,7 +115,9 @@ test.describe('Challenge Window - Shows error when unavailable (web platform)', 
         await page.getByRole('button', { name: 'Submit' }).click()
 
         await expect(
-            page.getByText('Use the app in order to do manual log in.'),
+            page.getByText(
+                'Signing in to this entity is not available on the server yet.',
+            ),
         ).toBeVisible({ timeout: 10_000 })
 
         await page.evaluate(() =>

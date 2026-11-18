@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { PlatformType, type PlatformInfo } from "@/types"
-
 const sendEvent = vi.fn().mockResolvedValue(true)
-let platformInfo: PlatformInfo = { type: PlatformType.WEB }
 
 vi.mock("@/env", () => ({
   BS_ENVIRONMENT: "test",
@@ -20,15 +17,10 @@ vi.mock("@/lib/telemetry/sentryEnvelope", async () => {
   }
 })
 
-vi.mock("@/lib/platform", () => ({
-  getPlatformInfo: () => platformInfo,
-}))
-
 async function setup(errorReporting: boolean) {
   vi.resetModules()
   sendEvent.mockClear()
   localStorage.clear()
-  platformInfo = { type: PlatformType.WEB }
 
   const { saveConsent } = await import("@/lib/telemetry/consent")
   const consent = await saveConsent({ errorReporting })
@@ -87,21 +79,7 @@ describe("renderer error reporter", () => {
     })
   })
 
-  it("reports the local operating system when it is known", async () => {
-    const { reportError } = await setup(true)
-    platformInfo = { type: PlatformType.MAC, osVersion: "15.3.1" }
-
-    reportError(new Error("boom"))
-
-    const [, event] = sendEvent.mock.calls[0]
-    expect(event.tags).toMatchObject({
-      platform_os: "MACOS",
-      os_version: "15.3.1",
-    })
-    expect(event.contexts).toEqual({ os: { name: "macOS", version: "15.3.1" } })
-  })
-
-  it("falls back to the backend operating system on web", async () => {
+  it("reports the backend operating system", async () => {
     const { reportError, setTelemetryContext } = await setup(true)
 
     setTelemetryContext({ backendOs: "LINUX", backendOsVersion: "6.8.0" })
@@ -200,11 +178,11 @@ describe("renderer error reporter", () => {
     ])
   })
 
-  it("parses webkit frames used on ios", async () => {
+  it("parses webkit frames used by Safari", async () => {
     const { reportError } = await setup(true)
 
     const error = new Error("boom")
-    error.stack = "load@capacitor://localhost/assets/index-abc.js:1:4821"
+    error.stack = "load@https://app.example.com/assets/index-abc.js:1:4821"
 
     reportError(error)
 
@@ -212,8 +190,8 @@ describe("renderer error reporter", () => {
     expect(event.exception.values[0].stacktrace.frames).toEqual([
       {
         function: "load",
-        filename: "capacitor://localhost/assets/index-abc.js",
-        abs_path: "capacitor://localhost/assets/index-abc.js",
+        filename: "https://app.example.com/assets/index-abc.js",
+        abs_path: "https://app.example.com/assets/index-abc.js",
         lineno: 1,
         colno: 4821,
         in_app: true,

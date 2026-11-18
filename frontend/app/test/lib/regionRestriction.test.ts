@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { createElement } from "react"
 import {
   act,
@@ -10,12 +10,6 @@ import {
   waitFor,
 } from "@testing-library/react"
 import { FFStatus, type FeatureFlags } from "@/types"
-
-const platform = vi.hoisted(() => ({ electron: false }))
-
-vi.mock("@/lib/platform", () => ({
-  isElectron: () => platform.electron,
-}))
 
 const FLAG_ON = { RESTRICTED_COUNTRIES: FFStatus.ON }
 
@@ -71,13 +65,8 @@ describe("isRegionRestricted", () => {
 })
 
 describe("isDeviceInRestrictedRegion", () => {
-  beforeEach(() => {
-    platform.electron = false
-  })
-
   afterEach(() => {
     vi.restoreAllMocks()
-    delete (window as { ipcAPI?: unknown }).ipcAPI
   })
 
   it("is not restricted when the flag is missing", async () => {
@@ -113,45 +102,19 @@ describe("isDeviceInRestrictedRegion", () => {
     )
   })
 
-  it.each(["ios", "android"])(
-    "uses the language region for a %s platform type outside Electron",
-    async type => {
-      window.platform = { type } as typeof window.platform
-      mockTimezone("Europe/London")
-      mockLanguage("en-GB")
-      const { isDeviceInRestrictedRegion } = await importModule()
-
-      try {
-        expect(await isDeviceInRestrictedRegion(FLAG_ON)).toBe(true)
-      } finally {
-        delete (window as { platform?: unknown }).platform
-      }
-    },
-  )
-
-  it("prefers the Electron OS country over the language", async () => {
-    platform.electron = true
-    ;(window as any).ipcAPI = {
-      getLocaleCountryCode: vi.fn().mockResolvedValue("es"),
-    }
+  it("is not restricted when the country lookup fails", async () => {
     mockTimezone("Europe/London")
-    mockLanguage("en-GB")
+    vi.spyOn(navigator, "language", "get").mockImplementation(() => {
+      throw new Error("unavailable")
+    })
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {})
     const { isDeviceInRestrictedRegion } = await importModule()
 
     expect(await isDeviceInRestrictedRegion(FLAG_ON)).toBe(false)
-  })
-
-  it("falls back to the language when Electron country lookup fails", async () => {
-    platform.electron = true
-    ;(window as any).ipcAPI = {
-      getLocaleCountryCode: vi.fn().mockRejectedValue(new Error("boom")),
-    }
-    vi.spyOn(console, "error").mockImplementation(() => {})
-    mockTimezone("Europe/Dublin")
-    mockLanguage("ga-IE")
-    const { isDeviceInRestrictedRegion } = await importModule()
-
-    expect(await isDeviceInRestrictedRegion(FLAG_ON)).toBe(true)
+    expect(debug).toHaveBeenCalledWith(
+      "[RegionRestriction] Failed to detect device country",
+      expect.objectContaining({ timezone: "Europe/London" }),
+    )
   })
 
   it("is not restricted when the timezone cannot be read", async () => {
@@ -171,19 +134,32 @@ describe("isDeviceInRestrictedRegion", () => {
 describe("useRegionRestriction", () => {
   async function setupPendingRegionCheck(flags: FeatureFlags = {}) {
     mockTimezone("Europe/London")
-    mockLanguage("en-GB")
-    platform.electron = true
     const countryCode = Promise.withResolvers<string>()
-    const getLocaleCountryCode = vi.fn(() => countryCode.promise)
-    ;(window as any).ipcAPI = { getLocaleCountryCode }
     vi.resetModules()
+    const actual = await vi.importActual<
+      typeof import("@/lib/regionRestriction")
+    >("@/lib/regionRestriction")
+    const checkRegion = vi.fn(async (current: FeatureFlags) => {
+      try {
+        const code = await countryCode.promise
+        return actual.isRegionRestricted(current, actual.getDeviceTimezone(), [
+          code,
+        ])
+      } catch {
+        return false
+      }
+    })
+    vi.doMock("@/lib/regionRestriction", () => ({
+      ...actual,
+      isDeviceInRestrictedRegion: checkRegion,
+    }))
     const { setFeatureFlags } = await import("@/context/featureFlagsStore")
     const { useRegionRestriction } =
       await import("@/hooks/useRegionRestriction")
     setFeatureFlags(flags)
     return {
       countryCode,
-      getLocaleCountryCode,
+      checkRegion,
       setFeatureFlags,
       useRegionRestriction,
     }
@@ -192,8 +168,7 @@ describe("useRegionRestriction", () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
-    platform.electron = false
-    delete (window as { ipcAPI?: unknown }).ipcAPI
+    vi.doUnmock("@/lib/regionRestriction")
   })
 
   it("reacts to the feature flag being enabled after startup", async () => {
@@ -214,12 +189,8 @@ describe("useRegionRestriction", () => {
   })
 
   it("preserves the login input while a late region check resolves", async () => {
-    const {
-      countryCode,
-      getLocaleCountryCode,
-      setFeatureFlags,
-      useRegionRestriction,
-    } = await setupPendingRegionCheck()
+    const { countryCode, checkRegion, setFeatureFlags, useRegionRestriction } =
+      await setupPendingRegionCheck()
 
     function LoginGate() {
       const restricted = useRegionRestriction()
@@ -234,7 +205,7 @@ describe("useRegionRestriction", () => {
     render(createElement(LoginGate))
     const input = screen.getByLabelText("Encryption key")
     fireEvent.change(input, { target: { value: "typed-password" } })
-    expect(getLocaleCountryCode).not.toHaveBeenCalled()
+    expect(checkRegion).not.toHaveBeenCalled()
 
     act(() => setFeatureFlags(FLAG_ON))
 
@@ -311,11 +282,9 @@ describe("useRegionRestriction", () => {
     await waitFor(() => expect(result.current).toBe(true))
   })
 
-  it("allows access when the country lookup fails without a fallback region", async () => {
+  it("allows access when the country lookup fails", async () => {
     const { countryCode, useRegionRestriction } =
       await setupPendingRegionCheck(FLAG_ON)
-    mockLanguage("en")
-    vi.spyOn(console, "error").mockImplementation(() => {})
     const { result } = renderHook(() => useRegionRestriction())
     expect(result.current).toBeNull()
 

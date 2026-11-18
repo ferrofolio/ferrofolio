@@ -8,7 +8,6 @@ import {
 } from "@testing-library/react"
 import { MemoryRouter, useLocation } from "react-router-dom"
 import { I18nProvider } from "@/i18n"
-import { PlatformType } from "@/types"
 import { BottomNavProvider } from "@/context/BottomNavContext"
 import { FloatingBottomNav } from "@/components/layout/FloatingBottomNav"
 import { BottomNavCard } from "@/components/settings/BottomNavCard"
@@ -59,7 +58,6 @@ beforeEach(() => {
   localStorage.clear()
   scroll.scrolling = false
   window.innerWidth = 390
-  window.platform = { type: PlatformType.WEB }
 })
 afterEach(cleanup)
 

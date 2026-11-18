@@ -12,24 +12,13 @@ export { getCachedConsent, loadConsent } from "./consent"
 export { reportError, setTelemetryContext }
 
 async function propagateConsent(consent: TelemetryConsent): Promise<void> {
-  const payload = {
-    errorReporting: consent.errorReporting,
-  }
-
   try {
     const client = await getApiClient()
-    await client.post("/telemetry/consent", payload)
-  } catch {
-    // Backend may be unreachable; the device level consent is still stored.
-  }
-
-  try {
-    await window.ipcAPI?.setTelemetryConsent?.({
-      ...payload,
-      installId: consent.installId,
+    await client.post("/telemetry/consent", {
+      errorReporting: consent.errorReporting,
     })
   } catch {
-    // Not running under Electron.
+    // Backend may be unreachable; the device level consent is still stored.
   }
 }
 

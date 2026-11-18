@@ -12,9 +12,6 @@ import { Label } from "@/components/ui/Label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs"
 import { motion } from "framer-motion"
 import {
-  ChevronDown,
-  ChevronUp,
-  AlertTriangle,
   Cloud,
   Sun,
   Moon,
@@ -22,7 +19,6 @@ import {
   EyeOff,
   Settings2,
   SlidersHorizontal,
-  Bug,
   Languages,
   Palette,
   Bot,
@@ -33,7 +29,6 @@ import { useBackupAlert } from "@/context/BackupAlertContext"
 import { useCloud } from "@/context/CloudContext"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { CloudRole, FFStatus } from "@/types"
-import { AdvancedSettingsForm } from "@/components/ui/AdvancedSettingsForm"
 import { GeneralTab } from "@/components/settings/GeneralTab"
 import { CloudTab } from "@/components/settings/CloudTab"
 import { McpTab } from "@/components/settings/McpTab"
@@ -57,7 +52,6 @@ export default function SettingsPage() {
   const { t, locale, changeLocale } = useI18n()
   const [searchParams] = useSearchParams()
   const {
-    showToast,
     fetchSettings,
     isLoadingSettings,
     fetchExternalIntegrations,
@@ -76,14 +70,6 @@ export default function SettingsPage() {
   const isCloudEnabled = featureFlags.CLOUD === FFStatus.ON
   const tabCount = 3 + Number(isCloudEnabled)
 
-  const [expandedSections, setExpandedSections] = useState<
-    Record<string, boolean>
-  >({
-    advancedSettings: false,
-  })
-
-  const isDesktopApp = typeof window !== "undefined" && !!window.ipcAPI
-
   const applicationLanguageOptions = APPLICATION_LOCALES.map(code => ({
     code,
     label: t.settings.applicationLanguageOptions[code],
@@ -93,13 +79,6 @@ export default function SettingsPage() {
     fetchSettings(GENERAL_TAB_SETTINGS)
     fetchExternalIntegrations()
   }, [])
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
 
   if (searchParams.get("tab") === "integrations") {
     const providerParams = new URLSearchParams(searchParams)
@@ -347,49 +326,6 @@ export default function SettingsPage() {
               </Card>
 
               <BottomNavCard />
-
-              {/* Advanced Settings Section (Desktop only) */}
-              {isDesktopApp && (
-                <Card className="-mx-6 md:mx-0 rounded-none md:rounded-lg border-x-0 md:border-x">
-                  <CardHeader
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleSection("advancedSettings")}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <Bug className="h-5 w-5 shrink-0 text-primary" />
-                          <CardTitle>{t.advancedSettings.title}</CardTitle>
-                        </div>
-                        <CardDescription>
-                          {t.advancedSettings.subtitle}
-                        </CardDescription>
-                      </div>
-                      {expandedSections.advancedSettings ? (
-                        <ChevronUp className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      )}
-                    </div>
-                  </CardHeader>
-                  {expandedSections.advancedSettings && (
-                    <CardContent>
-                      <div className="space-y-3">
-                        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                          {t.advancedSettings.restartWarning}
-                        </p>
-                        <AdvancedSettingsForm
-                          idPrefix="settings"
-                          onError={() =>
-                            showToast(t.settings.saveError, "error")
-                          }
-                        />
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              )}
             </div>
           </motion.div>
         </TabsContent>

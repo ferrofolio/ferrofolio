@@ -38,7 +38,7 @@ DEFAULT_HEADERS = {
 
 
 # Cookies managed by the server via Set-Cookie — must NOT be injected
-# from the Electron capture to avoid conflicts with server-issued values
+# from the captured login cookie to avoid conflicts with server-issued values
 _SERVER_MANAGED_COOKIES = {
     "JSESSIONID",
     "x-sess-uuid",

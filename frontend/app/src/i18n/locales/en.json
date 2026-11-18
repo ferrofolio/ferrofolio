@@ -90,7 +90,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "each": "each",
-    "incompatibleLoginPlatform": "Use the app in order to do manual log in.",
+    "incompatibleLoginPlatform": "Signing in to this entity is not available on the server yet.",
     "selectOptions": "Select options...",
     "searchOptions": "Search options...",
     "noOptionsFound": "No options found",
@@ -106,8 +106,6 @@
     "unpinAsset": "Unpin asset",
     "continueInBackground": "Continue in background",
     "connectingToServer": "Connecting to",
-    "startingServer": "Starting server",
-    "backendFailedToStart": "Failed to start server",
     "details": "Details",
     "optional": "Optional",
     "clear": "Clear",
@@ -121,51 +119,11 @@
     "currentVersion": "Current Version",
     "latestVersion": "Latest Version",
     "publishedOn": "Published on",
-    "downloadFor": "Download for {platform}",
     "whatsNew": "What's New",
     "downloadAssets": "Download Options",
     "releaseNotes": "Release Notes",
     "skipThisVersion": "Skip version",
-    "releasePageLink": "Visit Release Page",
-    "autoUpdate": {
-      "title": "Automatic update",
-      "description": "Download and install the update without leaving the app.",
-      "download": "Download update",
-      "downloading": "Downloading update…",
-      "install": "Restart and install",
-      "ready": "Update downloaded. Restart to complete the installation.",
-      "progress": "{percent}% • {downloaded} / {total}",
-      "progressFallback": "{percent}% downloaded"
-    },
-    "manualDownloads": {
-      "show": "Show manual download options",
-      "hide": "Hide manual download options"
-    }
-  },
-  "about": {
-    "title": "About {appName}",
-    "projectDescription": "{appName} helps you centralize and track your finances across providers.",
-    "maintainedBy": "Maintained by {author}.",
-    "unknownAuthor": "Unknown",
-    "version": "Version",
-    "author": "Author",
-    "electronVersion": "Electron",
-    "chromiumVersion": "Chromium",
-    "nodeVersion": "Node.js",
-    "website": "Website",
-    "repository": "Repository",
-    "logoAlt": "{appName} logo",
-    "runtimeSection": "Application",
-    "platformSection": "Platform",
-    "linksSection": "Links",
-    "operatingSystem": "Operating System",
-    "architecture": "Architecture",
-    "osVersion": "OS Version",
-    "platformNames": {
-      "mac": "macOS",
-      "windows": "Windows",
-      "linux": "Linux"
-    }
+    "releasePageLink": "Visit Release Page"
   },
   "investments": {
     "type": "Type",
@@ -898,9 +856,6 @@
       "description": "Connect your account to enable cloud features and sync across devices",
       "signInTitle": "Sign in to Cloud",
       "signInDescription": "Access extra features and sync your data across devices",
-      "signInWithGoogle": "Sign in with Google",
-      "signInWithApple": "Sign in with Apple",
-      "googleDesktopOnly": "Available in desktop app only",
       "signInWithEmail": "Sign in with Email",
       "signUp": "Create Account",
       "emailPlaceholder": "Email address",
@@ -911,7 +866,6 @@
       "noAccountAction": "Sign up",
       "alreadyHaveAccountPrefix": "Already have an account?",
       "alreadyHaveAccountAction": "Sign in",
-      "orContinueWith": "or continue with",
       "legalNoticePrefix": "By continuing, you agree to the",
       "termsOfService": "Terms of Service",
       "legalNoticeAnd": "and",
@@ -965,26 +919,9 @@
       "cancelPasswordReset": "Cancel",
       "passwordUpdateSuccess": "Password updated successfully.",
       "passwordUpdateError": "Failed to update password. Please try again.",
-      "oauthErrors": {
-        "access_denied": "Access was denied. You may have cancelled the sign in.",
-        "invalid_request": "Invalid sign in request. Please try again.",
-        "unauthorized_client": "This app is not authorized. Please contact support.",
-        "server_error": "The authentication server encountered an error. Please try again later.",
-        "user_banned": "Your account is banned. Please contact support if this is unexpected.",
-        "temporarily_unavailable": "The authentication service is temporarily unavailable. Please try again later.",
-        "signup_disabled": "Could not find a related account, have you signed up yet?",
-        "otp_expired": "The confirmation link has expired. Please request a new one.",
-        "unknown": "Authentication failed ({error}). Please try again."
-      },
-      "oauthRedirectTitle": "Finishing sign in",
-      "oauthRedirectDescription": "Returning to the desktop app…",
-      "oauthRedirectCloseHint": "If this tab doesn’t close automatically, you can close it now.",
-      "oauthRedirectErrorTitle": "Authentication failed",
-      "oauthRedirectErrorDescription": "Returning to the desktop app to show the error…",
       "logoutError": "Sign out failed. Please try again.",
       "syncError": "Failed to sync with server. Please try again.",
-      "sessionExpired": "Your session has expired. Please sign in again.",
-      "oauthRedirectOpenApp": "Open Ferrofolio"
+      "sessionExpired": "Your session has expired. Please sign in again."
     },
     "backup": {
       "title": "Backup",
@@ -1441,11 +1378,11 @@
         }
       },
       "GITHUB_COPILOT": {
-        "description": "Use models included in your GitHub Copilot plan. GitHub bills usage in AI credits according to each model's token prices, and requests are processed by GitHub and the model provider. Desktop and self-hosted only."
+        "description": "Use models included in your GitHub Copilot plan. GitHub bills usage in AI credits according to each model's token prices, and requests are processed by GitHub and the model provider."
       },
       "CLAUDE_AGENT": {
         "name": "Claude Agent",
-        "description": "Use Claude through Claude Code installed and signed in on this computer. Usage counts toward your Claude plan limits, and requests are processed by Anthropic. Desktop and self-hosted only.",
+        "description": "Use Claude through Claude Code installed and signed in on this computer. Usage counts toward your Claude plan limits, and requests are processed by Anthropic.",
         "help": "How to set it up",
         "hint": {
           "title": "Set up Claude Agent",
@@ -1492,12 +1429,6 @@
       "LOCAL_MODELS": "Local runtime or server",
       "OPENAI_COMPATIBLE": "Compatible API"
     },
-    "aiPlatforms": {
-      "DESKTOP": "Desktop",
-      "SELF_HOSTED": "Self-hosted",
-      "MOBILE": "Mobile"
-    },
-    "aiPlatformsLabel": "Supported platforms:",
     "aiConnectedMethods": "{count}/{total} connected",
     "chatgpt": {
       "continue": "Continue with ChatGPT",
@@ -1540,11 +1471,7 @@
       "models": "Models",
       "noModels": "No models yet. Download a recommended one or any GGUF model from Hugging Face.",
       "externalHint": "Models in your server's models folder are also listed here. After adding files there, press Refresh.",
-      "import": "Import GGUF",
-      "importTitle": "Select a GGUF model file",
-      "importSuccess": "{model} imported",
-      "importHint": "Imported files are used from where they are, they are not copied. You can also drop GGUF files in the models folder and press Refresh. To read images, keep the model's mmproj file in the same folder.",
-      "openFolder": "Open folder",
+      "folderHint": "Drop GGUF files in the models folder and press Refresh. To read images, keep the model's mmproj file in the same folder.",
       "recommended": "Recommended",
       "params": "{params} parameters",
       "downloadSize": "{size} download",
@@ -4426,37 +4353,5 @@
       "travel": "Travel",
       "weather": "Weather"
     }
-  },
-  "advancedSettings": {
-    "title": "Advanced settings",
-    "subtitle": "Tune technical settings of the application like data location, backend logging, server...",
-    "serverUrl": "Backend server URL",
-    "serverUrlDesc": "Optionally point to a remote backend to disable the local one.",
-    "serverUrlPlaceholder": "http://192.168.1.10:7592",
-    "probeButton": "Test",
-    "probeSuccess": "Server is reachable.",
-    "probeSuccessVersionMismatch": "Server is reachable but version differs.",
-    "localVersion": "Local",
-    "remoteVersion": "Remote",
-    "probeError": "Unable to reach the server.",
-    "probeMissingUrl": "Enter a server URL to probe.",
-    "serverUrlInvalid": "Server URL must start with http:// or https://.",
-    "remoteServerNotice": "Using a remote server. Data directory and third-party log level are managed by the server. Log settings apply to this application only.",
-    "dataDir": "Data directory",
-    "dataDirPlaceholder": "Default location",
-    "logDir": "Log directory",
-    "logDirPlaceholder": "Default location",
-    "openFolder": "Open folder",
-    "logLevel": "Console log level",
-    "logFileLevel": "File log level",
-    "inheritLogLevel": "Same as console log level",
-    "otherSection": "Other options",
-    "thirdPartyLogLevel": "Third-party log level",
-    "restartWarning": "The app will restart when saving these settings.",
-    "resetToDefaults": "Reset to defaults",
-    "resetConfirmTitle": "Reset settings",
-    "resetConfirmMessage": "Are you sure you want to reset all advanced settings to their defaults?",
-    "resetConfirmWarning": "The app will restart after resetting.",
-    "availableAfterLoading": "Available after loading"
   }
 }
