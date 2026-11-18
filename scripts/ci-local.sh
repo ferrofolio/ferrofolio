@@ -14,6 +14,8 @@
 #   Further options go to act, for example "--job rust" to run a single job.
 #
 # Uncommitted changes are included: act copies the working tree into the containers.
+# The jobs can use the container engine (the "docker" job builds the image with it),
+# so run this only on code you trust, as you would run its build.
 # Needs Docker or Podman; act itself is downloaded once, checked against a pinned
 # SHA-256 digest and kept in ${XDG_CACHE_HOME:-~/.cache}/ferrofolio, and the runner
 # image is built locally from scripts/ci-local.Containerfile.
@@ -284,6 +286,14 @@ if [[ "$podman" == true && "$(uname -s)" == Darwin ]]; then
   fi
 fi
 
+# act would otherwise take the token of a signed-in GitHub CLI and hand it to the
+# workflow. The checks need none; a token in GITHUB_TOKEN is passed on deliberately.
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  token_secret=(--secret GITHUB_TOKEN)
+else
+  token_secret=(--secret GITHUB_TOKEN=)
+fi
+
 "$act_bin" pull_request \
   --workflows .github/workflows/ci.yml \
   --eventpath "$event" \
@@ -292,6 +302,7 @@ fi
   --artifact-server-path "$artifacts" \
   --container-options "$container_options" \
   --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env "GIT_CONFIG_VALUE_0=*" \
+  "${token_secret[@]}" \
   ${engine_env[@]+"${engine_env[@]}"} \
   ${daemon_socket[@]+"${daemon_socket[@]}"} \
   ${act_args[@]+"${act_args[@]}"}
