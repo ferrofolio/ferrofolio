@@ -24,6 +24,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       python: ${{ steps.filter.outputs.python }}
       rust: ${{ steps.filter.outputs.rust }}
+      docker: ${{ steps.filter.outputs.docker }}
       frontend: ${{ steps.filter.outputs.frontend }}
       e2e: ${{ steps.filter.outputs.e2e }}
 
@@ -96,6 +97,7 @@ jobs:
             echo "backend=$(match "^(finanze|tests)/|$python_config|$parity_fixtures")"
             echo "python=$(match "\.(py|pyi|ipynb)$|$python_config")"
             echo "rust=$(match "$rust_config")"
+            echo "docker=$(match "^(Dockerfile|\.dockerignore|requirements(-selenium)?\.txt|finanze/)|$rust_config")"
             echo "frontend=$(match '^frontend/app/')"
             echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_config")"
           } | tee -a "$GITHUB_OUTPUT"
@@ -158,6 +160,50 @@ jobs:
 
       - name: Check licences, advisories and sources
         uses: EmbarkStudios/cargo-deny-action@70f81531115945ba6eb6b941ec9d39d063438eb9 # v2.1.2
+
+  # The server image starts the Rust server, which starts the Python backend; both
+  # have to work inside the image, not only in their own jobs.
+  docker:
+    name: Docker Image
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.docker == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the server image
+        run: docker build --build-arg SELENIUM_SUPPORT=false --tag ferrofolio-server:ci .
+
+      - name: Call a forwarded route in the running image
+        run: |
+          docker run --detach --name ferrofolio-ci --publish 127.0.0.1:7592:7592 ferrofolio-server:ci \
+            --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
+          # The server refuses connections until the Python backend is ready.
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail --max-time 10 --output /dev/null http://127.0.0.1:7592/api/v1/status; then
+              break
+            fi
+            sleep 2
+          done
+          # Forwarded to Python. A new data directory is locked.
+          status="$(curl --silent --show-error --fail --max-time 10 http://127.0.0.1:7592/api/v1/status)"
+          echo "$status"
+          echo "$status" | grep --quiet '"status":"LOCKED"'
+
+      - name: Show the container log
+        if: ${{ always() }}
+        run: docker logs ferrofolio-ci || true
+
+      # A GitHub runner is discarded after the job; a local run with
+      # scripts/ci-local.sh shares the container engine with the next run.
+      - name: Remove the container
+        if: ${{ always() }}
+        run: docker rm --force ferrofolio-ci || true
 
   format-check:
     name: Format Check

@@ -70,6 +70,9 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: node
         update-types: ["version-update:semver-major"]
+      # The Rust image has to match rust-toolchain.toml, which is raised by hand.
+      - dependency-name: rust
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     groups:
       docker:
         update-types: [minor, patch]
