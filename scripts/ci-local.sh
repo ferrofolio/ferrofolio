@@ -180,7 +180,14 @@ if [[ "$all" == false ]]; then
 fi
 event="$(mktemp)"
 artifacts="$(mktemp -d)"
-trap 'rm -rf "$event" "$artifacts"' EXIT
+lock_dir=""
+cleanup() {
+  rm -rf "$event" "$artifacts"
+  if [[ -n "$lock_dir" ]]; then
+    rm -rf "$lock_dir"
+  fi
+}
+trap cleanup EXIT
 cat > "$event" <<EOF
 {
   "pull_request": {
@@ -229,6 +236,32 @@ if [[ "$podman" == true && "$(uname -s)" == Darwin ]]; then
   if [[ -n "$machine_socket" ]]; then
     daemon_socket=(--container-daemon-socket "unix://${machine_socket#unix://}")
   fi
+fi
+
+# act names job containers and volumes after the workflow and the job only, and serves
+# artifacts on a fixed port of the host, so two runs at the same time, for example
+# from two worktrees, would collide. Runs on this machine therefore take turns.
+mkdir -p "$cache_dir"
+if command -v flock > /dev/null; then
+  # Released by the kernel when the run ends, however it ends.
+  exec 9> "$cache_dir/run.lock"
+  if ! flock --nonblock 9; then
+    echo "Waiting for another local CI run on this machine" >&2
+    flock 9
+  fi
+else
+  # Without flock (macOS), mkdir is the atomic step; a run that is killed leaves the
+  # directory behind, and it is not removed automatically to never break a live run.
+  lock_path="$cache_dir/run.lock.d"
+  until mkdir "$lock_path" 2> /dev/null; do
+    if [[ -z "${announced:-}" ]]; then
+      echo "Waiting for another local CI run on this machine; if none is running," >&2
+      echo "remove $lock_path" >&2
+      announced=true
+    fi
+    sleep 5
+  done
+  lock_dir="$lock_path"
 fi
 
 "$act_bin" pull_request \
