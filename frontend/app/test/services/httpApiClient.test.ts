@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/env", () => ({ BASE_URL: "http://backend.test" }))
+const DEFAULT_BASE_URL = "http://backend.test"
+const env = vi.hoisted(() => ({ baseUrl: "http://backend.test" }))
+
+vi.mock("@/env", () => ({
+  get BASE_URL() {
+    return env.baseUrl
+  },
+}))
 
 const SESSION_KEY = "finanze_api_session"
 
@@ -35,6 +42,28 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  env.baseUrl = DEFAULT_BASE_URL
+})
+
+describe("HttpApiClient base URL", () => {
+  it.each([
+    "http://backend.test",
+    "http://backend.test/",
+    "http://backend.test/api/v1",
+    " http://backend.test/api/v1/ ",
+  ])("sends requests under /api/v1 for %j", async baseUrl => {
+    env.baseUrl = baseUrl
+    const client = await loadClient()
+
+    await client.get("/status")
+
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(
+      "http://backend.test/api/v1/status",
+    )
+    await expect(client.getApiServerInfo()).resolves.toEqual({
+      baseUrl: "http://backend.test",
+    })
+  })
 })
 
 describe("HttpApiClient session token", () => {
