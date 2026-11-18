@@ -9,6 +9,9 @@ Ferrofolio is a self-hosted personal finance and net worth tracker and an indepe
 [Finanze](https://github.com/finanze/finanze). The plan for the project, including the migration of the
 backend from Python to Rust, is in `docs/roadmap.md`. Read it before starting work that touches architecture.
 
+The backend is being ported to Rust route by route; the Rust server forwards every route that is not ported yet to
+the Python backend in the same container. How that works is described in `docs/rust-backend.md`.
+
 This repository contains the server and the web app, which users build and run as two Docker images, the server and
 the nginx frontend `ferrofolio-front` (the project does not publish images yet). The web app is becoming a PWA and the
 browser is its only runtime. There is no desktop app: do not add Electron, desktop builds or other desktop code. The
@@ -22,6 +25,7 @@ repositories (`ferrofolio/ios`, later `ferrofolio/android`), not here: do not ad
 | `finanze/application` | Use cases and ports. Depends on `domain` only |
 | `finanze/infrastructure` | Controllers, repositories, connectors. Implements the ports |
 | `crates/core-domain` | Rust port of `finanze/domain`. Depends on no other workspace crate |
+| `crates/server` | Rust entry point of the container: ported routes, forwarding of all others to Python |
 | `frontend/app` | React web app |
 | `tests` | Python unit and integration tests |
 | `e2e/standard` | Playwright end-to-end tests against the web app |
