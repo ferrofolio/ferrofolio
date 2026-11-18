@@ -311,7 +311,11 @@ describe("Settings integration migration", () => {
       expect(
         screen.getByRole("tab", { name: en.entities.tabProviders }),
       ).toHaveAttribute("aria-selected", "true")
-      if (suffix) expect(await screen.findByLabelText("API Key")).toBeVisible()
+      // The focused provider's card opens after the redirect has rendered.
+      if (suffix)
+        await waitFor(() =>
+          expect(screen.getByLabelText("API Key")).toBeVisible(),
+        )
     },
   )
 
