@@ -383,6 +383,37 @@ describe("LocalModelsManager", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("shows the server models folder for the built-in runtime", async () => {
+    getLocalModels.mockResolvedValue(connected())
+    renderIntegration(true)
+    await openDialog()
+    expect(await screen.findByTestId("local-models-folder")).toHaveTextContent(
+      "/data/models/local",
+    )
+  })
+
+  it("reloads the model list when Refresh is pressed", async () => {
+    const added = model({ id: "local/added.gguf", name: "added.gguf" })
+    getLocalModels.mockImplementation(async (force?: boolean) =>
+      connected({ models: force === true ? [added] : [] }),
+    )
+    renderIntegration(true)
+    const dialog = await openDialog()
+    await within(dialog).findByText(copy.noModels)
+    expect(
+      within(dialog).queryByTestId(`local-model-${added.id}`),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: en.common.refresh }),
+    )
+
+    expect(
+      await within(dialog).findByTestId(`local-model-${added.id}`),
+    ).toBeInTheDocument()
+    expect(getLocalModels).toHaveBeenCalledWith(true)
+  })
+
   it("shows the server folder hint for external routers", async () => {
     getLocalModels.mockResolvedValue(
       connected({

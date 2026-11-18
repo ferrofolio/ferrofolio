@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAppContext } from "@/context/AppContext"
 import { useEntityWorkflow } from "@/context/EntityWorkflowContext"
@@ -98,6 +98,12 @@ export function useExternalEntityConnection() {
     string | null
   >(null)
   const [completingConnection, setCompletingConnection] = useState(false)
+  // Authorization code from the provider redirect, kept until the completion
+  // request succeeds so the modal can retry it after a failure.
+  const pendingCallbackRef = useRef<{
+    entityId: string
+    code: string | null
+  } | null>(null)
   const [alreadyLinked, setAlreadyLinked] = useState(false)
   const [candidateIcons, setCandidateIcons] = useState<Record<string, string>>(
     {},
@@ -345,18 +351,38 @@ export function useExternalEntityConnection() {
     }
   }
 
+  const runCompletion = useCallback(
+    async (entityId: string, code: string | null): Promise<boolean> => {
+      setCompletingConnection(true)
+      try {
+        try {
+          await completeExternalEntityConnection(entityId, code)
+        } catch {
+          showToast(t.entities.externalLinkError, "error")
+          return false
+        }
+        pendingCallbackRef.current = null
+        // fetchEntities reports its own errors, so a failed refresh does not
+        // resubmit the completion.
+        await fetchEntities()
+        setShowCompleteExternalModal(false)
+        setView("entities")
+        return true
+      } finally {
+        setCompletingConnection(false)
+      }
+    },
+    [fetchEntities, setView, showToast, t],
+  )
+
   const handleCompleteExternalConnection = async () => {
     if (!externalEntityId) return
-    setCompletingConnection(true)
-    try {
-      await completeExternalEntityConnection(externalEntityId)
-      await fetchEntities()
-      setView("entities")
-      setShowCompleteExternalModal(false)
-    } catch {
-      showToast(t.entities.externalLinkError, "error")
-    } finally {
-      setCompletingConnection(false)
+    const pending = pendingCallbackRef.current
+    const fromCallback = pending?.entityId === externalEntityId
+    const code = fromCallback ? pending.code : null
+    const completed = await runCompletion(externalEntityId, code)
+    if (completed && fromCallback) {
+      showToast(t.entities.externalLinkSuccess, "success")
     }
   }
 
@@ -369,21 +395,15 @@ export function useExternalEntityConnection() {
         return
       }
 
+      // Keep the callback so the modal's confirm action can retry it.
+      pendingCallbackRef.current = { entityId, code }
+      setExternalEntityId(entityId)
       setShowCompleteExternalModal(true)
-      setCompletingConnection(true)
-      try {
-        await completeExternalEntityConnection(entityId, code)
-        await fetchEntities()
-        setShowCompleteExternalModal(false)
-        setView("entities")
+      if (await runCompletion(entityId, code)) {
         showToast(t.entities.externalLinkSuccess, "success")
-      } catch {
-        showToast(t.entities.externalLinkError, "error")
-      } finally {
-        setCompletingConnection(false)
       }
     },
-    [externalEntityId, fetchEntities, setView, showToast, t],
+    [externalEntityId, runCompletion, showToast, t],
   )
 
   // Handle the external entity completion return. The provider page
