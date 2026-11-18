@@ -79,8 +79,9 @@ jobs:
           python_config='^(pyproject\.toml|requirements[^/]*\.txt|pytest\.ini|tox\.ini|setup\.cfg|conftest\.py|\.?ruff\.toml)$'
           # The Rust workspace and its configuration.
           rust_config='^(crates/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|clippy\.toml$|deny\.toml$)'
-          # Files generated from Python, which the backend job checks are current.
-          parity_fixtures='^(crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$)'
+          # Files generated from Python, which the backend job checks are current, and
+          # the list of ported routes, which a Python test checks against the backend.
+          parity_fixtures='^(crates/server/tests/fixtures/|crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$|crates/server/src/python_printable\.rs$|crates/server/ported_routes\.json$)'
 
           match() {
             local file
@@ -127,6 +128,9 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+      - name: Check the Rust parity fixtures against the Python backend
+        run: python tests/parity/generate_calculation_fixtures.py --check crates/server/tests/fixtures/calculations_parity.json
 
       - name: Check the Rust Unicode tables against Python
         run: python tests/parity/generate_unicode_tables.py --check
@@ -179,7 +183,7 @@ jobs:
       - name: Build the server image
         run: docker build --build-arg SELENIUM_SUPPORT=false --tag ferrofolio-server:ci .
 
-      - name: Call a forwarded route in the running image
+      - name: Call a forwarded and a ported route in the running image
         run: |
           docker run --detach --name ferrofolio-ci --publish 127.0.0.1:7592:7592 ferrofolio-server:ci \
             --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
@@ -194,6 +198,13 @@ jobs:
           status="$(curl --silent --show-error --fail --max-time 10 http://127.0.0.1:7592/api/v1/status)"
           echo "$status"
           echo "$status" | grep --quiet '"status":"LOCKED"'
+          # While the data is locked, Python's session guard lets the request through
+          # (and the route rejects the empty body with 400); only Rust answers 401.
+          code="$(curl --silent --max-time 10 --output /dev/null --write-out '%{http_code}' --request POST \
+            --header 'Content-Type: application/json' --data '{}' \
+            http://127.0.0.1:7592/api/v1/calculation/loan)"
+          echo "ported route: $code"
+          test "$code" = 401
 
       - name: Show the container log
         if: ${{ always() }}
