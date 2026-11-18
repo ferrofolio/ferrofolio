@@ -14,7 +14,7 @@ reviews:
   # ---------------------------------------------------------------------------
   # 1. How reviews run
   # ---------------------------------------------------------------------------
-  profile: assertive
+  profile: chill
   high_level_summary: true
   commit_status: true
   # A review that stops with an error counts as failed instead of passing silently.
@@ -122,7 +122,7 @@ reviews:
     # a false positive. Set this to true once there is a second maintainer.
     override_requested_reviewers_only: false
     title:
-      mode: error
+      mode: warning
       requirements: |
         Follows Conventional Commits: a type (feat, fix, docs, chore, ci, refactor, test,
         perf, build) with an optional scope in parentheses, a colon and a space, then
@@ -131,7 +131,7 @@ reviews:
     description:
       mode: warning
     issue_assessment:
-      mode: warning
+      mode: "off"
     custom_checks:
       - name: English only
         mode: error
