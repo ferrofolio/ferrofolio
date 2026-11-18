@@ -125,9 +125,11 @@ export function useExternalEntityConnection() {
   useModalBackHandler(showAddExternalEntity, () =>
     setShowAddExternalEntity(false),
   )
-  useModalBackHandler(showCompleteExternalModal, () =>
-    setShowCompleteExternalModal(false),
-  )
+  // Back cannot dismiss the modal while the completion request runs, like the
+  // hidden close button; otherwise its result could close a later connection.
+  useModalBackHandler(showCompleteExternalModal, () => {
+    if (!completingConnection) setShowCompleteExternalModal(false)
+  })
 
   useEffect(() => {
     fetchExternalIntegrations()

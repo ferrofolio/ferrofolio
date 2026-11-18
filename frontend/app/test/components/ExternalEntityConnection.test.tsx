@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -23,6 +24,11 @@ import {
   connectExternalEntity,
   getExternalEntityCandidates,
 } from "@/services/api"
+import { useModalBackHandler } from "@/hooks/useModalBackHandler"
+import {
+  ModalRegistryProvider,
+  useModalRegistry,
+} from "@/context/ModalRegistryContext"
 
 const { state, app, workflow } = vi.hoisted(() => ({
   state: {
@@ -314,5 +320,79 @@ describe("ExternalEntityConnection provider callback", () => {
     expect(
       screen.queryByRole("button", { name: en.entities.confirmConnection }),
     ).not.toBeInTheDocument()
+  })
+
+  describe("Back", () => {
+    let registry: ReturnType<typeof useModalRegistry>
+    function RegistryProbe() {
+      registry = useModalRegistry()
+      return null
+    }
+
+    beforeEach(async () => {
+      const actual = await vi.importActual<
+        typeof import("@/hooks/useModalBackHandler")
+      >("@/hooks/useModalBackHandler")
+      vi.mocked(useModalBackHandler).mockImplementation(
+        actual.useModalBackHandler,
+      )
+    })
+
+    afterEach(() => {
+      vi.mocked(useModalBackHandler).mockReset()
+    })
+
+    const renderWithRegistry = () =>
+      render(
+        <ModalRegistryProvider>
+          <RegistryProbe />
+          <Harness />
+        </ModalRegistryProvider>,
+      )
+    // Back dismisses the topmost registered modal; an open modal stays
+    // registered until it closes, independent of its exit animation. The
+    // handler is re-registered in an effect after each render, so let pending
+    // effects run first, as they would before a user could press Back.
+    const pressBack = async () => {
+      await act(async () => {})
+      act(() => void registry.dismissTop())
+    }
+
+    it("is ignored while the completion request runs", async () => {
+      let finish: () => void = () => {}
+      vi.mocked(completeExternalEntityConnection).mockReturnValue(
+        new Promise<void>(resolve => {
+          finish = resolve
+        }),
+      )
+      renderWithRegistry()
+      await screen.findByText(en.entities.completingConnection)
+
+      await pressBack()
+      expect(registry.hasOpen()).toBe(true)
+
+      await act(async () => finish())
+      await waitFor(() =>
+        expect(app.showToast).toHaveBeenCalledWith(
+          en.entities.externalLinkSuccess,
+          "success",
+        ),
+      )
+      expect(registry.hasOpen()).toBe(false)
+    })
+
+    it("dismisses the modal once the completion has failed", async () => {
+      vi.mocked(completeExternalEntityConnection).mockRejectedValue(
+        new Error("network"),
+      )
+      renderWithRegistry()
+      await screen.findByRole("button", {
+        name: en.entities.confirmConnection,
+      })
+      expect(registry.hasOpen()).toBe(true)
+
+      await pressBack()
+      expect(registry.hasOpen()).toBe(false)
+    })
   })
 })
