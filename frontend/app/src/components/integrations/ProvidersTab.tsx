@@ -434,7 +434,10 @@ export function ProvidersTab() {
     checkStatus()
       .then(status => {
         if (!active) return
-        const serverUrl = status.server.publicUrl ?? ""
+        // Without a public URL the callback address is unknown, so the setup
+        // instructions keep showing a placeholder instead of guessing one.
+        const serverUrl = status.server.publicUrl?.trim()
+        if (!serverUrl) return
         const origin = window.location.origin
         setHintUrls({
           [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]:
