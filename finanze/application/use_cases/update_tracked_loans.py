@@ -16,7 +16,7 @@ from application.ports.transaction_handler_port import TransactionHandlerPort
 from application.use_cases.manual_position_snapshot import (
     ManualPositionSnapshotWriter,
 )
-from domain.exception.exceptions import ExecutionConflict
+from domain.exception.exceptions import CalculationInputError, ExecutionConflict
 from domain.global_position import (
     DataSource,
     InterestType,
@@ -139,7 +139,14 @@ class UpdateTrackedLoansImpl(UpdateTrackedLoans):
             if data is None:
                 continue
             self._apply_tracking_ref(loan, data)
-            if await self._recalculate_loan(loan, data):
+            try:
+                changed = await self._recalculate_loan(loan, data)
+            except CalculationInputError as e:
+                # Invalid loan data, such as a maturity before the creation date,
+                # must not stop the other loans of the position.
+                self._log.warning("Skipping loan %s: %s", loan.id, e)
+                continue
+            if changed:
                 changed_entries += 1
 
         if not changed_entries:

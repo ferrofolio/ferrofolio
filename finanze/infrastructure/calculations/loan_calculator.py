@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP
 from application.ports.loan_calculator_port import LoanCalculatorPort
 from dateutil.relativedelta import relativedelta
 from domain.dezimal import Dezimal
-from domain.exception.exceptions import MissingFieldsError
+from domain.exception.exceptions import CalculationInputError, MissingFieldsError
 from domain.global_position import InstallmentFrequency, InterestType
 from domain.loan_calculator import LoanCalculationParams, LoanCalculationResult
 
@@ -221,6 +221,8 @@ class LoanCalculator(LoanCalculatorPort):
             missing.append("fixed_years (required for MIXED)")
         if missing:
             raise MissingFieldsError(missing)
+        if params.end < params.start:
+            raise CalculationInputError("end must not be before start")
 
     def _current_annual_rate(self, p: LoanCalculationParams, today: date) -> Dezimal:
         base = p.interest_rate
@@ -230,7 +232,8 @@ class LoanCalculator(LoanCalculatorPort):
             return base + p.euribor_rate
         # MIXED
         assert p.fixed_years is not None
-        fixed_end = p.start + relativedelta(years=p.fixed_years)
+        # A fixed period beyond the end of the calendar never ends.
+        fixed_end = self._advance(p.start, relativedelta(years=p.fixed_years))
         if today < fixed_end:
             return p.fixed_interest_rate if p.fixed_interest_rate is not None else base
         return base + p.euribor_rate
@@ -266,14 +269,24 @@ class LoanCalculator(LoanCalculatorPort):
             return 0
         if freq in self._MONTH_ALIGNED:
             return self._full_months_between(d1, d2) * freq.payments_per_year // 12
-        step = self._period_step(freq)
-        count = 0
-        cursor = d1
-        while cursor < d2:
-            cursor = cursor + step
-            if cursor <= d2:
-                count += 1
-        return count
+        # Day-based schedules have a fixed number of days per period; dividing avoids
+        # stepping past d2, which fails at the end of the calendar.
+        return (d2 - d1).days // self._period_days(freq)
+
+    def _period_days(self, freq: InstallmentFrequency) -> int:
+        return {
+            InstallmentFrequency.WEEKLY: 7,
+            InstallmentFrequency.BIWEEKLY: 14,
+            InstallmentFrequency.SEMIMONTHLY: 15,
+        }[freq]
+
+    @staticmethod
+    def _advance(when: date, step: relativedelta) -> date:
+        """One period later, or the last day of the calendar when that is beyond it."""
+        try:
+            return when + step
+        except (OverflowError, ValueError):
+            return date.max
 
     def _period_step(self, freq: InstallmentFrequency) -> relativedelta:
         """Return the relativedelta step corresponding to one payment period."""
@@ -327,7 +340,7 @@ class LoanCalculator(LoanCalculatorPort):
             outstanding = max(Dezimal(0), outstanding - principal_paid)
 
             # step forward by one period
-            current_date = current_date + step
+            current_date = self._advance(current_date, step)
 
             if outstanding == Dezimal(0):
                 break
@@ -342,7 +355,8 @@ class LoanCalculator(LoanCalculatorPort):
             return base + p.euribor_rate  # type: ignore[arg-type]
         # MIXED
         assert p.fixed_years is not None
-        fixed_end = p.start + relativedelta(years=p.fixed_years)
+        # A fixed period beyond the end of the calendar never ends.
+        fixed_end = self._advance(p.start, relativedelta(years=p.fixed_years))
         if when < fixed_end:
             return p.fixed_interest_rate if p.fixed_interest_rate is not None else base
         return base + p.euribor_rate  # type: ignore[arg-type]
@@ -391,7 +405,7 @@ class LoanCalculator(LoanCalculatorPort):
         step = self._period_step(p.installment_frequency)
         candidate = p.start
         while candidate < today and candidate < p.end:
-            candidate = candidate + step
+            candidate = self._advance(candidate, step)
 
         return min(candidate, p.end)
 
@@ -403,5 +417,5 @@ class LoanCalculator(LoanCalculatorPort):
         step = self._period_step(frequency)
         candidate = start
         while candidate < today and candidate < end:
-            candidate = candidate + step
+            candidate = self._advance(candidate, step)
         return min(candidate, end)

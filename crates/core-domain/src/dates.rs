@@ -18,6 +18,9 @@ pub fn add_months(date: Date, months: i64) -> Option<Date> {
     date.checked_add(span).ok().filter(in_python_range)
 }
 
+/// The last day of Python's calendar, `date.max`.
+pub const CALENDAR_END: Date = jiff::civil::date(9999, 12, 31);
+
 /// Python's `date` starts at 1 January of year 1; jiff goes further back.
 fn in_python_range(date: &Date) -> bool {
     date.year() >= 1

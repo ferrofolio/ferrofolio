@@ -39,6 +39,9 @@ pub fn calculate_loan(state: &AppState, body: &Map<String, Value>) -> Response {
         Err(CalculationError::MissingFields(error)) => {
             ApiError::BadRequestMessage(error.to_string()).into_response()
         }
+        Err(CalculationError::Input(error)) => {
+            ApiError::InvalidRequest(error.to_string()).into_response()
+        }
         Err(error) => unexpected(&error),
     }
 }
@@ -130,7 +133,6 @@ fn loan_date(value: &Value) -> Result<Option<Date>, String> {
     match value {
         Value::Null => Ok(None),
         Value::String(text) => pycompat::iso_date(text).map(Some),
-        // Python passes other types on and fails later with an internal error.
         other => Err(format!(
             "Invalid isoformat string: {}",
             pycompat::repr(other)
