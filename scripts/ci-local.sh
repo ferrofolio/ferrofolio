@@ -101,7 +101,8 @@ fi
 # a working Docker (in whatever context it is configured) is used as it is.
 podman=false
 if [[ -z "${DOCKER_HOST:-}" ]]; then
-  # Only Docker reports a ServerVersion; Podman's docker command fails on it.
+  # Podman's own docker command fails on ServerVersion; a Docker CLI reports it,
+  # whichever engine its context points to.
   if ! docker info --format '{{.ServerVersion}}' > /dev/null 2>&1; then
     if [[ "$(uname -s)" == Darwin ]]; then
       # On macOS the socket belongs to the Podman machine.
@@ -126,6 +127,12 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
     export DOCKER_HOST="$docker_host"
   fi
 elif [[ "$DOCKER_HOST" == *podman* ]]; then
+  podman=true
+fi
+# A Docker CLI may still talk to Podman, through a context or DOCKER_HOST; Podman's
+# API names its server component "Podman Engine".
+if [[ "$podman" == false ]] \
+  && docker version --format '{{range .Server.Components}}{{.Name}} {{end}}' 2> /dev/null | grep -q Podman; then
   podman=true
 fi
 
@@ -201,6 +208,10 @@ fi
 engine_env=()
 if [[ "$podman" == true ]]; then
   engine_env=(--env DOCKER_BUILDKIT=0)
+  # act mounts Podman's API socket into the jobs. On a host that enforces SELinux,
+  # a container may only use that socket without SELinux separation, as Podman
+  # documents; the option has no effect elsewhere.
+  container_options+=" --security-opt label=disable"
 fi
 
 "$act_bin" pull_request \
