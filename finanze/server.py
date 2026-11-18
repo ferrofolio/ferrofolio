@@ -6,10 +6,12 @@ import signal
 import socket
 from contextlib import AsyncExitStack
 from pathlib import Path
+from typing import Optional
 
 import uvicorn
 
 import domain.native_entities
+from args import public_port
 from application.use_cases.add_entity_credentials import AddEntityCredentialsImpl
 from application.use_cases.cancel_entity_login import CancelEntityLoginImpl
 from application.use_cases.add_manual_transaction import AddManualTransactionImpl
@@ -437,10 +439,27 @@ from infrastructure.user_files.user_data_manager import UserDataManager
 GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5
 
 
-async def serve(server: uvicorn.Server):
+async def serve(server: uvicorn.Server, sockets: Optional[list[socket.socket]] = None):
     # uvicorn re-raises SIGTERM after shutting down, which would skip our cleanup
     signal.signal(signal.SIGTERM, lambda *_: None)
-    await server.serve()
+    await server.serve(sockets=sockets)
+
+
+def inherited_sockets(args: argparse.Namespace) -> Optional[list[socket.socket]]:
+    """The listening socket the gateway passed down, if any.
+
+    Raises OSError when the descriptor is not a listening stream socket.
+    """
+    if args.socket_fd is None:
+        return None
+    sock = socket.socket(fileno=args.socket_fd)
+    listening = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN)
+    if sock.type != socket.SOCK_STREAM or not listening:
+        sock.close()
+        raise OSError(
+            f"File descriptor {args.socket_fd} is not a listening stream socket"
+        )
+    return [sock]
 
 
 class FerrofolioServer:
@@ -496,7 +515,9 @@ class FerrofolioServer:
 
     async def _init(self):
         args = self._args
-        self._check_port()
+        # A socket inherited from the gateway is already bound to the port.
+        if args.socket_fd is None:
+            self._check_port()
 
         self._log.info("Initializing components...")
 
@@ -525,7 +546,7 @@ class FerrofolioServer:
         etherscan_client = EtherscanClient()
         ethplorer_client = EthplorerClient()
         zerion_client = ZerionClient()
-        gocardless_client = GoCardlessClient(port=args.port)
+        gocardless_client = GoCardlessClient(port=public_port(args))
         enablebanking_client = EnableBankingClient()
         polymarket_fetcher = PolymarketFetcher()
         models_dir = args.data_dir / Path("models")
@@ -551,7 +572,7 @@ class FerrofolioServer:
                 local_model_runtime, llama_router, local_model_catalog
             ),
             ExternalIntegrationId.CHATGPT: ChatGPTClient(
-                ChatGPTOAuth(HostIdentityRepository(db_client), args.port),
+                ChatGPTOAuth(HostIdentityRepository(db_client), public_port(args)),
                 external_integration_repository,
             ),
         }
@@ -1617,6 +1638,17 @@ class FerrofolioServer:
 
     async def run(self):
         self._log.info(f"Initializing Ferrofolio server on port {self._args.port}...")
+        # Take over an inherited socket before the slow startup, so that a wrong
+        # descriptor fails at once.
+        sockets = inherited_sockets(self._args)
+        try:
+            await self._serve(sockets)
+        finally:
+            # Released on every way out, also when startup fails.
+            for sock in sockets or []:
+                sock.close()
+
+    async def _serve(self, sockets: Optional[list[socket.socket]]):
         try:
             await self._init()
         except OSError as e:
@@ -1649,7 +1681,7 @@ class FerrofolioServer:
             async with AsyncExitStack() as stack:
                 for mcp_server in self._mcp_servers:
                     await stack.enter_async_context(mcp_server.session_manager.run())
-                await serve(server)
+                await serve(server, sockets)
         except OSError as e:
             self._log.error(f"Could not start server on port {self._args.port}: {e}")
             if e.errno == 48:

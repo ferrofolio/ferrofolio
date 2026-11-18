@@ -1,8 +1,11 @@
+from argparse import Namespace
+
 import pytest
 
 from domain.platform import Distribution
 from infrastructure.config import server_details_adapter
 from infrastructure.config.server_details_adapter import (
+    ServerDetailsAdapter,
     detect_distribution,
     detect_os_version,
 )
@@ -92,3 +95,21 @@ class TestDetectDistribution:
 
     def test_defaults_to_desktop(self):
         assert detect_distribution() == Distribution.DESKTOP
+
+
+class TestBackendOptions:
+    @pytest.mark.asyncio
+    async def test_reports_the_public_port_behind_the_rust_server(self):
+        adapter = ServerDetailsAdapter(Namespace(port=43731, public_port=7592))
+
+        details = await adapter.get_backend_details()
+
+        assert details.options.port == 7592
+
+    @pytest.mark.asyncio
+    async def test_reports_the_port_when_serving_directly(self):
+        adapter = ServerDetailsAdapter(Namespace(port=7592, public_port=None))
+
+        details = await adapter.get_backend_details()
+
+        assert details.options.port == 7592

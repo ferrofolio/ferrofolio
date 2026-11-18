@@ -34,6 +34,22 @@ def app_args() -> argparse.ArgumentParser:
         default=7592,
     )
     parser.add_argument(
+        "--public-port",
+        help="Port under which clients reach the server, when it runs behind the "
+        "Ferrofolio gateway on another port (default: --port). Used for local "
+        "redirect URLs.",
+        type=_tcp_port,
+        default=None,
+    )
+    parser.add_argument(
+        "--socket-fd",
+        help="File descriptor of a listening socket inherited from the Ferrofolio "
+        "gateway. The server accepts connections on it instead of binding "
+        "--host and --port itself.",
+        type=_descriptor,
+        default=None,
+    )
+    parser.add_argument(
         "--log-level",
         help="Set the console logging level (use NONE to disable console logging).",
         choices=["NONE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -90,6 +106,25 @@ def parse_args() -> argparse.Namespace:
     )
 
     return args
+
+
+def _tcp_port(raw: str) -> int:
+    port = int(raw)
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"{raw} is not a TCP port (1-65535)")
+    return port
+
+
+def _descriptor(raw: str) -> int:
+    descriptor = int(raw)
+    if descriptor < 0:
+        raise argparse.ArgumentTypeError(f"{raw} is not a file descriptor")
+    return descriptor
+
+
+def public_port(args: argparse.Namespace) -> int:
+    """Port clients use to reach the server, for redirect URLs to this instance."""
+    return args.public_port or args.port
 
 
 def _remember_ttl(raw: Optional[str]) -> Optional[timedelta]:
