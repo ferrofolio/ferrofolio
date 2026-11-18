@@ -598,6 +598,7 @@ export function LocalModelsManager({
               size="sm"
               onClick={() => void handleRefresh()}
               disabled={refreshing}
+              aria-label={t.common.refresh}
             >
               <RefreshCw
                 className={cn(
@@ -623,6 +624,14 @@ export function LocalModelsManager({
         <p className="text-xs text-muted-foreground">
           {builtIn ? copy.folderHint : copy.externalHint}
         </p>
+        {builtIn && overview.models_folder && (
+          <p
+            className="break-all font-mono text-xs text-muted-foreground"
+            data-testid="local-models-folder"
+          >
+            {overview.models_folder}
+          </p>
+        )}
       </section>
 
       <section className="min-w-0 space-y-6 lg:border-l lg:border-border lg:pl-6">

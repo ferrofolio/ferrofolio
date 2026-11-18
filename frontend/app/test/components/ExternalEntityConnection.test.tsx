@@ -19,6 +19,7 @@ import {
   ExternalIntegrationType,
 } from "@/types"
 import {
+  completeExternalEntityConnection,
   connectExternalEntity,
   getExternalEntityCandidates,
 } from "@/services/api"
@@ -246,5 +247,72 @@ describe("ExternalEntityConnection PSU type", () => {
     await waitFor(() =>
       expect(screen.getAllByRole("img", { name: "Logo Bank" })).toHaveLength(2),
     )
+  })
+})
+
+describe("ExternalEntityConnection provider callback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    state.locale = "en-US"
+    state.integrations = [enableBanking]
+    window.history.replaceState({}, "", "/?code=auth-code&state=entity-1")
+  })
+
+  afterEach(() => {
+    cleanup()
+    window.history.replaceState({}, "", "/")
+  })
+
+  it("completes the connection with the code from the redirect", async () => {
+    vi.mocked(completeExternalEntityConnection).mockResolvedValue(undefined)
+    render(<Harness />)
+
+    await waitFor(() =>
+      expect(app.showToast).toHaveBeenCalledWith(
+        en.entities.externalLinkSuccess,
+        "success",
+      ),
+    )
+    expect(completeExternalEntityConnection).toHaveBeenCalledWith(
+      "entity-1",
+      "auth-code",
+    )
+    expect(window.location.search).toBe("")
+    expect(app.fetchEntities).toHaveBeenCalled()
+  })
+
+  it("retries a failed completion with the same code", async () => {
+    vi.mocked(completeExternalEntityConnection)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(undefined)
+    render(<Harness />)
+
+    const confirm = await screen.findByRole("button", {
+      name: en.entities.confirmConnection,
+    })
+    expect(app.showToast).toHaveBeenCalledWith(
+      en.entities.externalLinkError,
+      "error",
+    )
+    expect(app.fetchEntities).not.toHaveBeenCalled()
+    expect(window.location.search).toBe("")
+
+    fireEvent.click(confirm)
+
+    await waitFor(() =>
+      expect(app.showToast).toHaveBeenCalledWith(
+        en.entities.externalLinkSuccess,
+        "success",
+      ),
+    )
+    expect(completeExternalEntityConnection).toHaveBeenCalledTimes(2)
+    expect(completeExternalEntityConnection).toHaveBeenLastCalledWith(
+      "entity-1",
+      "auth-code",
+    )
+    expect(app.fetchEntities).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByRole("button", { name: en.entities.confirmConnection }),
+    ).not.toBeInTheDocument()
   })
 })
