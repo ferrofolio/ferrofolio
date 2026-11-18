@@ -60,5 +60,7 @@ describe("Logger", () => {
     expect(requireLogFile(logger)).toBe(getLogFilePath(logDir, 0))
     expect(active.startsWith(LOG_HEADER_PREFIX)).toBe(true)
     expect(active).not.toContain("rotation-marker")
+    expect(active).toContain("after rotation")
+    expect(archived).not.toContain("after rotation")
   })
 })

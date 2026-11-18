@@ -44,7 +44,7 @@ It connects to real financial entities via public ways and open banking (PSD2), 
   <img src="resources/realestate.png" alt="Ferrofolio real estate investment tracking with KPIs and metrics" width="49%" />
   <img src="resources/savingscalculator.png" alt="Ferrofolio savings and retirement calculator with multiple scenarios" width="49%" /> 
   <img src="resources/crypto.png" alt="Ferrofolio crypto portfolio tracking across wallets and exchanges" width="49%" /> 
-  <img src="resources/activity.png" alt="Ferrofolio crypto portfolio tracking across wallets and exchanges" width="49%" /> 
+  <img src="resources/activity.png" alt="Ferrofolio activity analysis with income, expenses, savings rate, a daily cashflow heatmap and spending by label" width="49%" /> 
 </p>
 
 ## Table of Contents
@@ -320,14 +320,21 @@ For the frontend use `pnpm`, and `node 24`.
     python ./finanze --port 7592 --data-dir .storage --log-dir .storage/logs --log-level DEBUG --third-party-log-level DEBUG
     ```
 
+    Browser only, connecting to the server running in the first terminal. The default Vite dev URL is
+    http://localhost:5173:
+
     ```sh
     cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
-    # Browser only, connects to the server running in the first terminal:
     WEB_ONLY=1 VITE_BASE_URL=http://localhost:7592 pnpm dev
-    # Or the Electron desktop app. It starts its own backend on port 7592,
-    # so stop the server in the first terminal before running it:
+    ```
+
+    Or the Electron desktop app. It starts its own backend on port 7592 with the `python` on your `PATH`, so stop the
+    server in the first terminal and activate the virtual environment from step 2 first:
+
+    ```sh
+    cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
+    source ../../venv/bin/activate
     pnpm dev
-    # The default Vite dev URL is http://localhost:5173
     ```
 
 #### Other
