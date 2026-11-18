@@ -126,10 +126,11 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
     # act does not read Docker contexts and only looks for sockets in a few fixed
     # places (Docker Desktop on Linux is not one), so it is given the context's
     # endpoint to use the same engine as the Docker CLI.
-    export DOCKER_HOST="$docker_host"
     # A context for a remote engine keeps its TLS files apart; act and the Docker CLI
-    # read them from DOCKER_CERT_PATH once DOCKER_HOST overrides the context.
+    # read them from DOCKER_CERT_PATH once DOCKER_HOST overrides the context. Both are
+    # read from the context before DOCKER_HOST changes which context is current.
     tls_path="$(docker context inspect --format '{{.Storage.TLSPath}}' 2> /dev/null || true)/docker"
+    export DOCKER_HOST="$docker_host"
     if [[ -f "$tls_path/ca.pem" ]]; then
       export DOCKER_CERT_PATH="$tls_path" DOCKER_TLS_VERIFY=1
     fi
