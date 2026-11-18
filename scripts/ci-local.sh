@@ -214,6 +214,17 @@ if [[ "$podman" == true ]]; then
   container_options+=" --security-opt label=disable"
 fi
 
+# act mounts the engine's socket into the jobs from the path in DOCKER_HOST. On macOS
+# that path is on the Mac, while Podman resolves mounts inside its machine, so act is
+# given the socket as the machine sees it.
+daemon_socket=()
+if [[ "$podman" == true && "$(uname -s)" == Darwin ]]; then
+  machine_socket="$(podman info --format '{{.Host.RemoteSocket.Path}}' 2> /dev/null || true)"
+  if [[ -n "$machine_socket" ]]; then
+    daemon_socket=(--container-daemon-socket "unix://${machine_socket#unix://}")
+  fi
+fi
+
 "$act_bin" pull_request \
   --workflows .github/workflows/ci.yml \
   --eventpath "$event" \
@@ -223,4 +234,5 @@ fi
   --container-options "$container_options" \
   --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env "GIT_CONFIG_VALUE_0=*" \
   ${engine_env[@]+"${engine_env[@]}"} \
+  ${daemon_socket[@]+"${daemon_socket[@]}"} \
   ${act_args[@]+"${act_args[@]}"}
