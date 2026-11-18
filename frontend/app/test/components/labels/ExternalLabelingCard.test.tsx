@@ -797,7 +797,7 @@ describe("ExternalLabelingCard models", () => {
     expect(screen.getByText(external.noModelsMatch)).toBeInTheDocument()
   })
 
-  it("keeps a provider that is not available on this device", async () => {
+  it("keeps a provider that is not available on this server", async () => {
     appContext.current = {
       settings: settings("LOCAL_MODELS", "org/model-GGUF:Q4_K_M"),
       saveSettings: vi.fn(),
