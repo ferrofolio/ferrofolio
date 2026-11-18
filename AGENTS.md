@@ -57,6 +57,8 @@ scripts/ci-local.sh
 ```
 
 The script runs the workflow with [act](https://github.com/nektos/act) in containers and needs Docker or Podman.
+With Podman, its API socket must be running; the script does not start it (`systemctl --user start podman.socket`
+on Linux with systemd, `podman machine start` on macOS).
 It runs the jobs that CI would run for a pull request to `develop`, or every job when the working tree has
 uncommitted changes; `--all` runs every job, `--job <id>` a single one. Every job it runs must pass. A job that
 fails only because of the local environment, not the change, is named in the pull request with the reason. To
