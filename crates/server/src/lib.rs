@@ -7,14 +7,20 @@
 //! child process on the loopback interface (docs/roadmap.md, section 5).
 
 pub mod app;
+pub mod auth;
 pub mod backend;
+pub mod clock;
 pub mod config;
 pub mod error;
 pub mod gateway;
 pub mod proxy;
+pub mod pycompat;
+pub mod python_printable;
+pub mod routes;
 
 use std::net::SocketAddr;
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::net::TcpSocket;
@@ -24,6 +30,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::app::{AppState, router};
 use crate::backend::BackendProcess;
+use crate::clock::SystemClock;
 use crate::config::{Cli, LogLevel};
 use crate::proxy::Backend;
 
@@ -34,9 +41,8 @@ const SERVER_SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
 /// Time the backend gets to stop before it is killed. Its own graceful shutdown
 /// takes up to five seconds.
 const BACKEND_SHUTDOWN_GRACE: Duration = Duration::from_secs(6);
-/// Time work still running on blocking threads, such as a host name lookup, gets
-/// once the server has stopped; the process exits after it, within Docker's stop
-/// timeout.
+/// Time calculations still running on blocking threads get once the server has
+/// stopped; the process exits after it, within Docker's stop timeout.
 pub const RUNTIME_SHUTDOWN_GRACE: Duration = Duration::from_millis(500);
 
 /// Configures console logging from the backend's log level options. Fails when a
@@ -184,7 +190,7 @@ pub async fn run(cli: Cli) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let state = AppState::new(backend);
+    let state = AppState::new(backend, Arc::new(SystemClock));
     let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     let (stop_server, server_stopped) = oneshot::channel::<()>();
