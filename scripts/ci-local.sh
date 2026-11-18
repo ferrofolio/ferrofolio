@@ -242,12 +242,18 @@ if [[ "$all" == false ]]; then
 fi
 event="$(mktemp)"
 artifacts="$(mktemp -d)"
+# A JSON string; Git allows quotes and backslashes in branch names, but no control
+# characters.
+json_string() {
+  local text="${1//\\/\\\\}"
+  printf '"%s"' "${text//\"/\\\"}"
+}
 cat > "$event" <<EOF
 {
   "pull_request": {
     "number": 0,
-    "base": {"ref": "$base", "sha": "$base_sha"},
-    "head": {"ref": "$(git rev-parse --abbrev-ref HEAD)", "sha": "$head_sha"}
+    "base": {"ref": $(json_string "$base"), "sha": "$base_sha"},
+    "head": {"ref": $(json_string "$(git rev-parse --abbrev-ref HEAD)"), "sha": "$head_sha"}
   }
 }
 EOF
