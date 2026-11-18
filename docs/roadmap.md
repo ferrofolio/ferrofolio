@@ -429,7 +429,8 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 
 ### Phase 3 – Rust foundation · L
 
-Status: started with the workspace, CI and `Dezimal` in `core-domain`; details in [rust-backend.md](rust-backend.md).
+Status: started. The Rust server is the entry point of the server image and forwards every route to Python; the
+workspace, CI and `Dezimal` are in place. Details: [rust-backend.md](rust-backend.md).
 
 - Workspace, CI, `cargo deny`
 - Parity harness from section 5.1
@@ -438,7 +439,7 @@ Status: started with the workspace, CI and `Dezimal` in `core-domain`; details i
 - `server`: axum with forwarding to Python; auth and web app in Rust
 - Spikes for the riskiest dependencies: PDF and, if needed, TLS impersonation
 
-**Done when:** the container runs with Rust as the entry point, all end-to-end tests pass, and 100 % of the domain routes are still forwarded.
+**Done when:** the container runs with Rust as the entry point, all end-to-end tests pass, and every domain route and method that has not been ported is still forwarded.
 
 ### Phase 4 – Vertical porting · XL
 
