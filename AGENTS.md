@@ -25,6 +25,7 @@ repositories (`ferrofolio/ios`, later `ferrofolio/android`), not here: do not ad
 | `finanze/application` | Use cases and ports. Depends on `domain` only |
 | `finanze/infrastructure` | Controllers, repositories, connectors. Implements the ports |
 | `crates/core-domain` | Rust port of `finanze/domain`. Depends on no other workspace crate |
+| `crates/core-app` | Rust port of `finanze/application`. Depends on `core-domain` only, no other crate |
 | `crates/server` | Rust entry point of the container: ported routes, forwarding of all others to Python |
 | `frontend/app` | React web app |
 | `tests` | Python unit and integration tests |
@@ -76,6 +77,12 @@ change a check, change the workflow, never the script.
   Amounts become JSON numbers only when a response is serialised.
 - **Rust code does not panic.** No `unwrap`, `expect`, `panic!` or `unsafe` outside tests; the workspace lints
   enforce it.
+- **Ported routes keep their behaviour.** A route moves to Rust together with parity fixtures recorded from the
+  Python route. For the calculation routes the cases are written in `tests/parity/generate_calculation_fixtures.py`,
+  which records them in `crates/server/tests/fixtures/calculations_parity.json`, the file CI checks. A route of
+  another kind gets its own generator under `tests/parity` and fixture file under `crates/server/tests/fixtures`,
+  added to the CI checks in the same pull request. A deliberate difference is recorded as a deviation case there
+  and in `docs/rust-backend.md`.
 - **SQL uses bound parameters.** Never build statements with string formatting.
 - **No secrets in output.** Credentials, tokens, session payloads and IBANs must not appear in logs, error messages,
   test fixtures or commits.

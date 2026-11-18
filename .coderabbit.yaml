@@ -74,6 +74,10 @@ reviews:
           - "finanze/infrastructure/calculations/**"
           - "crates/core-domain/src/dezimal.rs"
           - "crates/core-domain/src/unicode_digits.rs"
+          - "crates/core-domain/src/loan_calculator.rs"
+          - "crates/core-domain/src/calculations.rs"
+          - "crates/core-app/src/services/loan_calculator.rs"
+          - "crates/core-app/src/use_cases/calculate_*.rs"
           # Rust workspace, once it exists
           - "crates/server/**"
           - "crates/infra-db/**"
@@ -263,6 +267,14 @@ reviews:
         No unwrap, expect or panic outside tests. No unsafe.
         SQL only with bound parameters.
         No credentials, tokens or IBANs in logs.
+    - path: "crates/core-app/src/{services,use_cases}/**/*.rs"
+      instructions: |
+        This code ports Python use cases and must produce the same results (AGENTS.md: ported routes keep
+        their behaviour; money arithmetic changes need a maintainer). Report every difference from the
+        Python implementation it names. Weaknesses that the Python code shares and that are listed under
+        "Known issues of the Python reference" in docs/rust-backend.md are known and intentional here; do not
+        request a Rust-only change for them. A new weakness shared with Python is reported as an addition to
+        that list.
     - path: "{tests,e2e}/**"
       instructions: |
         Flag deleted tests and weakened or removed assertions explicitly.

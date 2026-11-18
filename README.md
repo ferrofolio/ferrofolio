@@ -275,9 +275,9 @@ this repository are not configured for them, so these features do not work after
 The server image is built without Selenium by default. Mintos needs Selenium and reCAPTCHA resolution related
 dependencies (like ffmpeg); set the build argument `SELENIUM_SUPPORT` to `"true"` in the compose file to include them.
 
-The entry point of the server image is the Rust server `ferrofolio`. It starts the Python backend inside the
-container and forwards requests to it, serving the routes that have been ported to Rust itself; the options and
-environment variables stay the same. See [docs/rust-backend.md](docs/rust-backend.md).
+The entry point of the server image is the Rust server `ferrofolio`. It serves the routes that have been ported to
+Rust and starts the Python backend inside the container for all others; the options and environment variables stay
+the same. See [docs/rust-backend.md](docs/rust-backend.md).
 
 Checkout example [docker-compose.yml](docker-compose.yml) for a complete setup.
 
