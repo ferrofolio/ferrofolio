@@ -345,9 +345,9 @@ export default function LoginPage() {
         {floatingLogos.map((pos, i) => (
           <img
             key={i}
-            src="finanze-fg.svg"
+            src="ferrofolio-fg.svg"
             alt=""
-            className={`absolute select-none pointer-events-none ${isLight ? "invert" : ""}`}
+            className="absolute select-none pointer-events-none"
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
@@ -388,9 +388,9 @@ export default function LoginPage() {
           </Button>
         )}
         <img
-          src="finanze-fg.svg"
+          src="ferrofolio-fg.svg"
           alt={t.common.logoAlt}
-          className={`select-none pointer-events-none mb-5 ${isLight ? "invert" : ""}`}
+          className="select-none pointer-events-none mb-5"
           style={{ width: 56, height: 56 }}
           draggable={false}
         />

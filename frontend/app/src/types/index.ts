@@ -639,7 +639,7 @@ export interface BackendActionResult {
 
 export type ExchangeRates = Record<string, Record<string, number>>
 
-export interface FinanzeConfig {
+export interface FerrofolioConfig {
   backend?: BackendStartOptions
   serverUrl?: string
 }

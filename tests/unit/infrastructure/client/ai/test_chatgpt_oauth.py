@@ -184,7 +184,7 @@ class TestStartAuthorization:
         assert link.startswith("https://auth.openai.com/api/accounts/authorize?")
         assert "scope=openid%20profile%20email" in link
         assert params["client_id"] == "dynamic_agent_client"
-        assert params["agent_name_hint"] == "Finanze"
+        assert params["agent_name_hint"] == "Ferrofolio"
         assert "ext_agent_host_id" not in params
         assert params["redirect_uri"] == f"http://127.0.0.1:{PORT}/auth/callback"
         assert params["response_type"] == "code"

@@ -1,8 +1,8 @@
-import type { FinanzeConfig } from "@/types"
+import type { FerrofolioConfig } from "@/types"
 
 const CONFIG_STORAGE_KEY = "backendConfig"
 
-export const getConfig = (): FinanzeConfig => {
+export const getConfig = (): FerrofolioConfig => {
   try {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY)
     if (stored) {
@@ -14,7 +14,7 @@ export const getConfig = (): FinanzeConfig => {
   return {}
 }
 
-export const saveConfig = (config: FinanzeConfig): void => {
+export const saveConfig = (config: FerrofolioConfig): void => {
   try {
     localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config))
   } catch (error) {

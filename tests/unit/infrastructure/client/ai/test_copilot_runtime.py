@@ -181,7 +181,7 @@ async def test_start_uses_isolated_token_only_client(tmp_path, created, monkeypa
     assert options["mode"] == "empty"
     assert options["base_directory"] == str(runtime._dirs.home)
     assert options["working_directory"] == str(runtime._dirs.work)
-    assert options["client_info"] == {"application_name": "Finanze"}
+    assert options["client_info"] == {"application_name": "Ferrofolio"}
     env = options["env"]
     assert env["COPILOT_GITHUB_TELEMETRY_DISABLED"] == "true"
     assert not {"GH_TOKEN", "GITHUB_TOKEN", "COPILOT_GITHUB_TOKEN"} & env.keys()

@@ -443,7 +443,7 @@ async def serve(server: uvicorn.Server):
     await server.serve()
 
 
-class FinanzeServer:
+class FerrofolioServer:
     def __init__(self, args: argparse.Namespace):
         self._args = args
         self._quart_app = None

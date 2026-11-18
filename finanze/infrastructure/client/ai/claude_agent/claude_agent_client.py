@@ -50,7 +50,7 @@ from infrastructure.client.ai.claude_agent.claude_model_discovery import (
 from infrastructure.client.ai.reasoning_levels import pick_reasoning_level
 
 PROVIDER = "claude_agent"
-APPLICATION_NAME = "finanze"
+APPLICATION_NAME = "Ferrofolio"
 CATALOG_TTL_SECONDS = 600
 GENERATION_TIMEOUT_SECONDS = 180
 FALLBACK_EFFORT_LEVELS = ("low", "medium", "high")

@@ -510,4 +510,4 @@ async def test_sign_in_after_disconnect_registers_again(ctx):
     second = await _start(ctx)
 
     assert second["client_id"] == "dynamic_agent_client"
-    assert second["agent_name_hint"] == "Finanze"
+    assert second["agent_name_hint"] == "Ferrofolio"

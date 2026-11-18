@@ -71,7 +71,7 @@ class TestOpenRouterClientSetup:
         assert method == "GET"
         assert url == "https://openrouter.ai/api/v1/key"
         assert kwargs["headers"]["Authorization"] == "Bearer sk-or-v1-x"
-        assert kwargs["headers"]["X-Title"] == "Finanze"
+        assert kwargs["headers"]["X-Title"] == "Ferrofolio"
 
     @pytest.mark.asyncio
     async def test_rejects_management_key(self):

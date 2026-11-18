@@ -1,5 +1,5 @@
 import type { BrowserWindow } from "electron"
-import type { FinanzeConfig } from "../types"
+import type { FerrofolioConfig } from "../types"
 
 const CONFIG_STORAGE_KEY = "backendConfig"
 
@@ -9,7 +9,7 @@ export function setMainWindow(window: BrowserWindow | null): void {
   mainWindowRef = window
 }
 
-export async function readRendererConfig(): Promise<FinanzeConfig> {
+export async function readRendererConfig(): Promise<FerrofolioConfig> {
   if (!mainWindowRef || mainWindowRef.isDestroyed()) {
     return {}
   }

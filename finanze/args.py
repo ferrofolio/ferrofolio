@@ -10,7 +10,7 @@ from logs import configure_logging
 
 
 def app_args() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Finanze Server")
+    parser = argparse.ArgumentParser(description="Ferrofolio Server")
 
     default_user_dir = appdirs.user_data_dir("Finanze", False)
     default_logs_dir = Path(default_user_dir) / "logs"
