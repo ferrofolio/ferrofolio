@@ -578,7 +578,7 @@ class FerrofolioServer:
                 ClaudeModelDiscovery(),
                 agent_runtime_pool,
                 agent_runtime_sandbox,
-                client_app=f"finanze/{resolve_version()}",
+                client_app=f"Ferrofolio/{resolve_version()}",
             )
 
         crypto_entity_fetchers = {

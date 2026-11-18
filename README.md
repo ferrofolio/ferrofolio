@@ -306,7 +306,7 @@ For the frontend use `pnpm`, and `node 24`.
     pre-commit install
     ```
 
-4. Setup frontend:
+4. Setup the frontend:
 
     ```sh
     cd frontend/app
@@ -321,8 +321,11 @@ For the frontend use `pnpm`, and `node 24`.
     ```
 
     ```sh
-    cd frontend/app
-    pnpm dev            # For electron desktop app
+    cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
+    pnpm dev            # For the Electron desktop app
+    # Or for a browser-only session:
+    WEB_ONLY=1 VITE_BASE_URL=http://localhost:7592 pnpm dev
+    # The default Vite dev URL is http://localhost:5173
     ```
 
 #### Other
