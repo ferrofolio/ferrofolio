@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from domain.dezimal import Dezimal
-from domain.exception.exceptions import MissingFieldsError
+from domain.exception.exceptions import CalculationInputError, MissingFieldsError
 from domain.global_position import InstallmentFrequency, InterestType
 from domain.loan_calculator import LoanCalculationParams
 from infrastructure.calculations.loan_calculator import LoanCalculator
@@ -524,3 +524,52 @@ class TestInterestBreakdown:
         )
 
         assert low.current_installment_interests < high.current_installment_interests
+
+
+class TestCalendarBounds:
+    @pytest.mark.asyncio
+    async def test_rejects_an_end_before_the_start(self):
+        params = _params(start=date(2027, 2, 1), end=date(2027, 1, 1))
+
+        with pytest.raises(CalculationInputError):
+            await _calculator().calculate(params)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "frequency, start",
+        [
+            (InstallmentFrequency.WEEKLY, date(9999, 12, 20)),
+            (InstallmentFrequency.MONTHLY, date(9999, 10, 31)),
+            (InstallmentFrequency.YEARLY, date(9990, 12, 31)),
+        ],
+    )
+    async def test_a_schedule_ending_on_the_last_day_of_the_calendar(
+        self, frequency, start
+    ):
+        params = _params(
+            start=start, end=date(9999, 12, 31), installment_frequency=frequency
+        )
+
+        result = await _calculator().calculate(params)
+
+        assert result.installment_date == start
+
+    @pytest.mark.asyncio
+    async def test_a_fixed_period_beyond_the_calendar_never_ends(self):
+        params = _params(
+            interest_type=InterestType.MIXED,
+            euribor_rate=Dezimal("0.01"),
+            fixed_years=9000,
+            fixed_interest_rate=Dezimal("0.02"),
+        )
+        # The fixed rate for the whole loan, computed the same way.
+        fixed_only = _params(
+            interest_rate=Dezimal("0.02"),
+            interest_type=InterestType.VARIABLE,
+            euribor_rate=Dezimal(0),
+        )
+
+        result = await _calculator().calculate(params)
+        expected = await _calculator().calculate(fixed_only)
+
+        assert result == expected

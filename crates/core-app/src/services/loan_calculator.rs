@@ -19,8 +19,10 @@
 use std::sync::Arc;
 
 use core_domain::Dezimal;
-use core_domain::dates::{Date, add_days, add_months, add_years, months_and_days_between};
-use core_domain::exception::{CalculationError, MissingFieldsError};
+use core_domain::dates::{
+    CALENDAR_END, Date, add_days, add_months, add_years, months_and_days_between,
+};
+use core_domain::exception::{CalculationError, CalculationInputError, MissingFieldsError};
 use core_domain::global_position::{InstallmentFrequency, InterestType};
 use core_domain::loan_calculator::{LoanCalculationParams, LoanCalculationResult};
 
@@ -53,12 +55,14 @@ impl PeriodStep {
         }
     }
 
-    fn advance(self, date: Date) -> Result<Date, CalculationError> {
+    /// One period later, or the last day of the calendar when that is beyond it, so a
+    /// schedule that reaches the end of the calendar does not fail.
+    fn advance(self, date: Date) -> Date {
         match self {
             PeriodStep::Days(days) => add_days(date, days),
             PeriodStep::Months(months) => add_months(date, months),
         }
-        .ok_or(CalculationError::DateOutOfRange)
+        .unwrap_or(CALENDAR_END)
     }
 }
 
@@ -278,11 +282,16 @@ fn validate(params: &LoanCalculationParams) -> Result<Schedule, CalculationError
     }
 
     match (params.start, params.end) {
-        (Some(start), Some(end)) if missing.is_empty() => Ok(Schedule {
-            start,
-            end,
-            frequency: params.installment_frequency,
-        }),
+        (Some(start), Some(end)) if missing.is_empty() => {
+            if end < start {
+                return Err(CalculationInputError::new("end must not be before start").into());
+            }
+            Ok(Schedule {
+                start,
+                end,
+                frequency: params.installment_frequency,
+            })
+        }
         _ => Err(MissingFieldsError::new(missing).into()),
     }
 }
@@ -307,8 +316,8 @@ fn annual_rate_at(
             let fixed_years = p
                 .fixed_years
                 .ok_or_else(|| MissingFieldsError::new(["fixed_years (required for MIXED)"]))?;
-            let fixed_end =
-                add_years(schedule.start, fixed_years).ok_or(CalculationError::DateOutOfRange)?;
+            // A fixed period beyond the end of the calendar never ends.
+            let fixed_end = add_years(schedule.start, fixed_years).unwrap_or(CALENDAR_END);
             if when < fixed_end {
                 Ok(p.fixed_interest_rate.unwrap_or(base))
             } else {
@@ -355,23 +364,13 @@ fn count_periods(
                     .map_err(|_| CalculationError::DateOutOfRange)?
                     .get_days(),
             );
-            let count = elapsed / days;
-            // Python's cursor ends on the first step at or after `to`; like Python,
-            // fail when that step leaves the calendar (docs/rust-backend.md, "Known
-            // issues of the Python reference", L7).
-            let steps = if elapsed % days == 0 {
-                count
-            } else {
-                count + 1
-            };
-            add_days(from, steps * days).ok_or(CalculationError::DateOutOfRange)?;
-            Ok(count)
+            Ok(elapsed / days)
         }
         step => {
             let mut count = 0;
             let mut cursor = from;
             while cursor < to {
-                cursor = step.advance(cursor)?;
+                cursor = step.advance(cursor);
                 if cursor <= to {
                     count += 1;
                 }
@@ -383,15 +382,13 @@ fn count_periods(
 
 /// The next installment on or after `today`, aligned to `start` and capped at `end`.
 fn next_installment_date(schedule: Schedule, today: Date) -> Result<Date, CalculationError> {
-    // Kept from Python: an `end` before `start` is not rejected, and the cap does
-    // not apply before the start (docs/rust-backend.md, "Known issues of the Python reference", L6).
     if today <= schedule.start {
         return Ok(schedule.start);
     }
     let step = PeriodStep::of(schedule.frequency);
     let mut candidate = schedule.start;
     while candidate < today && candidate < schedule.end {
-        candidate = step.advance(candidate)?;
+        candidate = step.advance(candidate);
     }
     Ok(candidate.min(schedule.end))
 }
@@ -440,7 +437,7 @@ fn outstanding_from_start(
         let principal_paid = (payment - interest).value()?;
         outstanding = Dezimal::ZERO.max((outstanding - principal_paid).value()?);
 
-        current = step.advance(current)?;
+        current = step.advance(current);
         if outstanding.is_zero() {
             break;
         }
@@ -609,7 +606,7 @@ mod tests {
                 let mut stepped = 0;
                 let mut cursor = from;
                 while cursor < to {
-                    cursor = step.advance(cursor).unwrap();
+                    cursor = step.advance(cursor);
                     if cursor <= to {
                         stepped += 1;
                     }
@@ -618,14 +615,16 @@ mod tests {
             }
             assert_eq!(count_periods(frequency, to, from).unwrap(), 0);
         }
-        // The step after the last full week would pass 9999-12-31.
-        assert!(
+        // The step after the last full week would pass 9999-12-31; counting does not
+        // take it.
+        assert_eq!(
             count_periods(
                 InstallmentFrequency::Weekly,
                 date("9999-12-20"),
                 date("9999-12-31")
             )
-            .is_err()
+            .unwrap(),
+            1
         );
     }
 

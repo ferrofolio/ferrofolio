@@ -290,6 +290,26 @@ def loan_cases():
             loan(start="2020W031xx"),
         ),
         case(
+            "monthly schedule ending on the last day of the calendar",
+            LOAN_PATH,
+            loan(start="9999-10-31", end="9999-12-31"),
+        ),
+        case(
+            "fixed period beyond the end of the calendar",
+            LOAN_PATH,
+            loan(
+                interest_type="MIXED",
+                euribor_rate=0.01,
+                fixed_years=9000,
+                fixed_interest_rate=0.02,
+            ),
+        ),
+        case(
+            "loan ending on its start date",
+            LOAN_PATH,
+            loan(start="2027-02-01", end="2027-02-01"),
+        ),
+        case(
             "weekly schedule ending on the last day of the calendar",
             LOAN_PATH,
             loan(
@@ -367,13 +387,6 @@ def loan_cases():
             "numeric start date",
             LOAN_PATH,
             loan(start=20200115),
-            compare="deviation",
-            deviation={
-                "reason": "Python passes a date that is neither a string nor null on and "
-                "fails with an unexpected error; Rust reports an invalid date",
-                "status": 400,
-                "code": "INVALID_REQUEST",
-            },
         ),
         case(
             "interest type with a non-breaking space",
@@ -480,8 +493,8 @@ def loan_cases():
             '"start": "2020-01-15", "end": "2050-01-15"}',
             compare="deviation",
             deviation={
-                "reason": "Python's integers are unbounded and the calendar arithmetic "
-                "fails later with an unexpected error; Rust rejects integers beyond 64 bits",
+                "reason": "Python's integers are unbounded, and a fixed period beyond the "
+                "end of the calendar never ends; Rust rejects integers beyond 64 bits",
                 "status": 400,
                 "code": "INVALID_REQUEST",
             },

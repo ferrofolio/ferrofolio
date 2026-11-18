@@ -2,7 +2,7 @@ from dataclasses import asdict
 from datetime import date
 
 from domain.dezimal import Dezimal
-from domain.exception.exceptions import MissingFieldsError
+from domain.exception.exceptions import CalculationInputError, MissingFieldsError
 from domain.global_position import InstallmentFrequency, InterestType
 from domain.loan_calculator import LoanCalculationParams
 from domain.use_cases.calculate_loan import CalculateLoan
@@ -50,12 +50,8 @@ async def calculate_loan(calculate_loan_uc: CalculateLoan):
             else InstallmentFrequency.MONTHLY
         )
 
-        start = body["start"]
-        end = body["end"]
-        if isinstance(start, str):
-            start = date.fromisoformat(start)
-        if isinstance(end, str):
-            end = date.fromisoformat(end)
+        start = _loan_date(body["start"])
+        end = _loan_date(body["end"])
 
         params = LoanCalculationParams(
             loan_amount=loan_amount,
@@ -76,5 +72,16 @@ async def calculate_loan(calculate_loan_uc: CalculateLoan):
         result = await calculate_loan_uc.execute(params)
     except MissingFieldsError as e:
         return jsonify({"message": str(e)}), 400
+    except CalculationInputError as e:
+        return jsonify({"code": "INVALID_REQUEST", "message": str(e)}), 400
 
     return jsonify(asdict(result)), 200
+
+
+def _loan_date(value):
+    """A schedule date from the request; null is reported later as a missing field."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    raise ValueError(f"Invalid isoformat string: {value!r}")
