@@ -3,6 +3,7 @@ import os
 from quart import request
 
 PUBLIC_URL_ENV = "FINANZE_PUBLIC_URL"
+_SCHEMES = ("http", "https")
 
 
 def _first(value: str | None) -> str | None:
@@ -27,7 +28,11 @@ def public_base_url() -> str | None:
         return None
 
     scheme = (_first(headers.get("X-Forwarded-Proto")) or "").lower()
-    if scheme not in ("http", "https"):
-        scheme = getattr(request, "scheme", None) or "http"
+    if scheme not in _SCHEMES:
+        # Behind the Ferrofolio gateway uvicorn takes the request scheme from
+        # X-Forwarded-Proto as well, so it is checked the same way.
+        scheme = (getattr(request, "scheme", None) or "").lower()
+        if scheme not in _SCHEMES:
+            scheme = "http"
 
     return f"{scheme}://{host}"

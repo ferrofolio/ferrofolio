@@ -89,7 +89,10 @@ class ServerDetailsAdapter(ServerDetailsPort):
         log_dir = getattr(self._args, "log_dir", None)
         return BackendOptions(
             data_dir=str(Path(data_dir).resolve()) if data_dir else None,
-            port=getattr(self._args, "port", None),
+            # Behind the Rust server, --port is the backend's internal port; clients
+            # know the server by its public one.
+            port=getattr(self._args, "public_port", None)
+            or getattr(self._args, "port", None),
             log_level=self._to_log_level(getattr(self._args, "log_level", None)),
             log_dir=str(Path(log_dir).resolve()) if log_dir else None,
             log_file_level=self._to_log_level(
