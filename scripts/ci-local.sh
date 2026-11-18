@@ -103,10 +103,16 @@ podman=false
 if [[ -z "${DOCKER_HOST:-}" ]]; then
   # Only Docker reports a ServerVersion; Podman's docker command fails on it.
   if ! docker info --format '{{.ServerVersion}}' > /dev/null 2>&1; then
-    podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+    if [[ "$(uname -s)" == Darwin ]]; then
+      # On macOS the socket belongs to the Podman machine.
+      podman_socket="$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2> /dev/null || true)"
+    else
+      podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+    fi
     if [[ ! -S "$podman_socket" ]]; then
       echo "Neither Docker nor Podman's API socket is running. Start one, for example" >&2
-      echo "  systemctl --user start podman.socket" >&2
+      echo "  systemctl --user start podman.socket   (Linux)" >&2
+      echo "  podman machine start                   (macOS)" >&2
       echo "or point DOCKER_HOST at a running Docker or Podman API." >&2
       exit 1
     fi
@@ -172,18 +178,22 @@ cat > "$event" <<EOF
 }
 EOF
 
-# In a Git worktree, .git is a file that points into the main repository, which act
-# does not copy. The repository is mounted read-only at its own path so that the
-# "changes" job can still compare commits.
-git_common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
-# act splits these options like a shell, so a path with spaces is escaped.
-printf -v git_volume '%q' "$git_common_dir:$git_common_dir:ro"
-container_options="--volume $git_volume"
 # act asks for an OOM score adjustment of 0. A rootless Podman service started by
 # systemd runs at 200 and cannot go lower, so every command act runs in the container
 # would fail; the jobs get the highest value, which is also the first to be freed
 # when memory runs out.
-container_options+=" --oom-score-adj 1000"
+container_options="--oom-score-adj 1000"
+
+# In a linked Git worktree, .git is a file that points into the main repository,
+# which act does not copy. The repository is then mounted read-only at its own path
+# so that the "changes" job can still compare commits. A normal clone needs no mount:
+# its .git directory is copied with the working tree.
+if [[ -f .git ]]; then
+  git_common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+  # act splits these options like a shell, so a path with spaces is escaped.
+  printf -v git_volume '%q' "$git_common_dir:$git_common_dir:ro"
+  container_options+=" --volume $git_volume"
+fi
 
 # Podman builds images itself and has no BuildKit API; the Docker CLI in the runner
 # would otherwise start a BuildKit container, which a rootless Podman service cannot
