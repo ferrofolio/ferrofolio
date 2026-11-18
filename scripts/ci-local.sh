@@ -134,7 +134,12 @@ containerfile="scripts/ci-local.Containerfile"
 runner_image="localhost/ferrofolio-ci-runner:$(sha256 "$containerfile" | cut -c1-12)"
 if ! "$engine" image inspect "$runner_image" > /dev/null 2>&1; then
   echo "Building the runner image $runner_image"
-  "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+  if [[ "$podman" == true ]]; then
+    # A Docker CLI would send a BuildKit request, which Podman's API does not serve.
+    DOCKER_BUILDKIT=0 "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+  else
+    "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+  fi
 fi
 
 # The pull_request event the workflow expects. A base commit that does not exist
