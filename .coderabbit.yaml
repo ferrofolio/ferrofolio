@@ -72,6 +72,8 @@ reviews:
           # Money arithmetic
           - "finanze/domain/dezimal.py"
           - "finanze/infrastructure/calculations/**"
+          - "crates/core-domain/src/dezimal.rs"
+          - "crates/core-domain/src/unicode_digits.rs"
           # Rust workspace, once it exists
           - "crates/server/**"
           - "crates/infra-db/**"
@@ -162,7 +164,7 @@ reviews:
         mode: error
         instructions: |
           Fail if the change stores, computes or compares a monetary amount using a
-          binary floating point type. Python uses Dezimal, Rust uses rust_decimal,
+          binary floating point type. Python uses Dezimal, Rust uses core_domain::Dezimal,
           Swift and Kotlin use their decimal types. Converting to a float only to
           serialise a response at the API boundary passes.
       - name: API stays compatible
@@ -255,7 +257,9 @@ reviews:
         Tokens and credentials must not be written to logs or sent to third parties.
     - path: "crates/**/*.rs"
       instructions: |
-        Money is never f32 or f64, always rust_decimal.
+        Money is never computed, stored or compared as f32 or f64, always as
+        core_domain::Dezimal. Converting an amount to f64 only to serialise an API
+        response as a JSON number is allowed.
         No unwrap, expect or panic outside tests. No unsafe.
         SQL only with bound parameters.
         No credentials, tokens or IBANs in logs.

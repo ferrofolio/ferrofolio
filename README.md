@@ -279,7 +279,7 @@ Checkout example [docker-compose.yml](docker-compose.yml) for a complete setup.
 
 ## Development
 
-This project requires `Python 3.14`.
+This project requires `Python 3.14` and Rust; `rustup` installs the Rust version pinned in `rust-toolchain.toml`.
 For the frontend use `pnpm`, and `node 24`.
 
 ### Setup
@@ -342,6 +342,7 @@ For the frontend use `pnpm`, and `node 24`.
 
     ```sh
     pytest              # Backend
+    cargo test --workspace  # Rust backend
 
     cd frontend/app
     pnpm test           # Frontend
