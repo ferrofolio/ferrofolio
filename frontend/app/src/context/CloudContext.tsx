@@ -12,7 +12,6 @@ import { BackupMode, CloudRole, FFStatus } from "@/types"
 import {
   cloudAuth,
   getCloudAuthToken,
-  getApiServerInfo,
   getBackupSettings,
   updateBackupSettings,
 } from "@/services/api"
@@ -23,10 +22,8 @@ import {
   SupabaseAuthProvider,
   type EmailPasswordSignUpResult,
 } from "@/services/cloud"
-import { useI18n } from "@/i18n"
 import { useAuth } from "@/context/AuthContext"
 import { useAppContext } from "@/context/AppContext"
-import { isElectron } from "@/lib/platform"
 import { resetBackupStatusCache } from "@/hooks/useBackupStatus"
 
 interface CloudContextType {
@@ -39,10 +36,6 @@ interface CloudContextType {
   isInitialized: boolean
   isPasswordRecoveryActive: boolean
   clearPasswordRecovery: () => void
-  oauthError: string | null
-  clearOAuthError: () => void
-  signInWithGoogle: () => Promise<void>
-  signInWithApple: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (
     email: string,
@@ -60,7 +53,6 @@ const createAuthProvider = (): CloudAuthProvider => {
 }
 
 export function CloudProvider({ children }: { children: ReactNode }) {
-  const { t } = useI18n()
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const { featureFlags } = useAppContext()
@@ -73,7 +65,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   const [backupMode, setBackupModeState] = useState<BackupMode>(BackupMode.OFF)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
-  const [oauthError, setOauthError] = useState<string | null>(null)
   const [isPasswordRecoveryActive, setIsPasswordRecoveryActive] =
     useState(false)
   const authProviderRef = useRef<CloudAuthProvider | null>(null)
@@ -87,11 +78,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   >(null)
   const isExplicitSignOutRef = useRef(false)
   const recoveryAttemptedRef = useRef(false)
-  const pendingOAuthCallbackUrlRef = useRef<string | null>(null)
-  const isAuthenticatedRef = useRef(isAuthenticated)
-  isAuthenticatedRef.current = isAuthenticated
-  const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
 
   const getProvider = useCallback(() => {
     if (!authProviderRef.current) {
@@ -375,17 +361,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         await provider.initialize()
         if (cancelled) return
 
-        const pendingUrl = pendingOAuthCallbackUrlRef.current
-        if (pendingUrl) {
-          pendingOAuthCallbackUrlRef.current = null
-          try {
-            await provider.handleAuthCallbackUrl(pendingUrl)
-          } catch (error) {
-            console.error("Failed to process pending auth callback:", error)
-          }
-        }
-        if (cancelled) return
-
         let session = await provider.getSession()
         if (cancelled) return
 
@@ -407,18 +382,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
             } catch (error) {
               console.error("Failed to set local session from backend:", error)
             }
-          } else if (session && pendingUrl) {
-            try {
-              const { role: backendRole, permissions: backendPermissions } =
-                await syncWithBackend(session)
-              setRole(backendRole)
-              setPermissions(backendPermissions)
-            } catch (error) {
-              console.error(
-                "Failed to sync deep-link session with backend:",
-                error,
-              )
-            }
           } else {
             if (session) {
               try {
@@ -434,23 +397,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error("Failed to fetch cloud session from backend:", error)
-        }
-
-        if (cancelled) return
-
-        if (session && pendingUrl) {
-          const pendingUrlObj = new URL(pendingUrl)
-          const pendingType =
-            pendingUrlObj.searchParams.get("type") ??
-            new URLSearchParams(
-              pendingUrlObj.hash.startsWith("#")
-                ? pendingUrlObj.hash.substring(1)
-                : pendingUrlObj.hash,
-            ).get("type")
-          if (pendingType === "recovery") {
-            setIsPasswordRecoveryActive(true)
-          }
-          navigateRef.current("/settings?tab=cloud")
         }
 
         if (cancelled) return
@@ -490,122 +436,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     }
   }, [getProvider, isAuthenticated, isCloudEnabled, syncWithBackend])
 
-  const handleOAuthCallbackUrl = useCallback(
-    async (url: string) => {
-      if (!isAuthenticatedRef.current) {
-        pendingOAuthCallbackUrlRef.current = url
-        return
-      }
-
-      try {
-        const provider = getProvider()
-
-        const urlObj = new URL(url)
-        const errorFromSearch = urlObj.searchParams.get("error")
-        const errorCodeFromSearch = urlObj.searchParams.get("error_code")
-        if (errorFromSearch) {
-          const errorCode = errorCodeFromSearch ?? errorFromSearch ?? "unknown"
-          const translatedError =
-            t.settings.cloud.oauthErrors[
-              errorCode as keyof typeof t.settings.cloud.oauthErrors
-            ] ?? t.settings.cloud.oauthErrors.unknown
-
-          const message = translatedError.replace("{error}", errorCode)
-          setOauthError(message)
-          navigate("/settings?tab=cloud")
-          return
-        }
-
-        const hash = urlObj.hash.startsWith("#")
-          ? urlObj.hash.substring(1)
-          : urlObj.hash
-        const hashParams = new URLSearchParams(hash)
-
-        const errorFromHash = hashParams.get("error")
-        if (errorFromHash) {
-          const errorCodeFromHash = hashParams.get("error_code")
-          const errorCode = errorCodeFromHash ?? errorFromHash ?? "unknown"
-
-          const translatedError =
-            t.settings.cloud.oauthErrors[
-              errorCode as keyof typeof t.settings.cloud.oauthErrors
-            ] ?? t.settings.cloud.oauthErrors.unknown
-
-          const message = translatedError.replace("{error}", errorCode)
-          setOauthError(message)
-          navigate("/settings?tab=cloud")
-          return
-        }
-
-        const typeFromSearch = urlObj.searchParams.get("type")
-        const typeFromHash = hashParams.get("type")
-        const type = typeFromSearch ?? typeFromHash
-
-        const codeFromSearch = urlObj.searchParams.get("code")
-
-        try {
-          await provider.handleAuthCallbackUrl(url)
-        } catch (error) {
-          if (codeFromSearch) {
-            await provider.exchangeCodeForSession(codeFromSearch)
-          } else {
-            throw error
-          }
-        }
-
-        if (type === "recovery") {
-          setIsPasswordRecoveryActive(true)
-          navigate("/settings?tab=cloud")
-          return
-        }
-
-        if (type === "signup" || type === "magiclink") {
-          navigate("/settings?tab=cloud")
-          return
-        }
-
-        const session = await provider.getSession()
-        if (session) {
-          navigate("/settings?tab=cloud")
-          return
-        }
-
-        if (
-          urlObj.protocol === "ferrofolio:" &&
-          urlObj.hostname === "auth" &&
-          urlObj.pathname === "/callback"
-        ) {
-          navigate("/settings?tab=cloud")
-        }
-      } catch (error) {
-        console.error("Failed to set session from OAuth callback:", error)
-
-        if (
-          error instanceof Error &&
-          /code verifier|pkce/i.test(error.message)
-        ) {
-          setOauthError(t.settings.cloud.oauthErrors.invalid_request)
-          navigate("/settings?tab=cloud")
-        }
-      }
-    },
-    [getProvider, navigate, t],
-  )
-
-  useEffect(() => {
-    if (!window.ipcAPI?.onOAuthCallbackUrl) {
-      return
-    }
-
-    const unsubscribe = window.ipcAPI.onOAuthCallbackUrl(async payload => {
-      await handleOAuthCallbackUrl(payload.url)
-    })
-
-    return () => {
-      unsubscribe?.()
-    }
-  }, [handleOAuthCallbackUrl])
-
   useEffect(() => {
     try {
       const provider = getProvider()
@@ -640,139 +470,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     },
     [getProvider],
   )
-
-  useEffect(() => {
-    // Avoid handling the same callback through multiple IPC channels.
-    // When the raw URL channel is available, it is the source of truth.
-    if (
-      window.ipcAPI?.onOAuthCallbackUrl ||
-      !window.ipcAPI?.onOAuthCallbackCode
-    ) {
-      return
-    }
-
-    const unsubscribe = window.ipcAPI.onOAuthCallbackCode(async payload => {
-      try {
-        const provider = getProvider()
-        await provider.exchangeCodeForSession(payload.code)
-      } catch (error) {
-        console.error("Failed to exchange OAuth code for session:", error)
-        setOauthError(t.settings.cloud.loginError)
-      }
-    })
-
-    return () => {
-      unsubscribe?.()
-    }
-  }, [getProvider, t.settings.cloud.loginError])
-
-  useEffect(() => {
-    // Avoid handling the same callback through multiple IPC channels.
-    // When the raw URL channel is available, it is the source of truth.
-    if (
-      window.ipcAPI?.onOAuthCallbackUrl ||
-      !window.ipcAPI?.onOAuthCallbackError
-    ) {
-      return
-    }
-
-    const unsubscribe = window.ipcAPI.onOAuthCallbackError(payload => {
-      console.error("OAuth callback error:", payload)
-
-      const errorCode = payload.error ?? payload.error_code ?? "unknown"
-      const translatedError =
-        t.settings.cloud.oauthErrors[
-          errorCode as keyof typeof t.settings.cloud.oauthErrors
-        ] ?? t.settings.cloud.oauthErrors.unknown
-
-      const message = translatedError.replace("{error}", errorCode)
-
-      setOauthError(message)
-      navigate("/settings?tab=cloud")
-    })
-
-    return () => {
-      unsubscribe?.()
-    }
-  }, [navigate, t.settings.cloud.oauthErrors])
-
-  const signInWithGoogle = useCallback(async () => {
-    setOauthError(null)
-    setIsLoading(true)
-    try {
-      const provider = getProvider()
-
-      if (!isElectron()) {
-        throw new Error("Google sign-in is only available on desktop or mobile")
-      }
-
-      const serverInfo = await getApiServerInfo()
-      const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
-      await provider.signInWithGoogle(callbackUrl)
-    } catch (error) {
-      console.error("Google sign-in error:", error)
-
-      let errorCode = "unknown"
-      if (
-        typeof error === "object" &&
-        error &&
-        "code" in error &&
-        typeof (error as { code?: unknown }).code === "string"
-      ) {
-        errorCode = (error as { code: string }).code
-      }
-
-      const translatedError =
-        t.settings.cloud.oauthErrors[
-          errorCode as keyof typeof t.settings.cloud.oauthErrors
-        ] ?? t.settings.cloud.oauthErrors.unknown
-
-      const message = translatedError.replace("{error}", errorCode)
-
-      setOauthError(message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getProvider, t.settings.cloud.oauthErrors])
-
-  const signInWithApple = useCallback(async () => {
-    setOauthError(null)
-    setIsLoading(true)
-    try {
-      const provider = getProvider()
-
-      if (!isElectron()) {
-        throw new Error("Apple sign-in is only available on desktop or mobile")
-      }
-
-      const serverInfo = await getApiServerInfo()
-      const callbackUrl = `${serverInfo.baseUrl}/oauth/callback`
-      await provider.signInWithApple(callbackUrl)
-    } catch (error) {
-      console.error("Apple sign-in error:", error)
-
-      let errorCode = "unknown"
-      if (
-        typeof error === "object" &&
-        error &&
-        "code" in error &&
-        typeof (error as { code?: unknown }).code === "string"
-      ) {
-        errorCode = (error as { code: string }).code
-      }
-
-      const translatedError =
-        t.settings.cloud.oauthErrors[
-          errorCode as keyof typeof t.settings.cloud.oauthErrors
-        ] ?? t.settings.cloud.oauthErrors.unknown
-
-      const message = translatedError.replace("{error}", errorCode)
-
-      setOauthError(message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getProvider, t.settings.cloud.oauthErrors])
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
@@ -856,10 +553,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
     [user],
   )
 
-  const clearOAuthError = useCallback(() => {
-    setOauthError(null)
-  }, [])
-
   return (
     <CloudContext.Provider
       value={{
@@ -872,10 +565,6 @@ export function CloudProvider({ children }: { children: ReactNode }) {
         isInitialized,
         isPasswordRecoveryActive,
         clearPasswordRecovery,
-        oauthError,
-        clearOAuthError,
-        signInWithGoogle,
-        signInWithApple,
         signInWithEmail,
         signUpWithEmail,
         requestPasswordReset,

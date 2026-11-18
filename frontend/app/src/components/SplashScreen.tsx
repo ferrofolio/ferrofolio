@@ -1,66 +1,10 @@
-import { useState, useEffect, useRef } from "react"
 import { useI18n } from "@/i18n"
 import { LoginQuickSettings } from "@/components/ui/ThemeSelector"
-import { AdvancedSettings } from "@/components/ui/AdvancedSettings"
 import { useTheme } from "@/context/ThemeContext"
-import { getApiServerInfo, type ApiServerInfo } from "@/services/api"
-import { hasConfig } from "@/services/configStorage"
-import { isElectron } from "@/lib/platform"
-import { useBackendStatus } from "@/hooks/useBackendStatus"
-import { Copy, Check } from "lucide-react"
-import { copyToClipboard } from "@/lib/clipboard"
-
-const getServerDisplayName = (url: string): string => {
-  return url.replace(/^https?:\/\//, "")
-}
 
 export default function SplashScreen() {
   const { t } = useI18n()
   const { theme } = useTheme()
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
-  const [serverInfo, setServerInfo] = useState<ApiServerInfo | null>(null)
-  const [hasStoredConfig, setHasStoredConfig] = useState(false)
-  const { backendStatus } = useBackendStatus()
-  const [showDetails, setShowDetails] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const detailsRef = useRef<HTMLDivElement>(null)
-
-  const backendFailed =
-    isElectron() &&
-    backendStatus?.state === "error" &&
-    !serverInfo?.isCustomServer
-
-  useEffect(() => {
-    if (!showDetails) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        detailsRef.current &&
-        !detailsRef.current.contains(e.target as Node)
-      ) {
-        setShowDetails(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [showDetails])
-
-  const handleCopyOutput = async () => {
-    const text = backendStatus?.output || backendStatus?.error?.message || ""
-    const ok = await copyToClipboard(text)
-    if (ok) {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    setHasStoredConfig(hasConfig())
-    getApiServerInfo().then(setServerInfo)
-  }, [])
 
   const isLight =
     theme === "light" ||
@@ -72,16 +16,6 @@ export default function SplashScreen() {
     ? "from-gray-400 via-gray-700 to-gray-300"
     : "from-gray-800 via-white to-gray-700"
 
-  const getStatusMessage = () => {
-    if (!serverInfo) {
-      return t.common.connectingToServer
-    }
-    if (serverInfo.isCustomServer && serverInfo.serverDisplay) {
-      return `${t.common.connectingToServer} ${getServerDisplayName(serverInfo.serverDisplay)}`
-    }
-    return t.common.startingServer
-  }
-
   return (
     <div
       className={`select-none min-h-screen flex flex-col items-center justify-center ${
@@ -91,67 +25,16 @@ export default function SplashScreen() {
       <img
         src="ferrofolio-fg.svg"
         alt={t.common.logoAlt}
-        className={`w-32 h-32 ${backendFailed ? "" : "animate-breathing"} drop-shadow select-none pointer-events-none`}
+        className="w-32 h-32 animate-breathing drop-shadow select-none pointer-events-none"
         draggable={false}
       />
-      {!backendFailed && (
-        <div className="absolute bottom-20 flex flex-col items-center gap-3">
-          <p
-            className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
-          >
-            {getStatusMessage()}
-          </p>
-        </div>
-      )}
-      {backendFailed && (
-        <div className="absolute bottom-16 flex flex-col items-center gap-4 max-w-lg px-4">
-          <p className="text-lg font-semibold text-red-400">
-            {t.common.backendFailedToStart}
-          </p>
-          <button
-            onClick={() => {
-              setCopied(false)
-              setShowDetails(v => !v)
-            }}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm text-gray-400 hover:text-gray-200 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
-          >
-            {t.common.details}
-          </button>
-          {showDetails && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-8"
-              onMouseDown={e => {
-                if (e.target === e.currentTarget) setShowDetails(false)
-              }}
-            >
-              <div
-                ref={detailsRef}
-                className="w-full max-w-2xl max-h-[70vh] flex flex-col rounded-xl bg-gray-900 border border-white/10 shadow-2xl overflow-hidden"
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                  <span className="text-sm font-medium text-gray-300">
-                    {t.common.details}
-                  </span>
-                  <button
-                    onClick={handleCopyOutput}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-colors"
-                  >
-                    {copied ? (
-                      <Check className="h-3.5 w-3.5 text-green-400" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                </div>
-                <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 font-mono whitespace-pre-wrap break-words">
-                  {backendStatus?.output || backendStatus?.error?.message || ""}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="absolute bottom-20 flex flex-col items-center gap-3">
+        <p
+          className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
+        >
+          {t.common.connectingToServer}
+        </p>
+      </div>
       <div
         className="absolute left-6"
         style={{
@@ -159,16 +42,8 @@ export default function SplashScreen() {
             "calc(24px + max(calc(var(--safe-area-inset-bottom, 0px) - 24px), 0px))",
         }}
       >
-        <LoginQuickSettings
-          isDesktop={isElectron()}
-          onOpenAdvancedSettings={() => setShowAdvancedSettings(true)}
-          advancedSettingsDisabled={!hasStoredConfig}
-        />
+        <LoginQuickSettings />
       </div>
-      <AdvancedSettings
-        isOpen={showAdvancedSettings}
-        onClose={() => setShowAdvancedSettings(false)}
-      />
     </div>
   )
 }

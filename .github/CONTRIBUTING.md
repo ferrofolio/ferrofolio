@@ -6,7 +6,7 @@ Ferrofolio is an independent fork of [Finanze](https://github.com/finanze/finanz
 
 ## Getting Started
 
-See the [Development](../README.md#development) section of the README for complete setup instructions (backend, frontend, and mobile).
+See the [Development](../README.md#development) section of the README for complete setup instructions (backend and frontend).
 
 ## Ways to Contribute
 
@@ -32,7 +32,7 @@ grant nobody the right to relicense it.
 1. **Branching:** Fork the repository and create a descriptive branch from `develop` (e.g., `feature/super-cool` or `bugfix/sync-error`).
 2. **Code Style & Formatting:**
    - **Backend:** Run `ruff format` and `ruff check`.
-   - **Frontend / Mobile:** Run `pnpm format` and `pnpm lint`.
+   - **Frontend:** Run `pnpm format` and `pnpm lint`.
    - More on this in [README.md](../README.md).
 3. **Testing:**
    - Add unit tests or integration tests for new features and infrastructure adapters in `tests/` and `e2e/` if possible.

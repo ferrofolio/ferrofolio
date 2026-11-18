@@ -1,8 +1,4 @@
-import { isWeb } from "@/lib/platform"
-
 export const INTEGRATION_OAUTH_PARAM = "integration_oauth"
-
-const INTEGRATION_COMPLETE_DEEPLINK = "ferrofolio://integration/complete"
 
 export interface IntegrationOAuthCallback {
   integrationId: string
@@ -13,17 +9,9 @@ export interface IntegrationOAuthCallback {
 }
 
 export async function openExternalAuthLink(link: string) {
-  if (isWeb()) {
-    // Web/Docker: navigate the same tab; the provider page redirects back
-    // to this app with the code/state once the authorization completes.
-    window.location.assign(link)
-    return
-  }
-  try {
-    window.open(link, "_blank")
-  } catch {
-    // ignore window open errors
-  }
+  // Navigate the same tab; the provider page redirects back to this app with
+  // the code/state once the authorization completes.
+  window.location.assign(link)
 }
 
 export async function openExternalAuthPage(link: string) {
@@ -36,11 +24,8 @@ export async function openExternalAuthPage(link: string) {
 
 export function buildIntegrationCompletionUrl(integrationId: string): string {
   const query = `${INTEGRATION_OAUTH_PARAM}=${encodeURIComponent(integrationId)}`
-  if (isWeb()) {
-    const route = `#/entities?tab=providers&focus=${encodeURIComponent(integrationId)}`
-    return `${window.location.origin}${window.location.pathname}?${query}${route}`
-  }
-  return `${INTEGRATION_COMPLETE_DEEPLINK}?${query}`
+  const route = `#/entities?tab=providers&focus=${encodeURIComponent(integrationId)}`
+  return `${window.location.origin}${window.location.pathname}?${query}${route}`
 }
 
 export function parseIntegrationOAuthCallback(

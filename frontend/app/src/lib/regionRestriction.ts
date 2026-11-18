@@ -1,5 +1,4 @@
 import { FFStatus, type FeatureFlags } from "@/types"
-import { isElectron } from "@/lib/platform"
 
 export const RESTRICTED_COUNTRIES_FLAG = "RESTRICTED_COUNTRIES"
 
@@ -70,25 +69,9 @@ function readLanguageCountryCodes(): string[] {
   }
 }
 
-async function readElectronCountryCodes(): Promise<string[]> {
-  const code = await window.ipcAPI?.getLocaleCountryCode?.()
-  return compactCodes([code])
-}
-
-async function readPlatformCountryCodes(): Promise<string[]> {
-  try {
-    if (isElectron()) return await readElectronCountryCodes()
-  } catch (error) {
-    console.error("Failed to read device country:", error)
-  }
-  return []
-}
-
 export function getDeviceCountryCodes(): Promise<string[]> {
   if (!countryCodesPromise) {
-    countryCodesPromise = readPlatformCountryCodes().then(codes =>
-      codes.length > 0 ? codes : readLanguageCountryCodes(),
-    )
+    countryCodesPromise = Promise.resolve(readLanguageCountryCodes())
   }
   return countryCodesPromise
 }

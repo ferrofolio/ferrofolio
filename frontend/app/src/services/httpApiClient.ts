@@ -2,11 +2,7 @@ import type { ApiServerInfo } from "./api"
 import type { ApiClient, HelperOptions } from "./apiClient"
 import { BASE_URL } from "@/env"
 
-let apiBaseUrl = BASE_URL
-let apiUrlInitPromise: Promise<void> | null = null
-let isCustomServer = false
-let customServerUrl: string | null = null
-let apiUrlInitialized = false
+let apiBaseUrl: string | null = null
 
 const SESSION_TOKEN_KEY = "finanze_api_session"
 
@@ -61,63 +57,19 @@ const withApiVersionSegment = (url: string): string => {
   return normalized
 }
 
-const initializeApiUrl = async (): Promise<void> => {
-  try {
-    if (
-      typeof window !== "undefined" &&
-      window.ipcAPI &&
-      window.ipcAPI.apiUrl
-    ) {
-      const result = await window.ipcAPI.apiUrl()
-      if (result?.url) {
-        apiBaseUrl = result.url
-        isCustomServer = result.custom
-        if (isCustomServer) {
-          customServerUrl = result.url
-        }
-        console.log("API URL initialized from IPC:", apiBaseUrl)
-      }
-    }
-  } catch (error) {
-    console.error("Error initializing API URL:", error)
-  } finally {
-    apiBaseUrl = withApiVersionSegment(apiBaseUrl)
-    apiUrlInitialized = true
-  }
-}
-
-const ensureInitPromise = (): Promise<void> => {
-  if (!apiUrlInitPromise) {
-    apiUrlInitPromise = initializeApiUrl()
-  }
-  return apiUrlInitPromise
-}
-
 const ensureApiUrlInitialized = async (): Promise<string> => {
-  if (!apiUrlInitialized) {
-    await ensureInitPromise()
+  if (apiBaseUrl === null) {
+    apiBaseUrl = withApiVersionSegment(BASE_URL)
   }
   return apiBaseUrl
 }
 
 export class HttpApiClient implements ApiClient {
   async getApiServerInfo(): Promise<ApiServerInfo> {
-    await ensureInitPromise()
+    const baseUrl = await ensureApiUrlInitialized()
     return {
-      isCustomServer,
-      serverDisplay: customServerUrl,
-      baseUrl: apiBaseUrl.replace(/\/api\/v1$/, ""),
+      baseUrl: baseUrl.replace(/\/api\/v1$/, ""),
     }
-  }
-
-  async refreshApiBaseUrl(): Promise<void> {
-    apiBaseUrl = BASE_URL
-    apiUrlInitialized = false
-    apiUrlInitPromise = null
-    isCustomServer = false
-    customServerUrl = null
-    this.setSessionToken(null)
-    await ensureApiUrlInitialized()
   }
 
   setSessionToken(token: string | null, remember = false): void {

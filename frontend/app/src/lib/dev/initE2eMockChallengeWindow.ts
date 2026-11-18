@@ -1,4 +1,4 @@
-import { setMobileChallengeAPI } from "@/lib/challengeWindow"
+import { setChallengeWindowAPI } from "@/lib/challengeWindow"
 import type { ChallengeWindowAPI } from "@/lib/challengeWindow"
 
 export function initE2eMockChallengeWindow() {
@@ -24,12 +24,12 @@ export function initE2eMockChallengeWindow() {
     },
   }
 
-  setMobileChallengeAPI(mockAPI)
+  setChallengeWindowAPI(mockAPI)
   ;(window as any).__e2eDisableMockChallengeWindow = () => {
-    setMobileChallengeAPI(null)
+    setChallengeWindowAPI(null)
   }
   ;(window as any).__e2eEnableMockChallengeWindow = () => {
-    setMobileChallengeAPI(mockAPI)
+    setChallengeWindowAPI(mockAPI)
   }
 
   console.log("[Dev] E2E mock challenge window API registered")

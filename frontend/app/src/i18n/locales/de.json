@@ -90,7 +90,7 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "each": "je",
-    "incompatibleLoginPlatform": "Verwende die App, um dich manuell anzumelden.",
+    "incompatibleLoginPlatform": "Die Anmeldung bei diesem Institut ist auf dem Server noch nicht verfügbar.",
     "selectOptions": "Optionen auswählen...",
     "searchOptions": "Optionen suchen...",
     "noOptionsFound": "Keine Optionen gefunden",
@@ -106,8 +106,6 @@
     "unpinAsset": "Anlage lösen",
     "continueInBackground": "Im Hintergrund fortsetzen",
     "connectingToServer": "Verbindung zu",
-    "startingServer": "Server wird gestartet",
-    "backendFailedToStart": "Server konnte nicht gestartet werden",
     "details": "Details",
     "optional": "Optional",
     "clear": "Leeren",
@@ -121,51 +119,11 @@
     "currentVersion": "Aktuelle Version",
     "latestVersion": "Neueste Version",
     "publishedOn": "Veröffentlicht am",
-    "downloadFor": "Für {platform} herunterladen",
     "whatsNew": "Was ist neu",
     "downloadAssets": "Download-Optionen",
     "releaseNotes": "Versionshinweise",
     "skipThisVersion": "Version überspringen",
-    "releasePageLink": "Release-Seite besuchen",
-    "autoUpdate": {
-      "title": "Automatisches Update",
-      "description": "Lade das Update herunter und installiere es, ohne die App zu verlassen.",
-      "download": "Update herunterladen",
-      "downloading": "Update wird heruntergeladen…",
-      "install": "Neu starten und installieren",
-      "ready": "Update heruntergeladen. Starte neu, um die Installation abzuschließen.",
-      "progress": "{percent}% • {downloaded} / {total}",
-      "progressFallback": "{percent}% heruntergeladen"
-    },
-    "manualDownloads": {
-      "show": "Manuelle Download-Optionen anzeigen",
-      "hide": "Manuelle Download-Optionen ausblenden"
-    }
-  },
-  "about": {
-    "title": "Über {appName}",
-    "projectDescription": "{appName} hilft dir, deine Finanzen anbieterübergreifend zu bündeln und im Blick zu behalten.",
-    "maintainedBy": "Betreut von {author}.",
-    "unknownAuthor": "Unbekannt",
-    "version": "Version",
-    "author": "Autor",
-    "electronVersion": "Electron",
-    "chromiumVersion": "Chromium",
-    "nodeVersion": "Node.js",
-    "website": "Website",
-    "repository": "Repository",
-    "logoAlt": "{appName}-Logo",
-    "runtimeSection": "Anwendung",
-    "platformSection": "Plattform",
-    "linksSection": "Links",
-    "operatingSystem": "Betriebssystem",
-    "architecture": "Architektur",
-    "osVersion": "Betriebssystemversion",
-    "platformNames": {
-      "mac": "macOS",
-      "windows": "Windows",
-      "linux": "Linux"
-    }
+    "releasePageLink": "Release-Seite besuchen"
   },
   "investments": {
     "type": "Typ",
@@ -898,9 +856,6 @@
       "description": "Verbinde dein Konto, um Cloud-Funktionen und die geräteübergreifende Synchronisierung zu aktivieren",
       "signInTitle": "Bei der Cloud anmelden",
       "signInDescription": "Nutze zusätzliche Funktionen und synchronisiere deine Daten geräteübergreifend",
-      "signInWithGoogle": "Mit Google anmelden",
-      "signInWithApple": "Mit Apple anmelden",
-      "googleDesktopOnly": "Nur in der Desktop-App verfügbar",
       "signInWithEmail": "Mit E-Mail anmelden",
       "signUp": "Konto erstellen",
       "emailPlaceholder": "E-Mail-Adresse",
@@ -911,7 +866,6 @@
       "noAccountAction": "Registrieren",
       "alreadyHaveAccountPrefix": "Du hast bereits ein Konto?",
       "alreadyHaveAccountAction": "Anmelden",
-      "orContinueWith": "oder weiter mit",
       "legalNoticePrefix": "Wenn du fortfährst, akzeptierst du die",
       "termsOfService": "Nutzungsbedingungen",
       "legalNoticeAnd": "und die",
@@ -965,26 +919,9 @@
       "cancelPasswordReset": "Abbrechen",
       "passwordUpdateSuccess": "Passwort erfolgreich aktualisiert.",
       "passwordUpdateError": "Passwort konnte nicht aktualisiert werden. Bitte versuche es erneut.",
-      "oauthErrors": {
-        "access_denied": "Der Zugriff wurde verweigert. Möglicherweise hast du die Anmeldung abgebrochen.",
-        "invalid_request": "Ungültige Anmeldeanfrage. Bitte versuche es erneut.",
-        "unauthorized_client": "Diese App ist nicht autorisiert. Bitte wende dich an den Support.",
-        "server_error": "Auf dem Authentifizierungsserver ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
-        "user_banned": "Dein Konto ist gesperrt. Bitte wende dich an den Support, falls dies unerwartet ist.",
-        "temporarily_unavailable": "Der Authentifizierungsdienst ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.",
-        "signup_disabled": "Es wurde kein zugehöriges Konto gefunden. Hast du dich bereits registriert?",
-        "otp_expired": "Der Bestätigungslink ist abgelaufen. Bitte fordere einen neuen an.",
-        "unknown": "Authentifizierung fehlgeschlagen ({error}). Bitte versuche es erneut."
-      },
-      "oauthRedirectTitle": "Anmeldung wird abgeschlossen",
-      "oauthRedirectDescription": "Zurück zur Desktop-App…",
-      "oauthRedirectCloseHint": "Falls sich dieser Tab nicht automatisch schließt, kannst du ihn jetzt schließen.",
-      "oauthRedirectErrorTitle": "Authentifizierung fehlgeschlagen",
-      "oauthRedirectErrorDescription": "Zurück zur Desktop-App, um den Fehler anzuzeigen…",
       "logoutError": "Abmeldung fehlgeschlagen. Bitte versuche es erneut.",
       "syncError": "Synchronisierung mit dem Server fehlgeschlagen. Bitte versuche es erneut.",
-      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
-      "oauthRedirectOpenApp": "Ferrofolio öffnen"
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
     },
     "backup": {
       "title": "Backup",
@@ -1441,11 +1378,11 @@
         }
       },
       "GITHUB_COPILOT": {
-        "description": "Nutze die in deinem GitHub-Copilot-Tarif enthaltenen Modelle. GitHub rechnet die Nutzung in AI Credits gemäß den Tokenpreisen des jeweiligen Modells ab, und Anfragen werden von GitHub und dem Modellanbieter verarbeitet. Nur Desktop und Self-Hosting."
+        "description": "Nutze die in deinem GitHub-Copilot-Tarif enthaltenen Modelle. GitHub rechnet die Nutzung in AI Credits gemäß den Tokenpreisen des jeweiligen Modells ab, und Anfragen werden von GitHub und dem Modellanbieter verarbeitet."
       },
       "CLAUDE_AGENT": {
         "name": "Claude Agent",
-        "description": "Nutze Claude über das auf diesem Computer installierte und angemeldete Claude Code. Die Nutzung wird auf die Limits deines Claude-Tarifs angerechnet, und Anfragen werden von Anthropic verarbeitet. Nur Desktop und Self-Hosting.",
+        "description": "Nutze Claude über das auf diesem Computer installierte und angemeldete Claude Code. Die Nutzung wird auf die Limits deines Claude-Tarifs angerechnet, und Anfragen werden von Anthropic verarbeitet.",
         "help": "So richtest du es ein",
         "hint": {
           "title": "Claude Agent einrichten",
@@ -1492,12 +1429,6 @@
       "LOCAL_MODELS": "Lokale Laufzeit oder Server",
       "OPENAI_COMPATIBLE": "Kompatible API"
     },
-    "aiPlatforms": {
-      "DESKTOP": "Desktop",
-      "SELF_HOSTED": "Self-Hosting",
-      "MOBILE": "Mobil"
-    },
-    "aiPlatformsLabel": "Unterstützte Plattformen:",
     "aiConnectedMethods": "{count}/{total} verbunden",
     "chatgpt": {
       "continue": "Mit ChatGPT fortfahren",
@@ -1540,11 +1471,7 @@
       "models": "Modelle",
       "noModels": "Noch keine Modelle. Lade ein empfohlenes Modell oder ein beliebiges GGUF-Modell von Hugging Face herunter.",
       "externalHint": "Modelle im Modellordner deines Servers werden hier ebenfalls aufgelistet. Klicke nach dem Hinzufügen von Dateien auf Aktualisieren.",
-      "import": "GGUF importieren",
-      "importTitle": "GGUF-Modelldatei auswählen",
-      "importSuccess": "{model} importiert",
-      "importHint": "Importierte Dateien werden an ihrem Speicherort verwendet und nicht kopiert. Du kannst GGUF-Dateien auch im Modellordner ablegen und auf Aktualisieren klicken. Damit Bilder gelesen werden können, muss die mmproj-Datei des Modells im selben Ordner liegen.",
-      "openFolder": "Ordner öffnen",
+      "folderHint": "Lege GGUF-Dateien im Modellordner ab und klicke auf Aktualisieren. Damit Bilder gelesen werden können, muss die mmproj-Datei des Modells im selben Ordner liegen.",
       "recommended": "Empfohlen",
       "params": "{params} Parameter",
       "downloadSize": "{size} Download",
@@ -4426,37 +4353,5 @@
       "travel": "Reisen",
       "weather": "Wetter"
     }
-  },
-  "advancedSettings": {
-    "title": "Erweiterte Einstellungen",
-    "subtitle": "Passe technische Einstellungen der Anwendung an, etwa Datenspeicherort, Backend-Logging, Server...",
-    "serverUrl": "URL des Backend-Servers",
-    "serverUrlDesc": "Optional auf ein entferntes Backend verweisen, um das lokale zu deaktivieren.",
-    "serverUrlPlaceholder": "http://192.168.1.10:7592",
-    "probeButton": "Testen",
-    "probeSuccess": "Der Server ist erreichbar.",
-    "probeSuccessVersionMismatch": "Der Server ist erreichbar, aber die Version weicht ab.",
-    "localVersion": "Lokal",
-    "remoteVersion": "Remote",
-    "probeError": "Der Server ist nicht erreichbar.",
-    "probeMissingUrl": "Gib eine Server-URL zum Testen ein.",
-    "serverUrlInvalid": "Die Server-URL muss mit http:// oder https:// beginnen.",
-    "remoteServerNotice": "Es wird ein Remote-Server verwendet. Datenverzeichnis und Log-Level für Drittanbieter werden vom Server verwaltet. Die Log-Einstellungen gelten nur für diese Anwendung.",
-    "dataDir": "Datenverzeichnis",
-    "dataDirPlaceholder": "Standardspeicherort",
-    "logDir": "Log-Verzeichnis",
-    "logDirPlaceholder": "Standardspeicherort",
-    "openFolder": "Ordner öffnen",
-    "logLevel": "Log-Level der Konsole",
-    "logFileLevel": "Log-Level der Datei",
-    "inheritLogLevel": "Wie Log-Level der Konsole",
-    "otherSection": "Weitere Optionen",
-    "thirdPartyLogLevel": "Log-Level für Drittanbieter",
-    "restartWarning": "Die App wird beim Speichern dieser Einstellungen neu gestartet.",
-    "resetToDefaults": "Auf Standardwerte zurücksetzen",
-    "resetConfirmTitle": "Einstellungen zurücksetzen",
-    "resetConfirmMessage": "Möchtest du wirklich alle erweiterten Einstellungen auf ihre Standardwerte zurücksetzen?",
-    "resetConfirmWarning": "Die App wird nach dem Zurücksetzen neu gestartet.",
-    "availableAfterLoading": "Nach dem Laden verfügbar"
   }
 }

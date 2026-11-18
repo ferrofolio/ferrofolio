@@ -1,9 +1,7 @@
 node_modules
 dist
-dist-electron
 .next
 .nuxt
 out
 build
-release
 pnpm-lock.yaml

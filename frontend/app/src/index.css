@@ -244,19 +244,6 @@ img {
   user-select: none;
 }
 
-#titlebar {
-  user-select: none;
-  app-region: drag;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 25px;
-  display: flex;
-  background: transparent;
-  z-index: 1000;
-}
-
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {

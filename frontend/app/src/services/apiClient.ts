@@ -8,8 +8,6 @@ export interface HelperOptions {
 export interface ApiClient {
   getApiServerInfo(): Promise<ApiServerInfo>
 
-  refreshApiBaseUrl(): Promise<void>
-
   setSessionToken(token: string | null, remember?: boolean): void
 
   get<T>(path: string, options?: HelperOptions): Promise<T>

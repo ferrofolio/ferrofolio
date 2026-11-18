@@ -15,7 +15,7 @@ vi.mock("@/context/AppContext", () => ({
 }))
 
 vi.mock("@/i18n", () => ({
-  useI18n: () => ({ t: { settings: { cloud: { oauthErrors: {} } } } }),
+  useI18n: () => ({ t: {} }),
 }))
 
 vi.mock("react-router-dom", () => ({
@@ -33,7 +33,6 @@ const mockProvider = {
   clearLocalSession: vi.fn().mockResolvedValue(undefined),
   setAutoRefreshEnabled: vi.fn().mockResolvedValue(undefined),
   onAuthStateChange: vi.fn().mockReturnValue(() => {}),
-  handleAuthCallbackUrl: vi.fn().mockResolvedValue(undefined),
 }
 
 vi.mock("@/services/cloud", () => ({
@@ -46,10 +45,6 @@ vi.mock("@/services/api", () => ({
   getApiServerInfo: vi.fn().mockResolvedValue({}),
   getBackupSettings: vi.fn().mockResolvedValue({ mode: "OFF" }),
   updateBackupSettings: vi.fn().mockResolvedValue(undefined),
-}))
-
-vi.mock("@/lib/platform", () => ({
-  isElectron: () => false,
 }))
 
 let observed: { isInitialized: boolean } = { isInitialized: false }

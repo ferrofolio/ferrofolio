@@ -12,13 +12,6 @@ import {
   ContributionTargetType,
   ContributionTargetSubtype,
 } from "./contributions"
-import type {
-  AutoUpdateActionResult,
-  AutoUpdateCheckResult,
-  AutoUpdateErrorInfo,
-  AutoUpdateInfo,
-  AutoUpdateProgressInfo,
-} from "./release"
 import { Transactions } from "./transactions"
 import type { AccountAssetConfig } from "./accountExclusions"
 
@@ -306,10 +299,9 @@ export interface StatusResponse {
   user?: User | null
   server: {
     version: string
-    platform_type: PlatformType
+    platform_type?: string | null
     platform_version?: string | null
     publicUrl?: string | null
-    options: BackendOptions
   }
   features: FeatureFlags
 }
@@ -555,24 +547,6 @@ export interface Settings {
   }
 }
 
-export enum PlatformType {
-  WINDOWS = "windows",
-  MAC = "mac",
-  LINUX = "linux",
-  WEB = "web",
-  IOS = "ios",
-  ANDROID = "android",
-}
-
-export interface PlatformInfo {
-  type: PlatformType
-  arch?: string
-  osVersion?: string
-  electronVersion?: string
-  chromiumVersion?: string | null
-  nodeVersion?: string | null
-}
-
 export type ThemeMode = "light" | "dark" | "system"
 
 export enum DataDisplayMode {
@@ -580,69 +554,7 @@ export enum DataDisplayMode {
   PRIVATE = "PRIVATE",
 }
 
-export interface AboutAppInfo {
-  appName: string
-  version: string
-  author?: string | null
-  repository?: string | null
-  homepage?: string | null
-}
-
-export type BackendLogLevel =
-  "NONE" | "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
-
-export interface BackendStartOptions {
-  dataDir?: string
-  port?: number
-  logLevel?: BackendLogLevel
-  logDir?: string
-  logFile?: string
-  logFileLevel?: BackendLogLevel
-  thirdPartyLogLevel?: BackendLogLevel
-}
-
-export interface BackendRuntimeArgs {
-  port: number
-  logLevel: BackendLogLevel
-  dataDir?: string
-  logDir?: string
-  logFileLevel?: BackendLogLevel
-  thirdPartyLogLevel?: BackendLogLevel
-}
-
-export interface BackendOptions extends BackendStartOptions {}
-
-export type BackendState =
-  "stopped" | "starting" | "running" | "stopping" | "error"
-
-export interface BackendErrorInfo {
-  message: string
-  stack?: string | null
-  code?: string | number | null
-}
-
-export interface BackendStatus {
-  state: BackendState
-  pid: number | null
-  args: BackendRuntimeArgs | null
-  startedAt: number | null
-  exitedAt: number | null
-  error: BackendErrorInfo | null
-  output: string | null
-}
-
-export interface BackendActionResult {
-  success: boolean
-  status: BackendStatus
-  error?: BackendErrorInfo
-}
-
 export type ExchangeRates = Record<string, Record<string, number>>
-
-export interface FerrofolioConfig {
-  backend?: BackendStartOptions
-  serverUrl?: string
-}
 
 export interface CreateCryptoWalletRequest {
   entityId: string
@@ -701,108 +613,6 @@ export interface DeriveCryptoAddressesRequest {
   range?: number
 }
 
-declare global {
-  interface Window {
-    platform: PlatformInfo
-    ipcAPI?: {
-      apiUrl: () => Promise<{ url: string; custom: boolean }>
-      changeThemeMode: (mode: ThemeMode) => void
-      showAbout: () => void
-      getAboutInfo: () => Promise<AboutAppInfo>
-      getLocaleCountryCode?: () => Promise<string>
-      requestExternalLogin: (
-        id: string,
-        request?: any,
-      ) => Promise<{ success: boolean }>
-      startBackend: (
-        options?: BackendStartOptions,
-      ) => Promise<BackendActionResult>
-      stopBackend: () => Promise<BackendActionResult>
-      restartBackend: () => Promise<BackendActionResult>
-      getBackendStatus: () => Promise<BackendStatus>
-      selectDirectory: (initialPath?: string) => Promise<string | null>
-      selectFile?: (options?: {
-        title?: string
-        extensions?: string[]
-      }) => Promise<string | null>
-      showItemInFolder?: (path: string) => Promise<void>
-      onBackendStatusChange: (
-        callback: (status: BackendStatus) => void,
-      ) => () => void
-      onCompletedExternalLogin: (
-        callback: (
-          id: string,
-          result: {
-            success: boolean
-            credentials: Record<string, string>
-          },
-        ) => void,
-      ) => void
-      requestChallengeWindow: (
-        siteKey: string,
-        domain: string,
-      ) => Promise<{ success: boolean }>
-      onChallengeCompleted: (
-        callback: (token: string | null) => void,
-      ) => () => void
-      checkForUpdates: () => Promise<AutoUpdateCheckResult>
-      downloadUpdate: () => Promise<AutoUpdateActionResult>
-      quitAndInstall: () => Promise<AutoUpdateActionResult>
-      setTelemetryConsent: (consent: {
-        errorReporting: boolean
-        installId?: string
-      }) => Promise<void>
-      onCheckingForUpdate: (callback: () => void) => () => void
-      onUpdateAvailable: (
-        callback: (info: AutoUpdateInfo) => void,
-      ) => () => void
-      onUpdateNotAvailable: (
-        callback: (info: AutoUpdateInfo) => void,
-      ) => () => void
-      onUpdateDownloaded: (
-        callback: (info: AutoUpdateInfo) => void,
-      ) => () => void
-      onDownloadProgress: (
-        callback: (progress: AutoUpdateProgressInfo) => void,
-      ) => () => void
-      onUpdateError: (
-        callback: (error: AutoUpdateErrorInfo) => void,
-      ) => () => void
-      onOAuthCallback: (
-        callback: (tokens: {
-          access_token: string
-          refresh_token: string
-          type?: string
-        }) => void,
-      ) => () => void
-
-      onOAuthCallbackError: (
-        callback: (payload: {
-          error: string
-          error_description: string | null
-          error_code: string | null
-        }) => void,
-      ) => () => void
-
-      onOAuthCallbackCode: (
-        callback: (payload: { code: string }) => void,
-      ) => () => void
-
-      onOAuthCallbackUrl: (
-        callback: (payload: { url: string }) => void,
-      ) => () => void
-
-      onExternalCompleteUrl: (
-        callback: (payload: { url: string }) => void,
-      ) => () => void
-
-      onIntegrationCompleteUrl: (
-        callback: (payload: { url: string }) => void,
-      ) => () => void
-    }
-  }
-}
-
 export interface CommodityRegister {
   name: string
   amount: number
@@ -840,15 +650,12 @@ export interface ExternalIntegration {
   payload_schema?: Record<string, string> | null
   optional_fields?: string[] | null
   family?: ExternalIntegrationFamily | null
-  platforms?: IntegrationPlatform[] | null
 }
 
 export interface ExternalIntegrationFamily {
   id: string
   name: string
 }
-
-export type IntegrationPlatform = "DESKTOP" | "SELF_HOSTED" | "MOBILE"
 
 export interface ExternalIntegrations {
   integrations: ExternalIntegration[]

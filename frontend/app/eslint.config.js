@@ -10,12 +10,7 @@ import { fixupPluginRules } from "@eslint/compat"
 
 export default defineConfig([
   {
-    ignores: [
-      "**/node_modules/**/*",
-      "release/**",
-      "dist/**",
-      "dist-electron/**",
-    ],
+    ignores: ["**/node_modules/**/*", "dist/**"],
   },
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],

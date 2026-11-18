@@ -103,16 +103,10 @@ describe("HttpApiClient session token", () => {
     expect(lastHeaders().Authorization).toBe("Custom x")
   })
 
-  it("clears the token on reset and when the server URL is refreshed", async () => {
+  it("clears the token on reset", async () => {
     const client = await loadClient()
     client.setSessionToken("abc")
     client.setSessionToken(null)
-    await client.get("/positions")
-    expect(lastHeaders().Authorization).toBeUndefined()
-    expect(window.sessionStorage.getItem(SESSION_KEY)).toBeNull()
-
-    client.setSessionToken("def")
-    await client.refreshApiBaseUrl()
     await client.get("/positions")
     expect(lastHeaders().Authorization).toBeUndefined()
     expect(window.sessionStorage.getItem(SESSION_KEY)).toBeNull()

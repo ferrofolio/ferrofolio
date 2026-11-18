@@ -2,7 +2,6 @@
   "name": "finanze",
   "version": "0.11.0",
   "description": "Self-hosted personal finance and net worth tracker that aggregates assets and investments across banks, brokers, crypto and real estate.",
-  "main": "dist-electron/main/index.js",
   "packageManager": "pnpm@11.20.0",
   "keywords": [
     "portfolio-tracker",
@@ -27,13 +26,8 @@
     "dev": "vite --host",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "dist": "vite build && pnpm exec electron-builder",
-    "dist:win": "vite build && pnpm exec electron-builder --win",
-    "dist:linux": "vite build && pnpm exec electron-builder --linux",
-    "dist:mac:arm64": "vite build && pnpm exec electron-builder --mac --arm64",
-    "dist:mac:x64": "vite build && pnpm exec electron-builder --mac --x64",
     "lint": "eslint .",
-    "format": "prettier --write src electron test '*.{json,js,cjs,ts,html}' pnpm-workspace.yaml public/site.webmanifest .prettierrc.json --ignore-unknown",
+    "format": "prettier --write src test '*.{json,js,cjs,ts,html}' pnpm-workspace.yaml public/site.webmanifest .prettierrc.json --ignore-unknown",
     "pretest": "vite build --mode=test",
     "test": "vitest run",
     "lint-staged": "lint-staged --no-stash"
@@ -58,8 +52,6 @@
     "clsx": "^2.1.1",
     "country-flag-icons": "^1.6.20",
     "date-fns": "^4.4.0",
-    "electron-updater": "^6.8.11",
-    "electron-window-state": "^5.0.3",
     "framer-motion": "^12.43.0",
     "fuse.js": "^7.5.0",
     "lucide-react": "^1.73.0",
@@ -86,10 +78,6 @@
     "@typescript-eslint/parser": "^8.72.2",
     "@vitejs/plugin-react": "^6.3.0",
     "autoprefixer": "^10.6.2",
-    "concurrently": "^10.0.7",
-    "electron": "^43.6.0",
-    "electron-builder": "^26.18.0",
-    "electron-is-dev": "^3.0.1",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -106,7 +94,6 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.2",
     "vite": "^8.3.8",
-    "vite-plugin-electron": "^1.2.0",
     "vitest": "^4.1.12"
   }
 }

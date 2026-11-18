@@ -58,9 +58,6 @@ vi.mock("@/services/api", () => ({
   disconnectExternalEntity: vi.fn(),
   getImageUrl: vi.fn(),
 }))
-vi.mock("@/lib/platform", () => ({
-  isWeb: () => false,
-}))
 vi.mock("@/lib/externalAuth", () => ({
   INTEGRATION_OAUTH_PARAM: "integration_oauth",
   openExternalAuthLink: vi.fn(),

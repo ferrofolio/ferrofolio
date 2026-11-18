@@ -3,11 +3,8 @@ import logging
 import os
 import re
 import shutil
-import sys
 from pathlib import Path
 from typing import Optional
-
-import certifi
 
 CLI_PATH_ENV = "COPILOT_CLI_PATH"
 EXTRACT_DIR_ENV = "COPILOT_CLI_EXTRACT_DIR"
@@ -64,8 +61,6 @@ class CopilotRuntimeProvisioner:
         managed = os.environ.get(EXTRACT_DIR_ENV) in (None, str(version_dir))
         if managed:
             os.environ[EXTRACT_DIR_ENV] = str(version_dir)
-        if getattr(sys, "frozen", False):
-            os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
         self._log.info(f"Preparing GitHub Copilot runtime {version}")
         executable = _cli_download.ensure_runtime_wrapper(version)

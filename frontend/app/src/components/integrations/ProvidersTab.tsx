@@ -15,10 +15,8 @@ import {
   Landmark,
   Link2,
   Link2Off,
-  Monitor,
   Server,
   Settings2,
-  Smartphone,
   Upload,
   type LucideIcon,
 } from "lucide-react"
@@ -65,9 +63,7 @@ import {
   ExternalIntegrationStatus,
   ExternalIntegrationType,
   type ExternalIntegration,
-  type IntegrationPlatform,
 } from "@/types"
-import { isWeb } from "@/lib/platform"
 import {
   buildIntegrationCompletionUrl,
   openExternalAuthLink,
@@ -129,62 +125,6 @@ const INTEGRATION_CATEGORY_ICONS: Record<ExternalIntegrationType, LucideIcon> =
     [ExternalIntegrationType.AI_PROVIDER]: BrainCircuit,
     [ExternalIntegrationType.DATA_SOURCE]: Database,
   }
-
-const PLATFORM_ICONS: Record<IntegrationPlatform, LucideIcon> = {
-  DESKTOP: Monitor,
-  SELF_HOSTED: Server,
-  MOBILE: Smartphone,
-}
-
-function IntegrationPlatformsBadge({
-  platforms,
-}: {
-  platforms: IntegrationPlatform[]
-}) {
-  const { t } = useI18n()
-  if (platforms.length === 0) return null
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-          aria-label={t.settings.aiPlatformsLabel}
-          title={t.settings.aiPlatformsLabel}
-          onClick={event => event.stopPropagation()}
-        >
-          <Info className="h-3.5 w-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-auto max-w-[280px] p-3"
-        onClick={event => event.stopPropagation()}
-      >
-        <div className="mb-2 text-xs font-medium text-muted-foreground">
-          {t.settings.aiPlatformsLabel}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {platforms.map(platform => {
-            const PlatformIcon = PLATFORM_ICONS[platform]
-            return (
-              <Badge
-                key={platform}
-                variant="secondary"
-                className="gap-1 text-xs"
-              >
-                <PlatformIcon className="h-3 w-3" />
-                {t.settings.aiPlatforms[platform]}
-              </Badge>
-            )
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 type IntegrationHintPart =
   | { type: "text"; value: string }
@@ -814,7 +754,7 @@ export function ProvidersTab() {
   }, [awaitingAuthorization, externalIntegrations])
 
   useEffect(() => {
-    if (awaitingAuthorization !== CHATGPT_ID || !isWeb()) {
+    if (awaitingAuthorization !== CHATGPT_ID) {
       return
     }
     // Sign-in may finish in the tab the provider redirected to.
@@ -824,7 +764,7 @@ export function ProvidersTab() {
   }, [awaitingAuthorization, fetchExternalIntegrations])
 
   useEffect(() => {
-    if (!isWeb() || externalIntegrations.length === 0) {
+    if (externalIntegrations.length === 0) {
       return
     }
 
@@ -840,26 +780,6 @@ export function ProvidersTab() {
     )
     void handleIntegrationOAuthCallback(callback)
   }, [externalIntegrations.length, handleIntegrationOAuthCallback])
-
-  useEffect(() => {
-    if (!window.ipcAPI?.onIntegrationCompleteUrl) {
-      return
-    }
-
-    return window.ipcAPI.onIntegrationCompleteUrl(({ url }) => {
-      let search: string
-      try {
-        search = new URL(url).search
-      } catch {
-        return
-      }
-
-      const callback = parseIntegrationOAuthCallback(search)
-      if (callback) {
-        void handleIntegrationOAuthCallback(callback)
-      }
-    })
-  }, [handleIntegrationOAuthCallback])
 
   const handleDisableIntegration = useCallback(
     async (integrationId: string) => {
@@ -1453,11 +1373,6 @@ export function ProvidersTab() {
                 </div>
               </div>
               <div className="flex items-center space-x-1 flex-shrink-0">
-                {integration.platforms && (
-                  <IntegrationPlatformsBadge
-                    platforms={integration.platforms}
-                  />
-                )}
                 <Badge
                   className={cn(
                     "hidden sm:flex",

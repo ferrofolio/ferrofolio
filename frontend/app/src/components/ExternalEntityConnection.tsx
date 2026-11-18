@@ -35,7 +35,6 @@ import {
   disconnectExternalEntity,
 } from "@/services/api"
 import { AVAILABLE_COUNTRIES } from "@/constants/countries"
-import { isWeb } from "@/lib/platform"
 import {
   INTEGRATION_OAUTH_PARAM,
   openExternalAuthLink,
@@ -46,8 +45,7 @@ import { getIntegrationName } from "@/lib/integrations"
 
 export const ENABLE_BANKING_PROVIDER = "ENABLE_BANKING"
 
-function buildWebCompletionUrl(): string | undefined {
-  if (!isWeb()) return undefined
+function buildWebCompletionUrl(): string {
   return `${window.location.origin}${window.location.pathname}#/entities`
 }
 
@@ -362,21 +360,8 @@ export function useExternalEntityConnection() {
     }
   }
 
-  const handleExternalCompleteUrl = useCallback(
-    async (url: string) => {
-      if (!url.startsWith("ferrofolio://external/complete")) return
-      let code: string | null
-      let state: string | null
-      let error: string | null
-      try {
-        const urlObj = new URL(url)
-        code = urlObj.searchParams.get("code")
-        state = urlObj.searchParams.get("state")
-        error = urlObj.searchParams.get("error")
-      } catch {
-        return
-      }
-
+  const handleExternalCompletion = useCallback(
+    async (code: string | null, state: string | null, error: string | null) => {
       const entityId = state || externalEntityId
       if (error || !entityId) {
         setShowCompleteExternalModal(false)
@@ -401,20 +386,10 @@ export function useExternalEntityConnection() {
     [externalEntityId, fetchEntities, setView, showToast, t],
   )
 
-  // Listen for the external entity completion deep link (desktop)
+  // Handle the external entity completion return. The provider page
+  // redirects the browser back to this app with the code/state in the query
+  // string; pick them up on mount and complete the connection.
   useEffect(() => {
-    if (!window.ipcAPI?.onExternalCompleteUrl) return
-    const unsubscribe = window.ipcAPI.onExternalCompleteUrl(async payload => {
-      await handleExternalCompleteUrl(payload.url)
-    })
-    return () => unsubscribe?.()
-  }, [handleExternalCompleteUrl])
-
-  // Handle the external entity completion return (web/Docker). The provider
-  // page redirects the browser back to this app with the code/state in the
-  // query string; pick them up on mount and complete the connection.
-  useEffect(() => {
-    if (!isWeb()) return
     const params = new URLSearchParams(window.location.search)
     if (params.get(INTEGRATION_OAUTH_PARAM)) return
     const code = params.get("code")
@@ -422,20 +397,14 @@ export function useExternalEntityConnection() {
     const error = params.get("error")
     if (!code && !state && !error) return
 
-    const out = new URLSearchParams()
-    if (code) out.set("code", code)
-    if (state) out.set("state", state)
-    if (error) out.set("error", error)
-    void handleExternalCompleteUrl(
-      `ferrofolio://external/complete?${out.toString()}`,
-    )
+    void handleExternalCompletion(code, state, error)
 
     window.history.replaceState(
       {},
       "",
       window.location.pathname + window.location.hash,
     )
-  }, [handleExternalCompleteUrl])
+  }, [handleExternalCompletion])
 
   // Load candidate icons when list changes
   useEffect(() => {

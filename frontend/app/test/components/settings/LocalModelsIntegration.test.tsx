@@ -26,17 +26,13 @@ const {
   getLocalModels,
   downloadLocalModel,
   deleteLocalModel,
-  importLocalModel,
   getHuggingFaceQuants,
-  getApiServerInfo,
   showToast,
 } = vi.hoisted(() => ({
   getLocalModels: vi.fn(),
   downloadLocalModel: vi.fn(),
   deleteLocalModel: vi.fn(),
-  importLocalModel: vi.fn(),
   getHuggingFaceQuants: vi.fn(),
-  getApiServerInfo: vi.fn(),
   showToast: vi.fn(),
 }))
 
@@ -48,9 +44,7 @@ vi.mock("@/services/api", () => ({
   getLocalModels,
   downloadLocalModel,
   deleteLocalModel,
-  importLocalModel,
   getHuggingFaceQuants,
-  getApiServerInfo,
 }))
 vi.mock("@/hooks/useModalBackHandler", () => ({ useModalBackHandler: vi.fn() }))
 
@@ -139,19 +133,9 @@ const openDialog = async () => {
   return screen.findByRole("dialog")
 }
 
-const setIpc = (ipc: Partial<NonNullable<Window["ipcAPI"]>> | undefined) => {
-  Object.defineProperty(window, "ipcAPI", {
-    value: ipc,
-    configurable: true,
-    writable: true,
-  })
-}
-
 beforeEach(() => {
   cleanup()
   vi.clearAllMocks()
-  getApiServerInfo.mockResolvedValue({ isCustomServer: false })
-  setIpc(undefined)
 })
 
 afterEach(() => {
@@ -385,60 +369,21 @@ describe("LocalModelsIntegration connected", () => {
 })
 
 describe("LocalModelsManager", () => {
-  it("hides import on web and shows it on desktop", async () => {
+  it("offers no file import or folder buttons", async () => {
     getLocalModels.mockResolvedValue(connected())
     renderIntegration(true)
     await openDialog()
     await screen.findByTestId("local-models-manager")
+    expect(screen.getByText(copy.folderHint)).toBeInTheDocument()
     expect(
-      screen.queryByRole("button", { name: copy.import }),
+      screen.queryByRole("button", { name: /import/i }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole("button", { name: copy.openFolder }),
+      screen.queryByRole("button", { name: /folder/i }),
     ).not.toBeInTheDocument()
-
-    cleanup()
-    const selectFile = vi.fn().mockResolvedValue("/models/phi.gguf")
-    const showItemInFolder = vi.fn()
-    setIpc({ selectFile, showItemInFolder })
-    importLocalModel.mockResolvedValue({
-      id: "local/phi",
-      path: "/models/phi.gguf",
-    })
-    renderIntegration(true)
-    await openDialog()
-
-    fireEvent.click(await screen.findByRole("button", { name: copy.import }))
-    await waitFor(() =>
-      expect(importLocalModel).toHaveBeenCalledWith("/models/phi.gguf"),
-    )
-    expect(selectFile).toHaveBeenCalledWith({
-      title: copy.importTitle,
-      extensions: ["gguf"],
-    })
-    expect(showToast).toHaveBeenCalledWith(
-      copy.importSuccess.replace("{model}", "local/phi"),
-      "success",
-    )
-
-    fireEvent.click(screen.getByRole("button", { name: copy.openFolder }))
-    expect(showItemInFolder).toHaveBeenCalledWith("/data/models/local")
   })
 
-  it("hides import for custom servers and external routers", async () => {
-    setIpc({ selectFile: vi.fn(), showItemInFolder: vi.fn() })
-    getApiServerInfo.mockResolvedValue({ isCustomServer: true })
-    getLocalModels.mockResolvedValue(connected())
-    renderIntegration(true)
-    await openDialog()
-    await screen.findByTestId("local-models-manager")
-    await waitFor(() => expect(getApiServerInfo).toHaveBeenCalled())
-    expect(
-      screen.queryByRole("button", { name: copy.import }),
-    ).not.toBeInTheDocument()
-
-    cleanup()
-    getApiServerInfo.mockResolvedValue({ isCustomServer: false })
+  it("shows the server folder hint for external routers", async () => {
     getLocalModels.mockResolvedValue(
       connected({
         mode: LocalRuntimeMode.EXTERNAL,
@@ -450,8 +395,9 @@ describe("LocalModelsManager", () => {
     renderIntegration(true)
     await openDialog()
     expect(await screen.findByText(copy.externalHint)).toBeInTheDocument()
+    expect(screen.queryByText(copy.folderHint)).not.toBeInTheDocument()
     expect(
-      screen.queryByRole("button", { name: copy.import }),
+      screen.queryByRole("button", { name: /import/i }),
     ).not.toBeInTheDocument()
   })
 

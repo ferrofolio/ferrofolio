@@ -17,23 +17,14 @@ export interface ExternalLoginAPI {
   ): () => void
 }
 
-let mobileLoginAPI: ExternalLoginAPI | null = null
+// No external login window is available in the browser. Only the end-to-end
+// tests register an implementation.
+let externalLoginAPI: ExternalLoginAPI | null = null
 
 export function getExternalLoginAPI(): ExternalLoginAPI | null {
-  if (typeof window !== "undefined" && window.ipcAPI) {
-    return {
-      requestExternalLogin: (id, request) =>
-        window.ipcAPI!.requestExternalLogin(id, request),
-      onCompletedExternalLogin: callback => {
-        window.ipcAPI!.onCompletedExternalLogin(callback)
-        return () => {}
-      },
-    }
-  }
-
-  return mobileLoginAPI
+  return externalLoginAPI
 }
 
-export function setMobileLoginAPI(api: ExternalLoginAPI | null) {
-  mobileLoginAPI = api
+export function setExternalLoginAPI(api: ExternalLoginAPI | null) {
+  externalLoginAPI = api
 }

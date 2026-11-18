@@ -301,7 +301,7 @@ For the frontend use `pnpm`, and `node 24`.
 3. Install the required dependencies:
 
     ```sh
-    pip install -r requirements.txt -r requirements-dev.txt -r requirements-lint.txt -r requirements-packaging.txt
+    pip install -r requirements.txt -r requirements-dev.txt -r requirements-lint.txt
     pip install -r requirements-selenium.txt  # If you want to use Selenium for reCAPTCHA, only for Mintos
     pre-commit install
     ```
@@ -320,21 +320,11 @@ For the frontend use `pnpm`, and `node 24`.
     python ./finanze --port 7592 --data-dir .storage --log-dir .storage/logs --log-level DEBUG --third-party-log-level DEBUG
     ```
 
-    Browser only, connecting to the server running in the first terminal. The default Vite dev URL is
-    http://localhost:5173:
+    The web app connects to the server from the first terminal. The default Vite dev URL is http://localhost:5173:
 
     ```sh
     cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
-    WEB_ONLY=1 VITE_BASE_URL=http://localhost:7592 pnpm dev
-    ```
-
-    Or the Electron desktop app. It starts its own backend on port 7592 with the `python` on your `PATH`, so stop the
-    server in the first terminal and activate the virtual environment from step 2 first:
-
-    ```sh
-    cd ferrofolio/frontend/app   # path of your clone; a new terminal starts outside it
-    source ../../venv/bin/activate
-    pnpm dev
+    VITE_BASE_URL=http://localhost:7592 pnpm dev
     ```
 
 #### Other
