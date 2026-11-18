@@ -187,14 +187,31 @@ if [[ "$podman" == true && -n "${DOCKER_HOST:-}" && -z "${CONTAINER_HOST:-}" ]];
   export CONTAINER_HOST="$DOCKER_HOST"
 fi
 containerfile="scripts/ci-local.Containerfile"
-runner_image="localhost/ferrofolio-ci-runner:$(sha256 "$containerfile" | cut -c1-12)"
+# act can run the jobs for another architecture (--container-architecture); the
+# image is then built for it and tagged apart from the native one.
+architecture=""
+for ((i = 0; i < ${#act_args[@]}; i++)); do
+  case "${act_args[i]}" in
+    --container-architecture) architecture="${act_args[i + 1]:-}" ;;
+    --container-architecture=*) architecture="${act_args[i]#*=}" ;;
+  esac
+done
+runner_tag="$(sha256 "$containerfile" | cut -c1-12)"
+build_platform=()
+if [[ -n "$architecture" ]]; then
+  runner_tag+="-${architecture//\//-}"
+  build_platform=(--platform "$architecture")
+fi
+runner_image="localhost/ferrofolio-ci-runner:$runner_tag"
 if ! "$engine" image inspect "$runner_image" > /dev/null 2>&1; then
   echo "Building the runner image $runner_image"
   if [[ "$podman" == true ]]; then
     # A Docker CLI would send a BuildKit request, which Podman's API does not serve.
-    DOCKER_BUILDKIT=0 "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+    DOCKER_BUILDKIT=0 "$engine" build ${build_platform[@]+"${build_platform[@]}"} \
+      --tag "$runner_image" --file "$containerfile" scripts
   else
-    "$engine" build --tag "$runner_image" --file "$containerfile" scripts
+    "$engine" build ${build_platform[@]+"${build_platform[@]}"} \
+      --tag "$runner_image" --file "$containerfile" scripts
   fi
 fi
 
