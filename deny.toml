@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# cargo-deny configuration (docs/roadmap.md, section 3): every Rust dependency,
+# test dependencies included, must be licensed compatibly with AGPL-3.0 and have no
+# known security advisory. Registry and Git dependencies must come from crates.io.
+# cargo-deny does not check where path dependencies point; they are meant to be the
+# workspace crates only, which review has to ensure.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Unsound advisories count for dependencies of dependencies too, not only direct ones.
+unsound = "all"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# The list below is the policy, not an inventory of current dependencies.
+unused-allowed-license = "allow"
+# Test dependencies are part of the policy too.
+include-dev = true
+# Permissive licences that can be combined with AGPL-3.0. Add a licence only after
+# checking its compatibility.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[licenses.private]
+# The workspace crates themselves are AGPL-3.0-only and not published.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace crates reference each other by path.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

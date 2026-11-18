@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Rust workspace of the Ferrofolio backend. The backend is ported from Python
+# incrementally (docs/roadmap.md, section 5): the `server` binary is the entry point
+# of the container and forwards every route that has not been ported yet to the
+# Python process.
+
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.11.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+repository = "https://github.com/ferrofolio/ferrofolio"
+publish = false
+
+[workspace.dependencies]
+core-domain = { path = "crates/core-domain" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+# Money is never a binary float; converting at the API boundary is explicit.
+float_arithmetic = "deny"
+# No panics outside tests (see .coderabbit.yaml and clippy.toml).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "symbols"

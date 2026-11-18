@@ -32,3 +32,23 @@ replace = 'version = "{new_version}"'
 filename = "finanze/version.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "Cargo.toml"
+search = '''
+[workspace.package]
+version = "{current_version}"'''
+replace = '''
+[workspace.package]
+version = "{new_version}"'''
+
+# Cargo.lock records the version of each workspace crate; keeping it in step lets
+# `cargo build --locked` pass after a bump.
+[[tool.bumpversion.files]]
+filename = "Cargo.lock"
+search = '''
+name = "core-domain"
+version = "{current_version}"'''
+replace = '''
+name = "core-domain"
+version = "{new_version}"'''
