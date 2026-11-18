@@ -44,6 +44,19 @@ def digit_zeros():
     return zeros
 
 
+def non_printable_ranges():
+    ranges = []
+    start = None
+    for code in range(sys.maxunicode + 2):
+        printable = code > sys.maxunicode or chr(code).isprintable()
+        if not printable and start is None:
+            start = code
+        if printable and start is not None:
+            ranges.append((start, code - 1))
+            start = None
+    return ranges
+
+
 def digits_table():
     zeros = digit_zeros()
     items = [f"0x{zero:05X}," for zero in zeros]
@@ -58,8 +71,24 @@ def digits_table():
     )
 
 
+def printable_table():
+    ranges = non_printable_ranges()
+    lines = [f"    (0x{first:05X}, 0x{last:05X})," for first, last in ranges]
+    return (
+        "/// Inclusive ranges of the code points Python 3.14 "
+        f"(Unicode {unicodedata.unidata_version}) does\n"
+        "/// not print in `repr()`: control, format, surrogate, private-use and unassigned\n"
+        "/// characters and all separators except the ASCII space. Generated with\n"
+        "/// `str.isprintable`.\n"
+        f"const NON_PRINTABLE: [(u32, u32); {len(ranges)}] = [\n"
+        + "\n".join(lines)
+        + "\n];"
+    )
+
+
 TABLES = {
     ROOT / "crates/core-domain/src/unicode_digits.rs": digits_table,
+    ROOT / "crates/server/src/python_printable.rs": printable_table,
 }
 
 
