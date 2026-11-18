@@ -63,11 +63,15 @@ fi
 
 # Podman serves the Docker API on a socket of its own; act and the "docker" job
 # inside the runner talk to whichever engine DOCKER_HOST names.
+podman=false
 if [[ -z "${DOCKER_HOST:-}" ]]; then
   podman_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
   if [[ -S "$podman_socket" ]]; then
     export DOCKER_HOST="unix://$podman_socket"
+    podman=true
   fi
+elif [[ "$DOCKER_HOST" == *podman* ]]; then
+  podman=true
 fi
 
 # The runner image: act's Ubuntu image plus what GitHub's runner has preinstalled
@@ -125,6 +129,14 @@ container_options="--volume $git_common_dir:$git_common_dir:ro"
 # when memory runs out.
 container_options+=" --oom-score-adj 1000"
 
+# Podman builds images itself and has no BuildKit API; the Docker CLI in the runner
+# would otherwise start a BuildKit container, which a rootless Podman service cannot
+# run commands in either.
+engine_env=()
+if [[ "$podman" == true ]]; then
+  engine_env=(--env DOCKER_BUILDKIT=0)
+fi
+
 "$act_bin" pull_request \
   --workflows .github/workflows/ci.yml \
   --eventpath "$event" \
@@ -133,4 +145,5 @@ container_options+=" --oom-score-adj 1000"
   --artifact-server-path "$artifacts" \
   --container-options "$container_options" \
   --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env "GIT_CONFIG_VALUE_0=*" \
+  "${engine_env[@]}" \
   "${act_args[@]}"
