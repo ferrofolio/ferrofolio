@@ -84,9 +84,9 @@ the routes that need them (the read paths of phase 4, slice 2, need the position
 
 | Python module | Ported |
 |---|---|
-| `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `public_key.py` | Completely |
+| `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `profitability.py`, `public_key.py` | Completely |
 | `calculations.py`, `loan_calculator.py` | The types of the calculators |
-| `dezimal.py` | See above |
+| `dezimal.py` | See above; `round(value, n)` is `Dezimal::round`, `f"{value:.2f}"` is `Dezimal::to_fixed` |
 | `earnings_expenses.py` | `FlowFrequency` |
 | `external_integration.py` | `ExternalIntegrationId`, `ExternalIntegrationPayload`, `EnabledExternalIntegrations` |
 | `global_position.py` | `InterestType`, `InstallmentFrequency` |
@@ -106,7 +106,8 @@ The port follows Python's types:
   `False`, zero, an empty string or list, or the variant an enum marks `#[default]`, such as `DataSource::Real`)
   comes from a `new` constructor that takes the required fields.
 - Nothing in the domain reads the clock: where Python calls `datetime.now()`, the Rust function takes the time as a
-  parameter. There is no serde in the domain either; mapping to rows and to JSON stays in `infra-db` and `server`.
+  parameter, such as the `today` of `annualized_profitability`. There is no serde in the domain either; mapping to
+  rows and to JSON stays in `infra-db` and `server`.
 
 One difference is known: `crypto_rate_key` changes the case of a symbol or contract address with the standard
 library of each language, and Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the 56 letters added
@@ -114,8 +115,9 @@ in Unicode 17 change case in Rust and stay as they are in Python. No ticker symb
 
 `tests/parity/generate_domain_enum_fixtures.py` writes `domain_enums.json`, every enum of the ported modules with its
 values in order (for a completely ported module every enum it defines, so a new one makes `--check` fail), and
-`domain_cases.json`, inputs and Python's outputs for every function with logic; `crates/core-domain/tests/domain_parity.rs`
-requires Rust to have the same enums and compute the same outputs. CI runs the generator with `--check`.
+`domain_cases.json`, inputs and Python's outputs for every function with logic, with a fixed date where Python
+reads the clock; `crates/core-domain/tests/domain_parity.rs` requires Rust to have the same enums and compute the same
+outputs. CI runs the generator with `--check`.
 
 ## Ported routes
 

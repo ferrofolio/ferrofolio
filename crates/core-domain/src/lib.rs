@@ -21,6 +21,7 @@ pub mod external_integration;
 pub mod fetch_record;
 pub mod global_position;
 pub mod loan_calculator;
+pub mod profitability;
 pub mod public_key;
 pub mod str_enum;
 pub mod unicode_digits;

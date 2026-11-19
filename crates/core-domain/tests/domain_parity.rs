@@ -29,6 +29,8 @@ use core_domain::crypto::{
     AddressSource, CryptoCurrencyType, CryptoFetchResult, CryptoFetchResults,
     CryptoFetchedPosition, CryptoPositionType, CryptoWalletConnectionFailureCode, crypto_rate_key,
 };
+use core_domain::dates::Date;
+use core_domain::datetime::DateTime;
 use core_domain::dezimal::{ArithmeticError, Dezimal};
 use core_domain::earnings_expenses::FlowFrequency;
 use core_domain::entity::{
@@ -36,7 +38,9 @@ use core_domain::entity::{
 };
 use core_domain::external_integration::ExternalIntegrationId;
 use core_domain::fetch_record::DataSource;
+use core_domain::profitability::{ProfitabilityTerms, annualized_profitability};
 use core_domain::public_key::{CoinType, ScriptType};
+use jiff::tz::Offset;
 use serde_json::Value;
 
 const ENUMS: &str = include_str!("fixtures/domain_enums.json");
@@ -85,6 +89,30 @@ fn expected(case: &Value) -> Result<&Value, &str> {
     match case.get("error") {
         Some(error) => Err(text(error)),
         None => Ok(&case["result"]),
+    }
+}
+
+fn optional_date(value: &Value) -> Option<Date> {
+    optional_text(value).map(|text| text.parse().unwrap())
+}
+
+/// An ISO 8601 date and time as `datetime.fromisoformat` reads it: aware with a
+/// trailing `+HH:MM` or `-HH:MM`, naive without.
+fn datetime(text: &str) -> DateTime {
+    let split = text.len().saturating_sub(6);
+    let (civil, offset) = text.split_at(split);
+    if let Some(sign) = offset
+        .chars()
+        .next()
+        .filter(|sign| *sign == '+' || *sign == '-')
+    {
+        let hours: i8 = offset[1..3].parse().unwrap();
+        let minutes: i8 = offset[4..6].parse().unwrap();
+        assert_eq!(minutes, 0, "{text}: only whole hours are supported");
+        let hours = if sign == '-' { -hours } else { hours };
+        DateTime::aware(civil.parse().unwrap(), Offset::constant(hours))
+    } else {
+        DateTime::naive(text.parse().unwrap())
     }
 }
 
@@ -292,5 +320,53 @@ fn adding_crypto_fetch_results() {
             case["name"]
         );
         assert_eq!(sum.map_err(signal), expected, "{}", case["name"]);
+    }
+}
+
+fn places(case: &Value) -> u32 {
+    u32::try_from(case["places"].as_u64().unwrap()).unwrap()
+}
+
+#[test]
+fn rounding_like_python_round() {
+    for case in cases("dezimal_round").as_array().unwrap() {
+        let rounded = dezimal(&case["value"]).round(places(case));
+        // The text too: the result has exactly the requested places.
+        let rounded = rounded.map(|value| value.to_string());
+        let expected = expected(case).map(|value| text(value).to_owned());
+        assert_eq!(rounded.map_err(signal), expected, "{case}");
+    }
+}
+
+#[test]
+fn formatting_with_fixed_places() {
+    for case in cases("dezimal_to_fixed").as_array().unwrap() {
+        assert_eq!(
+            dezimal(&case["value"]).to_fixed(places(case)),
+            text(&case["result"]),
+            "{case}"
+        );
+    }
+}
+
+#[test]
+fn annualized_profitabilities() {
+    let group = cases("annualized_profitability");
+    let today: Date = text(&cases("today")).parse().unwrap();
+    for case in group.as_array().unwrap() {
+        let terms = ProfitabilityTerms {
+            interest_rate: optional_dezimal(&case["interest_rate"]),
+            start_dt: optional_text(&case["start_dt"]).map(datetime),
+            maturity: optional_date(&case["maturity"]),
+            extended_maturity: optional_date(&case["extended_maturity"]),
+            extended_interest_rate: optional_dezimal(&case["extended_interest_rate"]),
+            late_interest_rate: optional_dezimal(&case["late_interest_rate"]),
+        };
+        let result = annualized_profitability(&terms, today);
+        assert_eq!(
+            result.map_err(signal),
+            expected(case).map(dezimal),
+            "{case}"
+        );
     }
 }
