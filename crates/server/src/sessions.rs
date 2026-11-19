@@ -8,11 +8,11 @@
 //! until its remember period has passed.
 //!
 //! The Python backend keeps its own session guard. Rust passes a login on to it,
-//! keeps the token Python answers with as the backend token and gives the client a
-//! token of its own. A request with a valid session reaches Python with the backend
-//! token in place of the client's; every other request reaches Python unchanged, so
-//! Python's guard decides about it as it did before. Clients therefore never hold a
-//! token Python knows.
+//! keeps the token Python answers with as the session's backend token and gives
+//! the client a token of its own. A request with a valid session reaches Python
+//! with that backend token in place of the client's; every other request reaches
+//! Python unchanged, so Python's guard decides about it as it did before. Clients
+//! therefore never hold a token Python knows.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -134,14 +134,20 @@ pub struct LoginAttempt {
 
 type TokenDigest = [u8; 32];
 
+/// A session, under the digest of its token.
+struct Session {
+    /// When it ends, if it does.
+    expires: Option<SystemTime>,
+    /// The `Authorization` value with the backend token of its own login, which
+    /// lasts until Python's logout (`LoginBody`). A session never uses the token
+    /// of a later login: one that Python has ended stays ended there even while
+    /// Rust has not yet learnt of the logout.
+    backend: HeaderValue,
+}
+
 #[derive(Default)]
 struct State {
-    /// The digest of each valid token, with the time its session ends, if it does.
-    sessions: HashMap<TokenDigest, Option<SystemTime>>,
-    /// The `Authorization` value with the backend token of the newest login. Every
-    /// backend token lasts until the logout (`LoginBody`), so any of them serves
-    /// every session.
-    backend: Option<HeaderValue>,
+    sessions: HashMap<TokenDigest, Session>,
     /// How many times a logout has ended the sessions.
     logouts: u64,
 }
@@ -215,8 +221,13 @@ impl Sessions {
         if state.logouts != attempt.logouts {
             return Err(SessionError::LoggedOut);
         }
-        state.sessions.insert(digest(&token), expires);
-        state.backend = Some(authorization);
+        state.sessions.insert(
+            digest(&token),
+            Session {
+                expires,
+                backend: authorization,
+            },
+        );
         Ok(token)
     }
 
@@ -226,7 +237,8 @@ impl Sessions {
     }
 
     /// The `Authorization` value the backend gets in place of the client's: the
-    /// backend token, if the request carries the token of a valid session.
+    /// session's backend token, if the request carries the token of a valid
+    /// session.
     pub fn backend_authorization(&self, headers: &HeaderMap) -> Option<HeaderValue> {
         if !self.settings.enabled {
             return None;
@@ -235,19 +247,18 @@ impl Sessions {
         let token_digest = digest(&token);
         let now = self.clock.now();
         let mut state = self.lock();
-        let expires = *state.sessions.get(&token_digest)?;
-        if expires.is_some_and(|expires| now >= expires) {
+        let session = state.sessions.get(&token_digest)?;
+        if session.expires.is_some_and(|expires| now >= expires) {
             state.sessions.remove(&token_digest);
             return None;
         }
-        state.backend.clone()
+        Some(session.backend.clone())
     }
 
-    /// Ends every session and forgets the backend token, as a logout does.
+    /// Ends every session and forgets their backend tokens, as a logout does.
     pub fn revoke_all(&self) {
         let mut state = self.lock();
         state.sessions.clear();
-        state.backend = None;
         state.logouts = state.logouts.wrapping_add(1);
     }
 
@@ -514,23 +525,22 @@ mod tests {
     }
 
     #[test]
-    fn every_session_reaches_the_backend_with_the_newest_backend_token() {
+    fn every_session_reaches_the_backend_with_its_own_backend_token() {
         let (sessions, _) = sessions(None);
-        let mut tokens = Vec::new();
-        for backend_token in ["first", "second"] {
-            tokens.push(
-                sessions
-                    .start(sessions.login_attempt(), false, backend_token)
-                    .unwrap(),
-            );
-            let expected = format!("Bearer {backend_token}");
-            for token in &tokens {
-                assert_eq!(
-                    sessions.backend_authorization(&bearer(token)).unwrap(),
-                    expected.as_str()
-                );
-            }
-        }
+        let first = sessions
+            .start(sessions.login_attempt(), false, "first")
+            .unwrap();
+        let second = sessions
+            .start(sessions.login_attempt(), false, "second")
+            .unwrap();
+        assert_eq!(
+            sessions.backend_authorization(&bearer(&first)).unwrap(),
+            "Bearer first"
+        );
+        assert_eq!(
+            sessions.backend_authorization(&bearer(&second)).unwrap(),
+            "Bearer second"
+        );
     }
 
     #[test]
