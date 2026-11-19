@@ -644,54 +644,160 @@ async fn the_automatic_login_at_startup_unlocks_the_database() {
     assert!(state.sessions.is_unlocked());
 }
 
+/// Whether Rust can read its database now.
+fn reads(state: &AppState) -> bool {
+    state
+        .sessions
+        .with_database(|database| database.applied_migrations().is_ok())
+        .unwrap_or(false)
+}
+
+/// A gateway logged in as `FIXTURE_USER`, whose database Rust has unlocked.
+async fn unlocked_gateway(url: &str, data: &TempDataDir) -> (AppState, Router) {
+    let mut state = state(url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+    assert!(reads(&state));
+    (state, app)
+}
+
+/// Sends a request that replaces the database and waits until the backend holds it.
+async fn start_replacement(
+    app: &Router,
+    recorded: &Recorded,
+    path: &str,
+) -> tokio::task::JoinHandle<Result<Response, std::convert::Infallible>> {
+    let client = tokio::spawn({
+        let app = app.clone();
+        let request = login_request(path, "{}");
+        async move { app.oneshot(request).await }
+    });
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        recorded.replacement_started.notified(),
+    )
+    .await
+    .expect("the request never reached the backend");
+    client
+}
+
+/// Waits until Rust reads its database again.
+async fn assert_reopens(state: &AppState) {
+    let reopened = async {
+        while !reads(state) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(10), reopened)
+        .await
+        .expect("the database stayed closed after Python answered");
+}
+
 #[tokio::test]
 async fn requests_that_replace_the_database_close_rusts_connection_until_python_answers() {
     let (url, recorded) = fake_backend().await;
     recorded.replacement_waits.store(true, Ordering::SeqCst);
     let data = TempDataDir::new();
-    let mut state = state(&url, SessionSettings::default(), TestClock::new());
-    state.data_dir = Some(data.data_dir());
-    let app = router(state.clone());
-    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
-    assert_eq!(send(&app, request).await.0, StatusCode::OK);
-    let database = state.sessions.database().unwrap();
-    assert!(database.lock().unwrap().current().is_ok());
+    let (state, app) = unlocked_gateway(&url, &data).await;
 
     for (path, client_goes_away) in [
         ("/api/v1/cloud/backup/import", false),
         ("/api/v1/change-password", true),
     ] {
-        let client = tokio::spawn({
-            let app = app.clone();
-            let request = login_request(path, "{}");
-            async move { app.oneshot(request).await }
-        });
-        tokio::time::timeout(
-            Duration::from_secs(10),
-            recorded.replacement_started.notified(),
-        )
-        .await
-        .expect("the request never reached the backend");
-        assert!(database.lock().unwrap().current().is_err(), "{path}");
+        let client = start_replacement(&app, &recorded, path).await;
+        assert!(!reads(&state), "{path}");
         if client_goes_away {
             client.abort();
             assert!(client.await.unwrap_err().is_cancelled());
-            assert!(database.lock().unwrap().current().is_err(), "{path}");
+            assert!(!reads(&state), "{path}");
             recorded.release_replacement.notify_one();
         } else {
             recorded.release_replacement.notify_one();
             let response = client.await.unwrap().unwrap();
             assert_eq!(response.status(), StatusCode::OK);
         }
-        let reopened = async {
-            while database.lock().unwrap().current().is_err() {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        };
-        tokio::time::timeout(Duration::from_secs(10), reopened)
-            .await
-            .expect("the database stayed closed after Python answered");
+        assert_reopens(&state).await;
     }
+}
+
+#[tokio::test]
+async fn a_login_during_a_replacement_opens_the_database_only_after_python_answered() {
+    let (url, recorded) = fake_backend().await;
+    recorded.replacement_waits.store(true, Ordering::SeqCst);
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+
+    let replacement = start_replacement(&app, &recorded, "/api/v1/cloud/backup/import").await;
+    let login = tokio::spawn({
+        let app = app.clone();
+        let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+        async move { app.oneshot(request).await }
+    });
+    // Python has accepted the login, but Rust opens nothing while the import runs.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(!login.is_finished());
+    assert!(!state.sessions.is_unlocked());
+
+    recorded.release_replacement.notify_one();
+    assert_eq!(replacement.await.unwrap().unwrap().status(), StatusCode::OK);
+    let response = tokio::time::timeout(Duration::from_secs(10), login)
+        .await
+        .expect("the login did not finish after the import")
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(reads(&state));
+}
+
+#[tokio::test]
+async fn a_replacement_waits_for_a_reader_of_the_database() {
+    let (url, recorded) = fake_backend().await;
+    let data = TempDataDir::new();
+    let (state, app) = unlocked_gateway(&url, &data).await;
+
+    // A reader holds the database until it is told to finish.
+    let (finish, finished) = std::sync::mpsc::channel::<()>();
+    let (reading, started) = std::sync::mpsc::channel::<()>();
+    let reader = tokio::task::spawn_blocking({
+        let sessions = state.sessions.clone();
+        move || {
+            sessions.with_database(|_| {
+                reading.send(()).unwrap();
+                finished.recv().unwrap();
+            })
+        }
+    });
+    started.recv().unwrap();
+
+    let replacement = tokio::spawn({
+        let app = app.clone();
+        let request = login_request("/api/v1/cloud/backup/import", "{}");
+        async move { app.oneshot(request).await }
+    });
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !recorded
+            .paths()
+            .contains(&"/api/v1/cloud/backup/import".to_owned())
+    );
+
+    finish.send(()).unwrap();
+    assert!(reader.await.unwrap().is_ok());
+    let response = tokio::time::timeout(Duration::from_secs(10), replacement)
+        .await
+        .expect("the import never reached the backend")
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        recorded
+            .paths()
+            .contains(&"/api/v1/cloud/backup/import".to_owned())
+    );
 }
 
 #[tokio::test]

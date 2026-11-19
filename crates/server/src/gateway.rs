@@ -139,11 +139,6 @@ async fn login(
         let message = "Failed to decode JSON object";
         return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
     };
-    let database = if unlocks {
-        open_database(state, login.credentials).await
-    } else {
-        None
-    };
     let token = match state.sessions.start(attempt, remember, &backend_token) {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
@@ -157,8 +152,8 @@ async fn login(
             return refuse(ApiError::Unexpected(message.to_owned()).into_response());
         }
     };
-    if let Some(database) = database {
-        keep_database(state, attempt, database);
+    if unlocks {
+        unlock(state, attempt, login.credentials).await;
     }
     // `jsonify` in Quart: compact JSON and a newline.
     let body = format!("{}\n", json!({ "token": token }));
@@ -172,10 +167,24 @@ async fn login(
     Response::from_parts(parts, Body::from(body))
 }
 
-/// Opens the database of a login the backend has accepted and keeps it.
+/// Opens the database of the user a login names, read-only and with the login's
+/// password, as the backend has just done, and keeps it; the backend owns the
+/// schema and has migrated it before it answered. Without it, the login still
+/// succeeds.
 async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Credentials>) {
-    if let Some(database) = open_database(state, credentials).await {
-        keep_database(state, attempt, database);
+    let (Some(data_dir), Some(credentials)) = (state.data_dir.clone(), credentials) else {
+        return;
+    };
+    let sessions = state.sessions.clone();
+    // Deriving the key takes a while, so it runs on the blocking pool.
+    let unlocked = tokio::task::spawn_blocking(move || {
+        sessions.open_and_unlock(attempt, || UserDatabase::open(&data_dir, credentials))
+    })
+    .await;
+    match unlocked {
+        Ok(Ok(())) => tracing::info!("unlocked the database read-only"),
+        Ok(Err(error)) => tracing::warn!(%error, "a login did not unlock the database for Rust"),
+        Err(error) => tracing::error!(%error, "opening the database did not complete"),
     }
 }
 
@@ -184,36 +193,6 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
 pub async fn unlock_at_startup(state: &AppState, credentials: Credentials) {
     let attempt = state.sessions.login_attempt();
     unlock(state, attempt, Some(credentials)).await;
-}
-
-/// Opens the database of the user a login names, read-only and with the login's
-/// password, as the backend has just done; the backend owns the schema and has
-/// migrated it before it answered. Without it, the login still succeeds, and Rust
-/// counts the data as locked.
-async fn open_database(state: &AppState, credentials: Option<Credentials>) -> Option<UserDatabase> {
-    let data_dir = state.data_dir.clone()?;
-    let credentials = credentials?;
-    // Deriving the key takes a while, so it runs on the blocking pool.
-    let opened =
-        tokio::task::spawn_blocking(move || UserDatabase::open(&data_dir, credentials)).await;
-    match opened {
-        Ok(Ok(database)) => Some(database),
-        Ok(Err(error)) => {
-            tracing::warn!(%error, "a login did not unlock the database for Rust");
-            None
-        }
-        Err(error) => {
-            tracing::error!(%error, "opening the database did not complete");
-            None
-        }
-    }
-}
-
-fn keep_database(state: &AppState, attempt: LoginAttempt, database: UserDatabase) {
-    match state.sessions.unlock(attempt, database) {
-        Ok(()) => tracing::info!("unlocked the database read-only"),
-        Err(error) => tracing::warn!(%error, "a login did not unlock the database for Rust"),
-    }
 }
 
 /// The `token` of `{"token": "..."}`, the answer of a login.
@@ -316,11 +295,7 @@ async fn replace_database(
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
     let replacement = tokio::spawn(async move {
-        let closed = tokio::task::spawn_blocking(move || sessions.close_for_replacement()).await;
-        let Ok(guard) = closed else {
-            tracing::error!("could not close the database before a request that replaces it");
-            return ApiError::Unexpected("Could not close the database".to_owned()).into_response();
-        };
+        let guard = sessions.close_for_replacement().await;
         let response = backend.forward_or_error(request, client_addr).await;
         drop(guard);
         response
