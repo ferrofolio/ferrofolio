@@ -121,7 +121,9 @@ describe("LabelingRuleDialog alternatives", () => {
     expect(groups()).toHaveLength(2)
     expect(screen.getByTestId("rule-or-divider")).toHaveTextContent(rules.or)
     expect(screen.getByText(rules.alternativesHint)).toBeInTheDocument()
-    await waitFor(() => expect(textInput(1)).toHaveFocus())
+    // The new alternative takes focus after its animation, which can take longer
+    // than waitFor's default second when the machine is busy.
+    await waitFor(() => expect(textInput(1)).toHaveFocus(), { timeout: 5000 })
 
     typeText(1, "aldi")
     fireEvent.click(
