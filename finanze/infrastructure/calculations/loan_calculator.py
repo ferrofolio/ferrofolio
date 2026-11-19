@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP
 
 from application.ports.loan_calculator_port import LoanCalculatorPort
@@ -11,17 +11,103 @@ from domain.exception.exceptions import CalculationInputError, MissingFieldsErro
 from domain.global_position import InstallmentFrequency, InterestType
 from domain.loan_calculator import LoanCalculationParams, LoanCalculationResult
 
+# Months per installment of the schedules that follow the calendar; the others have a
+# fixed number of days per installment.
+_MONTHS_PER_INSTALLMENT = {
+    InstallmentFrequency.MONTHLY: 1,
+    InstallmentFrequency.BIMONTHLY: 2,
+    InstallmentFrequency.QUARTERLY: 3,
+    InstallmentFrequency.SEMIANNUAL: 6,
+    InstallmentFrequency.YEARLY: 12,
+}
+_DAYS_PER_INSTALLMENT = {
+    InstallmentFrequency.WEEKLY: 7,
+    InstallmentFrequency.BIWEEKLY: 14,
+    InstallmentFrequency.SEMIMONTHLY: 15,
+}
+
+
+class _Schedule:
+    """The installments of a loan disbursed on `start` and due on `end`.
+
+    Installment i (1, 2, ...) is due i periods after `start`, counted from `start`
+    each time, so a schedule starting on 31 January is due on 28 or 29 February
+    and then on 31 March. The last installment is the last one on or before `end`;
+    a loan that ends before its first period is over has one installment, on `end`.
+    """
+
+    def __init__(self, start: date, end: date, frequency: InstallmentFrequency):
+        self.start = start
+        self.end = end
+        self.frequency = frequency
+        self.count = max(1, self._due_until(end))
+
+    def date(self, index: int) -> date:
+        """The due date of installment `index` (1 to `count`)."""
+        shifted = self._shifted(index)
+        return self.end if shifted is None else min(shifted, self.end)
+
+    def period_start(self, index: int) -> date:
+        """The day the period of installment `index` begins: `start` for the first,
+        the due date of the one before for the others."""
+        return self.start if index == 1 else self.date(index - 1)
+
+    def paid(self, today: date) -> int:
+        """How many installments are due before `today`."""
+        if today > self.date(self.count):
+            return self.count
+        if today <= self.start:
+            return 0
+        return self._due_until(today - timedelta(days=1))
+
+    def next_index(self, today: date) -> int:
+        """The installment due on or after `today`; once all are past, the last one."""
+        return min(self.paid(today) + 1, self.count)
+
+    def _shifted(self, periods: int) -> date | None:
+        """`start` plus that many periods, or None beyond the end of the calendar."""
+        try:
+            months = _MONTHS_PER_INSTALLMENT.get(self.frequency)
+            if months is not None:
+                return self.start + relativedelta(months=periods * months)
+            return self.start + timedelta(
+                days=periods * _DAYS_PER_INSTALLMENT[self.frequency]
+            )
+        except (OverflowError, ValueError):
+            return None
+
+    def _due_until(self, when: date) -> int:
+        """How many installments are due on or before `when`."""
+        if when <= self.start:
+            return 0
+        months = _MONTHS_PER_INSTALLMENT.get(self.frequency)
+        if months is None:
+            return (when - self.start).days // _DAYS_PER_INSTALLMENT[self.frequency]
+        elapsed = relativedelta(when, self.start)
+        count = (elapsed.years * 12 + elapsed.months) // months
+        # A month end shifted into a shorter month can still be due by `when`.
+        while (shifted := self._shifted(count + 1)) is not None and shifted <= when:
+            count += 1
+        return count
+
 
 class LoanCalculator(LoanCalculatorPort):
     """
-    Intelligent loan calculator that supports FIXED, VARIABLE, and MIXED interest types.
+    Loan calculator for FIXED, VARIABLE and MIXED interest types.
 
+    - The loan is disbursed on `start`; installment i is due i periods later, the
+      last one on or before `end` (see `_Schedule`).
     - Rates are annual nominal (0.03 = 3% APR). Period rate = annual / payments_per_year.
     - For VARIABLE and MIXED after the fixed period, annual = interest_rate + euribor_rate.
     - For MIXED during the fixed period, annual = fixed_interest_rate (if provided) or interest_rate.
-    - If principal_outstanding is not provided, it is computed by simulating amortization
-      from the start date using the applicable rates over time.
-    - Current installment payment is computed using remaining term and current annual rate.
+    - The installments due before today are paid; the one due today or next is the
+      current installment. Once every installment is past, the last one stays the
+      current one, and a loan whose outstanding comes from its amount or a tracking
+      reference is repaid: nothing is outstanding and nothing is due. An
+      outstanding given in the request is still owed then and due in full.
+    - If principal_outstanding is not provided, it is computed from the loan amount:
+      in closed form for a fixed rate, otherwise by simulating each paid installment
+      with the rate of its period.
     - Installment interests = current outstanding * current period rate.
     """
 
@@ -33,48 +119,42 @@ class LoanCalculator(LoanCalculatorPort):
         # Normalize params to avoid accidental mutation from callers
         p = replace(params)
 
-        current_annual_rate = self._current_annual_rate(p, today)
+        schedule = _Schedule(p.start, p.end, p.installment_frequency)
         ppy = p.installment_frequency.payments_per_year
-        period_rate = self._to_period_rate(current_annual_rate, ppy)
 
-        next_inst_date = self._next_installment_date(p, today)
+        next_index = schedule.next_index(today)
+        # An installment pays interest for its period at the rate in force when the
+        # period began, here as in the simulation of the paid installments.
+        period_rate = self._to_period_rate(
+            self._annual_rate_at(p, schedule.period_start(next_index)), ppy
+        )
+        next_inst_date = schedule.date(next_index)
+        installments = schedule.count
+        # Installments due before today, the last one included once it is past.
+        paid = schedule.paid(today)
+        if paid == installments:
+            return self._after_the_last_installment(p, period_rate, next_inst_date)
 
-        # Fixed-rate optimization: compute payment from original schedule (constant A)
         if p.interest_type == InterestType.FIXED and p.loan_amount is not None:
-            # Standard schedule: start = first payment date; last payment at 'end'.
-            # Total installments N = periods between start and end.
-            total_periods = max(
-                1, self._count_periods(p.installment_frequency, p.start, p.end)
-            )
-            # Payments made before next_inst_date
-            payments_made = max(
-                0,
-                self._count_periods(p.installment_frequency, p.start, next_inst_date)
-                - 1,
-            )
-
-            A = self._amortizing_payment(p.loan_amount, period_rate, total_periods)
+            A = self._amortizing_payment(p.loan_amount, period_rate, installments)
 
             if (
                 p.tracking_ref_outstanding is not None
                 and p.tracking_ref_date is not None
             ):
-                # Tracked loan: compute outstanding from reference snapshot
-                remaining_from_ref = max(
-                    1,
-                    self._count_periods(
-                        p.installment_frequency, p.tracking_ref_date, p.end
-                    ),
-                )
-                k = self._count_periods(
-                    p.installment_frequency, p.tracking_ref_date, next_inst_date
-                )
+                # Tracked loan: the reference outstanding is the balance after the
+                # installments due before the reference date.
+                ref_paid = schedule.paid(p.tracking_ref_date)
                 outstanding = self._remaining_balance(
-                    p.tracking_ref_outstanding, period_rate, remaining_from_ref, k, A
+                    p.tracking_ref_outstanding,
+                    period_rate,
+                    installments - ref_paid,
+                    max(0, paid - ref_paid),
+                    A,
                 )
             else:
                 outstanding = p.principal_outstanding or self._remaining_balance(
-                    p.loan_amount, period_rate, total_periods, payments_made, A
+                    p.loan_amount, period_rate, installments, paid, A
                 )
 
             interest_part = self._round_cents(outstanding * period_rate)
@@ -85,28 +165,22 @@ class LoanCalculator(LoanCalculatorPort):
                 installment_date=next_inst_date,
             )
 
+        # Installments still to pay, the current one included.
+        remaining_periods = installments - paid
+
         # FIXED-rate with provided outstanding but no loan_amount: recover original A from RB_k
         if (
             p.interest_type == InterestType.FIXED
             and p.loan_amount is None
             and p.principal_outstanding is not None
         ):
-            N = max(1, self._count_periods(p.installment_frequency, p.start, p.end))
-            k = max(
-                0,
-                self._count_periods(p.installment_frequency, p.start, next_inst_date)
-                - 1,
-            )
+            N = installments
+            k = paid
             r = period_rate
             RBk = p.principal_outstanding
 
             if r == Dezimal(0):
-                # No interest: A is simply original principal / N; with only RBk we can't recover P reliably.
-                # Fall back to dividing RBk evenly over remaining periods.
-                remaining_periods = max(
-                    1,
-                    self._count_periods(p.installment_frequency, next_inst_date, p.end),
-                )
+                # Without interest the outstanding is spread over the installments left.
                 period_payment = self._round_cents(RBk / remaining_periods)
                 return LoanCalculationResult(
                     current_installment_payment=period_payment,
@@ -120,11 +194,7 @@ class LoanCalculator(LoanCalculatorPort):
             coeff = factor - (factor - Dezimal(1)) / D
 
             if coeff.val == 0:
-                # Fallback to general formula using remaining periods
-                remaining_periods = max(
-                    1,
-                    self._count_periods(p.installment_frequency, next_inst_date, p.end),
-                )
+                # Fallback to the general formula over the installments left
                 denom = Dezimal(1) - (Dezimal(1) + r) ** (-remaining_periods)
                 period_payment = RBk if denom.val == 0 else RBk * r / denom
                 return LoanCalculationResult(
@@ -143,32 +213,12 @@ class LoanCalculator(LoanCalculatorPort):
                 installment_date=next_inst_date,
             )
 
-        # General path (VARIABLE or MIXED or when loan_amount is missing):
-        # Determine outstanding and remaining periods
+        # General path (VARIABLE or MIXED): the outstanding is given or simulated
+        # over the paid installments, and the current payment spreads it over the
+        # installments left.
         outstanding = p.principal_outstanding
         if outstanding is None:
-            outstanding = self._compute_outstanding_from_start(p, today)
-
-        # Remaining installments from next_inst_date to end.
-        # If we are given principal_outstanding (calculating from now), consider end as exclusive.
-        # If we are calculating from a computed outstanding (from start), include the end installment.
-        if p.principal_outstanding is not None:
-            if p.interest_type in (InterestType.VARIABLE, InterestType.MIXED):
-                remaining_periods = max(
-                    1,
-                    self._count_periods(p.installment_frequency, next_inst_date, p.end)
-                    + 1,
-                )
-            else:
-                remaining_periods = max(
-                    1,
-                    self._count_periods(p.installment_frequency, next_inst_date, p.end),
-                )
-        else:
-            remaining_periods = max(
-                1,
-                self._count_periods(p.installment_frequency, next_inst_date, p.end) + 1,
-            )
+            outstanding = self._compute_outstanding_from_start(p, schedule, paid)
 
         # If there is only interest (edge case), handle gracefully
         if period_rate == Dezimal(0):
@@ -204,6 +254,35 @@ class LoanCalculator(LoanCalculatorPort):
             installment_date=next_inst_date,
         )
 
+    def _after_the_last_installment(
+        self, p: LoanCalculationParams, period_rate: Dezimal, last_date: date
+    ) -> LoanCalculationResult:
+        """A loan whose installments are all past. Computed from its amount or a
+        tracking reference, it is repaid; an outstanding given in the request is
+        still owed and due in full, with the last period's interest."""
+        tracked = (
+            p.interest_type == InterestType.FIXED
+            and p.loan_amount is not None
+            and p.tracking_ref_outstanding is not None
+            and p.tracking_ref_date is not None
+        )
+        outstanding = None if tracked else p.principal_outstanding
+        if outstanding is None:
+            return LoanCalculationResult(
+                current_installment_payment=Dezimal(0),
+                current_installment_interests=Dezimal(0),
+                principal_outstanding=Dezimal(0),
+                installment_date=last_date,
+            )
+        return LoanCalculationResult(
+            current_installment_payment=self._round_cents(
+                outstanding * (Dezimal(1) + period_rate)
+            ),
+            current_installment_interests=self._round_cents(outstanding * period_rate),
+            principal_outstanding=outstanding,
+            installment_date=last_date,
+        )
+
     def _validate(self, params: LoanCalculationParams) -> None:
         missing: list[str] = []
         if params.loan_amount is None and params.principal_outstanding is None:
@@ -226,110 +305,26 @@ class LoanCalculator(LoanCalculatorPort):
         if params.interest_type is InterestType.MIXED and params.fixed_years < 0:
             raise CalculationInputError("fixed_years must not be negative")
 
-    def _current_annual_rate(self, p: LoanCalculationParams, today: date) -> Dezimal:
-        base = p.interest_rate
-        if p.interest_type == InterestType.FIXED:
-            return base
-        if p.interest_type == InterestType.VARIABLE:
-            return base + p.euribor_rate
-        # MIXED
-        assert p.fixed_years is not None
-        # A fixed period beyond the end of the calendar never ends.
-        fixed_end = self._advance(p.start, relativedelta(years=p.fixed_years))
-        if today < fixed_end:
-            return p.fixed_interest_rate if p.fixed_interest_rate is not None else base
-        return base + p.euribor_rate
-
     def _to_period_rate(self, annual: Dezimal, payments_per_year: int) -> Dezimal:
         return annual / payments_per_year
 
-    def _months_between(self, d1: date, d2: date) -> int:
-        if d2 <= d1:
-            return 0
-        rd = relativedelta(d2, d1)
-        return rd.years * 12 + rd.months + (1 if rd.days > 0 else 0)
-
-    def _full_months_between(self, d1: date, d2: date) -> int:
-        if d2 <= d1:
-            return 0
-        rd = relativedelta(d2, d1)
-        return rd.years * 12 + rd.months
-
-    _MONTH_ALIGNED = frozenset(
-        {
-            InstallmentFrequency.MONTHLY,
-            InstallmentFrequency.BIMONTHLY,
-            InstallmentFrequency.QUARTERLY,
-            InstallmentFrequency.SEMIANNUAL,
-            InstallmentFrequency.YEARLY,
-        }
-    )
-
-    def _count_periods(self, freq: InstallmentFrequency, d1: date, d2: date) -> int:
-        """Count the number of full periods of the given frequency between d1 and d2."""
-        if d2 <= d1:
-            return 0
-        if freq in self._MONTH_ALIGNED:
-            return self._full_months_between(d1, d2) * freq.payments_per_year // 12
-        # Day-based schedules have a fixed number of days per period; dividing avoids
-        # stepping past d2, which fails at the end of the calendar.
-        return (d2 - d1).days // self._period_days(freq)
-
-    def _period_days(self, freq: InstallmentFrequency) -> int:
-        return {
-            InstallmentFrequency.WEEKLY: 7,
-            InstallmentFrequency.BIWEEKLY: 14,
-            InstallmentFrequency.SEMIMONTHLY: 15,
-        }[freq]
-
-    @staticmethod
-    def _advance(when: date, step: relativedelta) -> date:
-        """One period later, or the last day of the calendar when that is beyond it."""
-        try:
-            return when + step
-        except (OverflowError, ValueError):
-            return date.max
-
-    def _period_step(self, freq: InstallmentFrequency) -> relativedelta:
-        """Return the relativedelta step corresponding to one payment period."""
-        mapping = {
-            InstallmentFrequency.WEEKLY: relativedelta(weeks=1),
-            InstallmentFrequency.BIWEEKLY: relativedelta(weeks=2),
-            InstallmentFrequency.SEMIMONTHLY: relativedelta(days=15),
-            InstallmentFrequency.MONTHLY: relativedelta(months=1),
-            InstallmentFrequency.BIMONTHLY: relativedelta(months=2),
-            InstallmentFrequency.QUARTERLY: relativedelta(months=3),
-            InstallmentFrequency.SEMIANNUAL: relativedelta(months=6),
-            InstallmentFrequency.YEARLY: relativedelta(years=1),
-        }
-        return mapping.get(freq, relativedelta(months=1))
-
     def _compute_outstanding_from_start(
-        self, p: LoanCalculationParams, today: date
+        self, p: LoanCalculationParams, schedule: _Schedule, paid: int
     ) -> Dezimal:
+        """The outstanding after the `paid` first installments, each computed with
+        the rate in force when its period began."""
         assert p.loan_amount is not None
-        principal = p.loan_amount
-
-        if today <= p.start:
-            return principal
-
+        outstanding = p.loan_amount
         ppy = p.installment_frequency.payments_per_year
-        step = self._period_step(p.installment_frequency)
 
-        # Simulate period-by-period amortization from start up to last payment before today.
-        outstanding = principal
-        current_date = p.start
-
-        while current_date < today and current_date < p.end:
-            annual_rate = self._annual_rate_at(p, current_date)
-            period_rate = self._to_period_rate(annual_rate, ppy)
-
-            # Remaining periods counting from the next due date
-            remaining_periods = max(
-                1, self._count_periods(p.installment_frequency, current_date, p.end)
+        for index in range(1, paid + 1):
+            period_start = schedule.period_start(index)
+            period_rate = self._to_period_rate(
+                self._annual_rate_at(p, period_start), ppy
             )
+            # The installments left, this one and the last one included.
+            remaining_periods = schedule.count - index + 1
 
-            # Payment for this period under current regime
             if period_rate == Dezimal(0):
                 payment = self._round_cents(outstanding / remaining_periods)
                 interest = Dezimal(0)
@@ -340,9 +335,6 @@ class LoanCalculator(LoanCalculatorPort):
 
             principal_paid = payment - interest
             outstanding = max(Dezimal(0), outstanding - principal_paid)
-
-            # step forward by one period
-            current_date = self._advance(current_date, step)
 
             if outstanding == Dezimal(0):
                 break
@@ -357,9 +349,12 @@ class LoanCalculator(LoanCalculatorPort):
             return base + p.euribor_rate  # type: ignore[arg-type]
         # MIXED
         assert p.fixed_years is not None
-        # A fixed period beyond the end of the calendar never ends.
-        fixed_end = self._advance(p.start, relativedelta(years=p.fixed_years))
-        if when < fixed_end:
+        try:
+            fixed_end = p.start + relativedelta(years=p.fixed_years)
+        except (OverflowError, ValueError):
+            # A fixed period beyond the end of the calendar never ends.
+            fixed_end = None
+        if fixed_end is None or when < fixed_end:
             return p.fixed_interest_rate if p.fixed_interest_rate is not None else base
         return base + p.euribor_rate  # type: ignore[arg-type]
 
@@ -395,29 +390,8 @@ class LoanCalculator(LoanCalculatorPort):
         q = value.val.quantize(Dezimal(0.01).val, rounding=ROUND_HALF_UP)
         return Dezimal(q)
 
-    def _next_installment_date(self, p: LoanCalculationParams, today: date) -> date:
-        """Return the next installment date on or after today, capped by end date.
-        Installments are aligned to the start date with the configured frequency.
-        """
-        # If today is before or equal to start, next is start
-        if today <= p.start:
-            return p.start
-
-        # Walk periods until we reach >= today (limit to end date)
-        step = self._period_step(p.installment_frequency)
-        candidate = p.start
-        while candidate < today and candidate < p.end:
-            candidate = self._advance(candidate, step)
-
-        return min(candidate, p.end)
-
     def next_installment_date(
         self, start: date, end: date, frequency: InstallmentFrequency, today: date
     ) -> date:
-        if today <= start:
-            return start
-        step = self._period_step(frequency)
-        candidate = start
-        while candidate < today and candidate < end:
-            candidate = self._advance(candidate, step)
-        return min(candidate, end)
+        schedule = _Schedule(start, end, frequency)
+        return schedule.date(schedule.next_index(today))

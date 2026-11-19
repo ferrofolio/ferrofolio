@@ -196,6 +196,40 @@ class TestSingleLoan:
         assert loan.next_payment_date == result.installment_date
 
     @pytest.mark.asyncio
+    async def test_matured_loan_tracked_from_a_reference_is_settled(self):
+        uc, position_port, manual_data_port, calculator, snapshot_writer = (
+            _build_use_case()
+        )
+        entry_id = uuid4()
+        gpid = uuid4()
+        loan = _make_loan(id=entry_id, maturity=date.today() - timedelta(days=1))
+        position = _make_position(global_position_id=gpid, loans=[loan])
+        data = ManualEntryData(
+            track=True,
+            tracking_ref_outstanding=Dezimal(500),
+            tracking_ref_date=date.today() - timedelta(days=40),
+        )
+        mpd = _make_mpd(entry_id=entry_id, global_position_id=gpid, data=data)
+        repaid = _make_result(
+            payment=Dezimal(0),
+            interests=Dezimal(0),
+            outstanding=Dezimal(0),
+            inst_date=loan.maturity,
+        )
+
+        manual_data_port.get_trackable_loans.return_value = [mpd]
+        position_port.get_by_id.return_value = position
+        calculator.calculate.return_value = repaid
+
+        await uc.execute()
+
+        calculator.calculate.assert_awaited_once()
+        snapshot_writer.write.assert_awaited_once()
+        assert loan.principal_outstanding == Dezimal(0)
+        assert loan.current_installment == Dezimal(0)
+        assert loan.installment_interests == Dezimal(0)
+
+    @pytest.mark.asyncio
     async def test_matured_loan_skipped(self):
         uc, position_port, manual_data_port, calculator, snapshot_writer = (
             _build_use_case()

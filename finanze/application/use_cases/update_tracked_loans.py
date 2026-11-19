@@ -204,12 +204,20 @@ class UpdateTrackedLoansImpl(UpdateTrackedLoans):
 
     async def _recalculate_loan(self, loan: Loan, data: ManualEntryData) -> bool:
         today = date.today()
-        if loan.maturity <= today:
-            return False
-
         is_fixed = loan.interest_type == InterestType.FIXED
         ref_outstanding = data.tracking_ref_outstanding
         ref_date = data.tracking_ref_date
+        # A matured loan keeps its values, except a fixed loan computed from its
+        # tracking reference: the calculator reports it repaid once its last
+        # installment is past, and the snapshot has to record that.
+        from_reference = (
+            is_fixed
+            and loan.loan_amount is not None
+            and ref_outstanding is not None
+            and ref_date is not None
+        )
+        if loan.maturity <= today and not from_reference:
+            return False
 
         params = LoanCalculationParams(
             loan_amount=loan.loan_amount if is_fixed else None,
