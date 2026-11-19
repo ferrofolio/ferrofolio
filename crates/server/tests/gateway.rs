@@ -69,7 +69,13 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 let status = if authorized { "UNLOCKED" } else { "LOCKED" };
                 axum::Json(json!({"status": status, "apiSession": true})).into_response()
             }
-            (Method::POST, "/api/v1/login" | "/api/v1/logi%6E") => {
+            // Spellings that reach Python's login and signup handlers: uvicorn
+            // decodes escapes and Quart collapses leading slashes and uppercases
+            // the method.
+            (
+                method,
+                "/api/v1/login" | "/api/v1/logi%6E" | "//api/v1/login" | "/%2Fapi/v1/signup",
+            ) if method.as_str().eq_ignore_ascii_case("POST") => {
                 axum::Json(json!({"token": VALID_TOKEN})).into_response()
             }
             (_, "/stream") => Response::new(Body::from_stream(gated_chunks(
@@ -269,19 +275,34 @@ async fn streams_backend_responses() {
 async fn token_responses_are_not_cached() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
-    for path in ["/api/v1/login", "/api/v1/logi%6E"] {
+    let post = Method::POST;
+    let lowercase_post = Method::from_bytes(b"post").unwrap();
+    let spellings = [
+        (&post, "/api/v1/login"),
+        (&post, "/api/v1/logi%6E"),
+        (&lowercase_post, "/api/v1/login"),
+        (&post, "//api/v1/login"),
+        (&post, "/%2Fapi/v1/signup"),
+    ];
+    for (method, path) in spellings {
         let (status, headers, _) = send(
             &app,
-            Request::post(path)
+            Request::builder()
+                .method(method.clone())
+                .uri(path)
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(r#"{"username":"u","password":"p"}"#))
                 .unwrap(),
         )
         .await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(headers[header::CACHE_CONTROL], "no-store");
+        assert_eq!(status, StatusCode::OK, "{method} {path}");
+        assert_eq!(
+            headers[header::CACHE_CONTROL],
+            "no-store",
+            "{method} {path}"
+        );
     }
-    assert_eq!(recorded.paths(), ["/api/v1/login", "/api/v1/logi%6E"]);
+    assert_eq!(recorded.paths(), spellings.map(|(_, path)| path.to_owned()));
 
     // Other responses keep the backend's headers.
     let (_, headers, _) = send(
