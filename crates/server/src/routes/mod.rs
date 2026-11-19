@@ -9,6 +9,8 @@
 //! answered by the backend, which keeps the same route.
 
 pub mod calculations;
+pub mod database;
+pub mod settings;
 
 use std::sync::Arc;
 

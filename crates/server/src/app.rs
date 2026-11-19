@@ -15,12 +15,16 @@ use core_app::ports::Clock;
 use core_app::services::loan_calculator::LoanCalculator;
 use core_app::use_cases::calculate_loan::CalculateLoan;
 use core_app::use_cases::calculate_savings::CalculateSavings;
+use core_domain::datetime::DateTime;
+use infra_db::settings::base_config::BaseConfig;
+use jiff::ZonedDateTime;
+use jiff::tz::TimeZone;
 use tokio::sync::Semaphore;
 use tower::ServiceExt;
 
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
-use crate::routes::{self, calculations};
+use crate::routes::{self, calculations, settings};
 use crate::sessions::Sessions;
 use crate::user_data::DataDir;
 
@@ -49,6 +53,11 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
         path: calculations::SAVINGS_PATH,
         mount: |filter| any(forward).on(filter, routes::calculate_savings),
     },
+    PortedRoute {
+        method: Method::GET,
+        path: settings::PATH,
+        mount: |filter| any(forward).on(filter, settings::get_settings),
+    },
 ];
 
 /// Shared state of all handlers.
@@ -61,8 +70,15 @@ pub struct AppState {
     pub data_dir: Option<DataDir>,
     pub calculate_loan: CalculateLoan,
     pub calculate_savings: CalculateSavings,
-    /// Admission of the CPU-bound work of ported routes: one permit per core, so
-    /// that a burst of requests queues instead of filling the blocking thread pool.
+    /// The default settings, with the time the server started as the last change
+    /// of settings that have none stored, as Python takes the time it started.
+    pub settings_base: Arc<BaseConfig>,
+    /// The server's local time zone, in which Python reads times stored without an
+    /// offset.
+    pub time_zone: TimeZone,
+    /// Admission of the blocking work of ported routes, calculations and reads of
+    /// the database: one permit per core, so that a burst of requests queues
+    /// instead of filling the blocking thread pool.
     pub calculations: Arc<Semaphore>,
     /// How long a request waits for a calculation permit
     /// (`routes::CALCULATION_WAIT`).
@@ -79,12 +95,18 @@ pub struct AppState {
 impl AppState {
     pub fn new(backend: Backend, clock: Arc<dyn Clock>, sessions: Sessions) -> Self {
         let cores = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+        let time_zone = TimeZone::system();
+        let started = DateTime::from_zoned(&ZonedDateTime::now().with_time_zone(time_zone.clone()))
+            .map(|started| started.isoformat())
+            .unwrap_or_default();
         AppState {
             backend,
             sessions,
             data_dir: None,
             calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
             calculate_savings: CalculateSavings,
+            settings_base: Arc::new(BaseConfig::new(started)),
+            time_zone,
             calculations: Arc::new(Semaphore::new(cores)),
             calculation_wait: routes::CALCULATION_WAIT,
             body_budget: Arc::new(Semaphore::new(routes::BODY_BUDGET_KIB as usize)),

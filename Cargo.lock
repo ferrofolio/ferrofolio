@@ -233,6 +233,7 @@ version = "0.11.0"
 dependencies = [
  "bnum",
  "jiff",
+ "serde",
  "serde_json",
  "thiserror",
 ]
@@ -476,9 +477,13 @@ dependencies = [
 name = "infra-db"
 version = "0.11.0"
 dependencies = [
+ "core-app",
+ "core-domain",
+ "jiff",
  "rusqlite",
  "serde_json",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]

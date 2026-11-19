@@ -15,7 +15,8 @@ workspace = true
 [dependencies]
 bnum = "0.14.4"
 jiff = "1.0.1"
+# The settings serialize to the shape Python stores and serves them in, and the
+# parameters of a sheet template are any JSON object.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["arbitrary_precision"] }
 thiserror = "2.0.21"
-
-[dev-dependencies]
-serde_json = "1.0.154"

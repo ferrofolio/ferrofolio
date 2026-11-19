@@ -7,10 +7,13 @@
 
 pub mod calculations;
 pub mod dates;
+pub mod datetime;
 pub mod dezimal;
 pub mod exception;
 pub mod global_position;
 pub mod loan_calculator;
+pub mod settings;
+pub mod text;
 pub mod unicode_digits;
 
 pub use dezimal::Dezimal;

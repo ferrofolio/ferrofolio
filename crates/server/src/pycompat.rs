@@ -35,9 +35,7 @@ pub fn truthy(value: &Value) -> bool {
 /// `str.strip()`: Python also strips the separators U+001C to U+001F, which Rust
 /// does not count as whitespace.
 pub fn strip(text: &str) -> &str {
-    text.trim_matches(|character: char| {
-        character.is_whitespace() || ('\u{1C}'..='\u{1F}').contains(&character)
-    })
+    core_domain::text::strip(text)
 }
 
 /// The name of the Python type a JSON value is parsed into.
@@ -442,6 +440,68 @@ fn week_date(
     }
 }
 
+/// The values of `name` in a query string as Quart's `request.args.getlist(name)`
+/// reads them: `parse_qsl(query, keep_blank_values=True,
+/// errors="werkzeug.url_quote")` splits at `&` only, skips empty fields, takes a
+/// field without `=` as an empty value, reads `+` as a space and decodes
+/// percent-escapes as UTF-8, writing bytes that are not UTF-8 as upper-case escapes.
+pub fn query_values(query: &str, name: &str) -> Vec<String> {
+    query
+        .split('&')
+        .filter(|field| !field.is_empty())
+        .filter_map(|field| {
+            let (key, value) = field.split_once('=').unwrap_or((field, ""));
+            (unquote_plus(key) == name).then(|| unquote_plus(value))
+        })
+        .collect()
+}
+
+/// `unquote(text.replace("+", " "), errors="werkzeug.url_quote")`.
+fn unquote_plus(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while let Some(&byte) = bytes.get(index) {
+        // `from_str_radix` would also take a sign, which is no escape.
+        let escaped = (byte == b'%')
+            .then(|| bytes.get(index + 1..index + 3))
+            .flatten()
+            .filter(|digits| digits.iter().all(u8::is_ascii_hexdigit))
+            .and_then(|digits| std::str::from_utf8(digits).ok())
+            .and_then(|digits| u8::from_str_radix(digits, 16).ok());
+        match escaped {
+            Some(value) => {
+                decoded.push(value);
+                index += 3;
+            }
+            None => {
+                decoded.push(if byte == b'+' { b' ' } else { byte });
+                index += 1;
+            }
+        }
+    }
+    let mut text = String::with_capacity(decoded.len());
+    let mut rest = decoded.as_slice();
+    loop {
+        match std::str::from_utf8(rest) {
+            Ok(valid) => {
+                text.push_str(valid);
+                return text;
+            }
+            Err(error) => {
+                let (valid, after) = rest.split_at(error.valid_up_to());
+                text.push_str(std::str::from_utf8(valid).unwrap_or_default());
+                let invalid = error.error_len().unwrap_or(after.len());
+                let (bad, tail) = after.split_at(invalid.min(after.len()));
+                for byte in bad {
+                    text.push_str(&format!("%{byte:02X}"));
+                }
+                rest = tail;
+            }
+        }
+    }
+}
+
 /// `Enum(value)` failure message: `'X' is not a valid InterestType`.
 pub fn invalid_enum(value: &Value, enum_name: &str) -> String {
     format!("{} is not a valid {enum_name}", repr(value))
@@ -452,6 +512,20 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn reads_query_values_like_quart() {
+        let values = |query: &str| query_values(query, "key");
+        assert_eq!(values("key=a&other=b&key=c"), ["a", "c"]);
+        assert_eq!(values("&&key&key=&"), ["", ""]);
+        assert_eq!(values("k%65y=gen+eral%2B"), ["gen eral+"]);
+        assert_eq!(values("key==x;key=y"), ["=x;key=y"]);
+        assert_eq!(
+            values("key=%C3%A9%ff%e2%82x%zz%4"),
+            ["\u{e9}%FF%E2%82x%zz%4"]
+        );
+        assert_eq!(values("KEY=a"), Vec::<String>::new());
+    }
 
     #[test]
     fn validates_bools_like_pydantic() {
