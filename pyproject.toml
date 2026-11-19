@@ -30,3 +30,7 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
+[tool.ruff.lint]
+# The rules ruff 0.15 checks by default. Ruff 0.17 enables many more by default;
+# taking them on is a change of its own, not part of a version update.
+select = ["E4", "E7", "E9", "F"]
