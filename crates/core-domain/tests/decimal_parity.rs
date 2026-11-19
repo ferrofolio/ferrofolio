@@ -31,6 +31,7 @@ fn outcome(case: &Value) -> Result<String, ArithmeticError> {
     let result = match case["op"].as_str().unwrap() {
         "add" => (a + parse(b())).value(),
         "sub" => (a - parse(b())).value(),
+        "neg" => (-a).value(),
         "mul" => (a * parse(b())).value(),
         "div" => (a / parse(b())).value(),
         "pow" => a.powi(b().parse().unwrap()).value(),

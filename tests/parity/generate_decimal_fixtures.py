@@ -54,6 +54,7 @@ def case(op, a, b=None):
     operations = {
         "add": lambda: a + b,
         "sub": lambda: a - b,
+        "neg": lambda: -a,
         "mul": lambda: a * b,
         "div": lambda: a / b,
         "pow": lambda: a**b,
@@ -90,6 +91,16 @@ def cases():
         case("add", Decimal("1E+30"), Decimal("1E-30")),
         case("sub", Decimal("1E+30"), Decimal("1E-30")),
         case("sub", Decimal("1.5"), Decimal("1.5")),
+        # Negation rounds to the context, and the negation of a zero is positive.
+        case("neg", Decimal("1.00499999999999999999999999999")),
+        case("neg", Decimal("-1.5")),
+        case("neg", Decimal("0")),
+        case("neg", Decimal("-0")),
+        case("neg", Decimal("-0.00")),
+        case("neg", Decimal("9.9999999999999999999999999999E+999999")),
+        # Subtraction rounds once: the right operand is not rounded on its own.
+        case("sub", Decimal("1"), Decimal("1.00499999999999999999999999999")),
+        case("sub", Decimal("0"), Decimal("1.00499999999999999999999999999")),
         case("cents", Decimal("2.505")),
         case("cents", Decimal("-2.505")),
         case("cents", Decimal("99999999999999999999999999.99")),
