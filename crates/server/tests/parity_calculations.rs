@@ -15,7 +15,6 @@
 )]
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode, header};
@@ -24,39 +23,40 @@ use core_domain::dates::Date;
 use serde_json::Value;
 use server::app::{AppState, router};
 use server::proxy::Backend;
+use server::sessions::{SessionSettings, Sessions, SystemSessionClock};
 use tower::ServiceExt;
 
 const FIXTURES: &str = include_str!("fixtures/calculations_parity.json");
-const TOKEN: &str = "parity-session-token";
+/// What a client sends once its session has ended with a logout, which locks the
+/// data: a token Rust no longer knows.
+const ENDED_SESSION_TOKEN: &str = "parity-ended-session-token";
 
-/// The gateway with a backend that only answers the session check, as Python does:
-/// `UNLOCKED` when the data is unlocked and the request carries `TOKEN`. The
-/// returned flag sets whether the data is unlocked.
-async fn app(today: Date) -> (axum::Router, Arc<AtomicBool>) {
-    let unlocked = Arc::new(AtomicBool::new(true));
-    let backend_unlocked = Arc::clone(&unlocked);
+/// The gateway with a backend that only accepts logins, and the token of a session
+/// started through it. Ported routes check the session in Rust.
+async fn app(today: Date) -> (axum::Router, String) {
     let backend = axum::Router::new().route(
-        "/api/v1/status",
-        axum::routing::get(move |headers: axum::http::HeaderMap| async move {
-            let authorized = headers
-                .get(header::AUTHORIZATION)
-                .is_some_and(|value| value == format!("Bearer {TOKEN}").as_str());
-            let status = if authorized && backend_unlocked.load(Ordering::SeqCst) {
-                "UNLOCKED"
-            } else {
-                "LOCKED"
-            };
-            axum::Json(serde_json::json!({ "status": status }))
-        }),
+        "/api/v1/login",
+        axum::routing::post(|| async { axum::Json(serde_json::json!({ "token": "backend" })) }),
     );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, backend).await.unwrap() });
+    let sessions = Sessions::new(SessionSettings::default(), Arc::new(SystemSessionClock));
     let app = router(AppState::new(
         Backend::new(&url).unwrap(),
         Arc::new(FixedClock(today)),
+        sessions,
     ));
-    (app, unlocked)
+    let login = Request::post("/api/v1/login")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            r#"{"username":"parity","password":"parity-password"}"#,
+        ))
+        .unwrap();
+    let (status, body) = answer(&app, login).await;
+    assert_eq!(status, StatusCode::OK);
+    let token = body.unwrap()["token"].as_str().unwrap().to_owned();
+    (app, token)
 }
 
 /// Whether a case sends a session token, and whether its data is unlocked, by
@@ -70,7 +70,10 @@ fn session_state(case: &Value) -> (bool, bool) {
     (session, unlocked)
 }
 
-fn request(case: &Value) -> Request<Body> {
+/// The request of a case. A case with a session against unlocked data sends
+/// `token`, the token of a valid session; one against locked data sends the token
+/// of a session that has ended.
+fn request(case: &Value, token: &str) -> Request<Body> {
     let path = case["path"].as_str().unwrap();
     let (content_type, body) = match (case.get("raw_body"), case.get("body")) {
         (Some(raw), _) => {
@@ -92,8 +95,15 @@ fn request(case: &Value) -> Request<Body> {
     };
     let mut builder = Request::post(path).header(header::CONTENT_TYPE, content_type);
     // Cases recorded without a session reach Rust without a token.
-    if session_state(case).0 {
-        builder = builder.header(header::AUTHORIZATION, format!("Bearer {TOKEN}"));
+    match session_state(case) {
+        (true, true) => builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}")),
+        (true, false) => {
+            builder = builder.header(
+                header::AUTHORIZATION,
+                format!("Bearer {ENDED_SESSION_TOKEN}"),
+            );
+        }
+        (false, _) => {}
     }
     builder.body(Body::from(body)).unwrap()
 }
@@ -247,11 +257,10 @@ async fn calculator_routes_answer_like_the_python_backend() {
     let cases = fixtures["cases"].as_array().unwrap();
     assert!(cases.len() > 200, "the fixtures look truncated");
 
-    let (app, unlocked) = app(today).await;
+    let (app, token) = app(today).await;
     let mut failures = Vec::new();
     for case in cases {
-        unlocked.store(session_state(case).1, Ordering::SeqCst);
-        let (status, body) = answer(&app, request(case)).await;
+        let (status, body) = answer(&app, request(case, &token)).await;
         if let Some(message) = difference(case, status, &body) {
             failures.push(message);
         }
@@ -268,7 +277,7 @@ async fn calculator_routes_answer_like_the_python_backend() {
                 object.remove("content_type");
             }
             let (equivalent_status, equivalent_body) =
-                answer(&app, request(&equivalent_case)).await;
+                answer(&app, request(&equivalent_case, &token)).await;
             if let Some(message) = difference(case, equivalent_status, &equivalent_body) {
                 failures.push(format!("equivalent request of {message}"));
             }

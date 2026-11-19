@@ -3,7 +3,8 @@
 //! Routes served by Rust instead of the Python backend.
 //!
 //! Each route keeps its Python behaviour: the session check of the API session
-//! guard, the JSON body handling of Quart and the CORS headers of quart-cors.
+//! guard, made by Rust against its own sessions (`crate::sessions`), the JSON body
+//! handling of Quart and the CORS headers of quart-cors.
 //! Other methods on a ported path, including CORS preflight requests, are still
 //! answered by the backend, which keeps the same route.
 
@@ -37,7 +38,7 @@ pub const MAX_BODY_BYTES: usize = 1024 * 1024;
 /// size. Requests beyond it wait. A body without `Content-Length` reserves the
 /// largest size.
 pub const BODY_BUDGET_KIB: u32 = 64 * 1024;
-/// Time a client has to send the body of a ported route.
+/// Time a client has to send the body of a ported route or a login.
 const BODY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 /// Longest wait for a free calculation permit before a request is refused with
 /// `503`. Within the input limits the slowest calculation, 50 savings scenarios
@@ -63,7 +64,13 @@ async fn native(
     handler: fn(&AppState, &Map<String, Value>) -> Response,
 ) -> Response {
     let has_origin = request.headers().contains_key(ORIGIN);
-    let authorized = match backend_authorizes(&state.backend, request.headers()).await {
+    // Without API sessions only the backend knows whether the data is unlocked.
+    let authorization = if state.sessions.enabled() {
+        Ok(state.sessions.is_valid(request.headers()))
+    } else {
+        backend_authorizes(&state.backend, request.headers()).await
+    };
+    let authorized = match authorization {
         Ok(authorized) => authorized,
         Err(error) => {
             let mut response = error.into_response();
@@ -126,16 +133,22 @@ async fn json_body(
     state: &AppState,
     request: Request,
 ) -> Result<(Option<Bytes>, Option<OwnedSemaphorePermit>), ApiError> {
-    let is_json = request
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(is_json_mimetype);
-    if !is_json {
+    if !is_json(request.headers()) {
         return Ok((None, None));
     }
-    let declared = request
-        .headers()
+    let (parts, body) = request.into_parts();
+    let (bytes, budget) = budgeted_body(state, &parts.headers, body).await?;
+    Ok((Some(bytes), Some(budget)))
+}
+
+/// Reads a body of at most `MAX_BODY_BYTES` within `BODY_TIMEOUT`, with the share
+/// of the body budget it holds; the caller keeps the share while it holds the body.
+pub(crate) async fn budgeted_body(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: Body,
+) -> Result<(Bytes, OwnedSemaphorePermit), ApiError> {
+    let declared = headers
         .get(CONTENT_LENGTH)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<usize>().ok());
@@ -153,8 +166,8 @@ async fn json_body(
             .acquire_many_owned(kib.min(BODY_BUDGET_KIB))
             .await
             .map_err(|_| ApiError::Unexpected("Calculation failed".to_owned()))?;
-        let bytes = read_body(request.into_body(), reserved).await?;
-        Ok::<_, ApiError>((Some(bytes), Some(budget)))
+        let bytes = read_body(body, reserved).await?;
+        Ok::<_, ApiError>((bytes, budget))
     };
     tokio::time::timeout(BODY_TIMEOUT, intake)
         .await
@@ -193,6 +206,14 @@ pub async fn read_body(body: Body, limit: usize) -> Result<axum::body::Bytes, Ap
     })
 }
 
+/// Whether Quart reads the body of a request with these headers as JSON.
+pub(crate) fn is_json(headers: &HeaderMap) -> bool {
+    headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(is_json_mimetype)
+}
+
 /// Quart's `is_json`: `application/json` or `application/*+json`.
 fn is_json_mimetype(content_type: &str) -> bool {
     let mimetype = content_type
@@ -208,7 +229,7 @@ fn is_json_mimetype(content_type: &str) -> bool {
 /// The headers quart-cors adds with `cors(app, expose_headers=["Content-Disposition"])`:
 /// any origin is allowed, and responses to requests without an `Origin` header vary
 /// by origin.
-fn apply_cors(headers: &mut HeaderMap, has_origin: bool) {
+pub(crate) fn apply_cors(headers: &mut HeaderMap, has_origin: bool) {
     if has_origin {
         headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
         headers.insert(

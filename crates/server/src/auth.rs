@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Authorisation of the routes served by Rust.
+//! Authorisation of the routes served by Rust while API sessions are switched off.
 //!
-//! The Python backend issues and checks the API session tokens and stays the only
-//! place that knows them. A ported route asks it with the client's own
-//! `Authorization` header: `GET /api/v1/status` reports `UNLOCKED` exactly when the
-//! data is unlocked and the request is authorised, either by a valid session token
-//! or because API sessions are switched off (`finanze/application/use_cases/
-//! get_status.py`). Rust keeps no session state, so it can never disagree with
-//! Python about a token.
+//! With sessions, Rust checks the session itself (`crate::sessions`). Without them,
+//! a ported route still needs the data to be unlocked, which only the backend
+//! knows. It asks with the client's own `Authorization` header: `GET /api/v1/status`
+//! reports `UNLOCKED` exactly when the data is unlocked and the request is
+//! authorised, which without sessions is every request
+//! (`finanze/application/use_cases/get_status.py`).
 
 use std::time::Duration;
 

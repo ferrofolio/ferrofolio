@@ -21,6 +21,7 @@ use tower::ServiceExt;
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
 use crate::routes::{self, calculations};
+use crate::sessions::Sessions;
 
 /// A route served by Rust: its method and path, and how its handler is mounted.
 #[derive(Debug, Clone)]
@@ -53,6 +54,7 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub backend: Backend,
+    pub sessions: Sessions,
     pub calculate_loan: CalculateLoan,
     pub calculate_savings: CalculateSavings,
     /// Admission of the CPU-bound work of ported routes: one permit per core, so
@@ -67,10 +69,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(backend: Backend, clock: Arc<dyn Clock>) -> Self {
+    pub fn new(backend: Backend, clock: Arc<dyn Clock>, sessions: Sessions) -> Self {
         let cores = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
         AppState {
             backend,
+            sessions,
             calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
             calculate_savings: CalculateSavings,
             calculations: Arc::new(Semaphore::new(cores)),

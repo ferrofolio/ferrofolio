@@ -209,6 +209,47 @@ jobs:
           echo "ported route: $code"
           test "$code" = 401
 
+      - name: Sign up, log in and out through the Rust sessions
+        run: |
+          base=http://127.0.0.1:7592/api/v1
+          # Prints the status code of a request; the remaining arguments go to curl.
+          code() {
+            curl --silent --max-time 60 --output /dev/null --write-out '%{http_code}' "$@"
+          }
+          status_of() {
+            curl --silent --show-error --fail --max-time 10 "$@" "$base/status" | jq --raw-output .status
+          }
+          # The signup unlocks the data; Rust answers with a token of its own.
+          token="$(curl --silent --show-error --fail --max-time 120 --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"username":"ci-user","password":"ci-password-1","remember":true}' \
+            "$base/signup" | jq --raw-output .token)"
+          test "${#token}" = 43
+          auth=(--header "Authorization: Bearer $token")
+          test "$(status_of "${auth[@]}")" = UNLOCKED
+          test "$(status_of)" = LOCKED
+          # A forwarded route: Python's session guard, with the backend token in place
+          # of the client's.
+          test "$(code "$base/settings")" = 401
+          test "$(code "${auth[@]}" "$base/settings")" = 200
+          # A ported route: Rust's session check; the empty body is then refused.
+          loan=(--request POST --header 'Content-Type: application/json' --data '{}' "$base/calculation/loan")
+          test "$(code "${loan[@]}")" = 401
+          test "$(code "${auth[@]}" "${loan[@]}")" = 400
+          # The logout ends the session in both processes.
+          test "$(code --request POST "$base/logout")" = 401
+          test "$(code --request POST "${auth[@]}" "$base/logout")" = 204
+          test "$(status_of "${auth[@]}")" = LOCKED
+          test "$(code "${auth[@]}" "${loan[@]}")" = 401
+          # A login starts a new session.
+          token="$(curl --silent --show-error --fail --max-time 120 --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"username":"ci-user","password":"ci-password-1"}' \
+            "$base/login" | jq --raw-output .token)"
+          auth=(--header "Authorization: Bearer $token")
+          test "$(status_of "${auth[@]}")" = UNLOCKED
+          test "$(code "${auth[@]}" "$base/settings")" = 200
+
       - name: Show the container log
         if: ${{ always() }}
         run: docker logs ferrofolio-ci || true
