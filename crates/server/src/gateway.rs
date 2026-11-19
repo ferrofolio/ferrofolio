@@ -34,7 +34,9 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(addr)| *addr);
-    if let Some(authorization) = state.sessions.backend_authorization(request.headers()) {
+    let backend_authorization = state.sessions.backend_authorization(request.headers());
+    let has_session = backend_authorization.is_some();
+    if let Some(authorization) = backend_authorization {
         request.headers_mut().insert(AUTHORIZATION, authorization);
     }
 
@@ -52,7 +54,7 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
             }
             response
         }
-        Some(SessionRoute::Logout) => logout(&state, request, client_addr).await,
+        Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
         None => state.backend.forward_or_error(request, client_addr).await,
     }
 }
@@ -184,12 +186,24 @@ impl HttpBody for BudgetedBody {
 ///
 /// Python's logout handler revokes its sessions before anything else, so they may
 /// be gone whenever the request reached it: on success, on a server error later in
-/// the handler and when the answer is lost. Only a refusal of its session guard or
-/// its routing, a `3xx` or `4xx`, shows that they are not. A session Rust kept
-/// after Python ended its own would otherwise come back with the backend token of
-/// the next login. The logout runs to its end in a task of its own, so that a
-/// client that goes away cannot stop Rust from ending the sessions.
-async fn logout(state: &AppState, request: Request, client_addr: Option<SocketAddr>) -> Response {
+/// the handler and when the answer is lost or late. A session Rust kept after
+/// Python ended its own would come back with the backend token of the next login.
+///
+/// A logout with a valid session carries the backend token, which Python's guard
+/// accepts, so Rust ends every session before it passes the logout on; a login
+/// still with Python then starts none either. Any other logout ends them once
+/// Python has answered, unless it refused with a `3xx` or `4xx`, as its guard does
+/// while the data is unlocked. The logout runs to its end in a task of its own, so
+/// that a client that goes away cannot stop Rust from ending the sessions.
+async fn logout(
+    state: &AppState,
+    request: Request,
+    has_session: bool,
+    client_addr: Option<SocketAddr>,
+) -> Response {
+    if has_session {
+        state.sessions.revoke_all();
+    }
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
     let logout = tokio::spawn(async move {
