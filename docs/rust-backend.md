@@ -209,7 +209,8 @@ the `migrations` table. SQLCipher is compiled from the sources in `sqlcipher-src
 OpenSSL `libcrypto` for its ciphers, hashes and random numbers: building needs the OpenSSL headers (`libssl-dev` on
 Debian and Ubuntu, which GitHub's runner has), and the binary loads `libcrypto.so.3` at run time, which the server
 image's Python base already contains. Once the server links `infra-db`, the image's Rust build stage installs
-`libssl-dev`. The file format does not depend on the crypto library, which the fixture test proves.
+`libssl-dev`. The fixture test checks that this build opens a database written by the Python backend's `sqlcipher3`
+with the same password.
 
 `tests/parity/generate_db_fixture.py` creates `crates/infra-db/tests/fixtures/data.db` with the Python backend's
 `DBManager`, every migration applied, and records the migrations in `migrations.json`; the Rust test opens the same
