@@ -430,8 +430,8 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 ### Phase 3 – Rust foundation · L
 
 Status: started. The Rust server is the entry point of the server image and forwards to Python; the calculators are
-the first ported routes, ahead of their slice because they need no database. Details and the list of ported routes:
-[rust-backend.md](rust-backend.md).
+the first ported routes, ahead of their slice because they need no database. `infra-db` opens existing databases
+read-only. Details and the list of ported routes: [rust-backend.md](rust-backend.md).
 
 - Workspace, CI, `cargo deny`
 - Parity harness from section 5.1

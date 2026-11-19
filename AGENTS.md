@@ -26,6 +26,7 @@ repositories (`ferrofolio/ios`, later `ferrofolio/android`), not here: do not ad
 | `finanze/infrastructure` | Controllers, repositories, connectors. Implements the ports |
 | `crates/core-domain` | Rust port of `finanze/domain`. Depends on no other workspace crate |
 | `crates/core-app` | Rust port of `finanze/application`. Depends on `core-domain` only, no other crate |
+| `crates/infra-db` | Rust port of `finanze/infrastructure/repository/db`: opens the SQLCipher database |
 | `crates/server` | Rust entry point of the container: ported routes, forwarding of all others to Python |
 | `frontend/app` | React web app |
 | `tests` | Python unit and integration tests |

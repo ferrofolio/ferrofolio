@@ -46,6 +46,7 @@ in Python's place.
 |---|---|---|
 | `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, domain types and errors as they are needed |
 | `core-app` | `finanze/application` | Ports such as `Clock` and `LoanCalculatorPort`, use cases, the loan calculator |
+| `infra-db` | `finanze/infrastructure/repository/db` | Opens the encrypted database read-only and reads its migration state |
 | `server` | `finanze/infrastructure/controller`, `server.py` | Forwarding, process management, ported routes and their session check |
 
 `Dezimal` reproduces Python's `decimal` arithmetic in its default context: every result of `+ - * /` is the exact
@@ -198,6 +199,25 @@ then and due in full, with the last period's interest, also when the loan amount
 | S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
 | S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
 
+## Database
+
+The Python backend keeps each user's data in one SQLCipher database (`data.db` in the user's directory), encrypted
+with the user's password, and owns its schema and migrations until the cutover (roadmap, section 5). `infra-db` opens
+it read-only and unlocks it as Python does, with SQLCipher's `PRAGMA key` and the password as passphrase; a wrong
+password is reported as a decryption error without the password in the message. It reads the applied migrations from
+the `migrations` table. SQLCipher comes from `sqlcipher-src` with libtomcrypt instead of OpenSSL, so the build needs no
+system libraries; the file format is the same, which the fixture test proves.
+
+`tests/parity/generate_db_fixture.py` creates `crates/infra-db/tests/fixtures/data.db` with the Python backend's
+`DBManager`, every migration applied, and records the migrations in `migrations.json`; the Rust test opens the same
+file with the same password. SQLCipher salts every database, so the file differs on each run: `--check`, which CI runs,
+opens it with Python and compares the migrations with `migrations.json` and with the migrations of the current version.
+After adding a migration, regenerate it:
+
+```sh
+python tests/parity/generate_db_fixture.py --output crates/infra-db/tests/fixtures
+```
+
 ## Running locally
 
 ```sh
@@ -209,6 +229,6 @@ virtual environment if needed.
 
 ## Next steps
 
-1. `infra-db`: open existing SQLCipher databases with `rusqlite` and read the migration state.
-2. Phase 4, slice 1: status, login and settings in Rust; Rust then holds the sessions itself.
-3. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.
+1. Phase 4, slice 1: status, login and settings in Rust; Rust then holds the sessions itself and opens the database
+   with `infra-db`.
+2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.
