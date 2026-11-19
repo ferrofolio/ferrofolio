@@ -166,10 +166,10 @@ Each case states what it compares:
 
 ### Known issues of the Python reference
 
-Reviews of the port found weaknesses in the Python calculators. Each is fixed in Python and Rust together, with
-regenerated fixtures, and the pull request points the change out to a maintainer, because it changes money arithmetic
-(AGENTS.md). Until a weakness is fixed, the Rust code reproduces it on purpose, marked with a comment at each place,
-because a ported route keeps its behaviour.
+Reviews of the port found weaknesses in the Python calculators. They are fixed in Python and Rust together, with
+regenerated fixtures, and each pull request points the change out to a maintainer, because it changes money
+arithmetic (AGENTS.md). The savings weaknesses are fixed; until a loan weakness is fixed, the Rust code reproduces it
+on purpose, marked with a comment at each place, because a ported route keeps its behaviour.
 
 #### Fixed
 
@@ -177,8 +177,8 @@ The parity fixtures record the new answers of both implementations.
 
 | | Where | Fix |
 |---|---|---|
-| S1 | Savings, contribution solved for a retirement | The search counted a withdrawal the balance could not cover as paid. It now counts every withdrawal that is not funded in full, widens its upper bound until that bound funds all of them, stops at once when the base alone does, and raises the contribution rounded to cents until the projection funds every withdrawal |
-| S2 | Savings, contribution solved for a target | The solved contribution used the factor of an ordinary annuity, while the projection lets each contribution earn its period's return, so the projection missed the target by about one period's return. It now uses the factor of an annuity due and raises the contribution rounded to cents until the projection reaches the target |
+| S1 | Savings, contribution solved for a retirement | The search counted a withdrawal the balance could not cover as paid. It now counts every withdrawal that is not funded in full, widens its upper bound until that bound funds all of them, stops at once when the base alone does, and returns the smallest contribution in cents with which the projection funds every withdrawal |
+| S2 | Savings, contribution solved for a target | The solved contribution used the factor of an ordinary annuity, while the projection lets each contribution earn its period's return, so the projection missed the target by about one period's return. It now uses the factor of an annuity due and returns the smallest contribution in cents, from that estimate up, with which the projection reaches the target, also when the base alone would reach it without rounding its returns |
 | S3 | Savings, horizon solved for a target | The search applied unrounded returns while the projection rounds them to cents, so the projection could fall short of the target. The search now rounds the same way; a target the rounded returns never reach has no horizon |
 | S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
 | S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
