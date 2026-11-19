@@ -191,7 +191,7 @@ fn is_loopback_host(host: &str) -> bool {
 }
 
 /// Removes hop-by-hop headers, including those listed in `Connection`.
-fn remove_hop_by_hop(headers: &mut HeaderMap) {
+pub(crate) fn remove_hop_by_hop(headers: &mut HeaderMap) {
     let listed: Vec<HeaderName> = headers
         .get_all(header::CONNECTION)
         .iter()

@@ -13,6 +13,11 @@ use std::path::{Path, PathBuf};
 
 use infra_db::{Database, OpenError};
 use serde::Deserialize;
+use serde_json::Value;
+use sha1::{Digest, Sha1};
+
+use crate::sessions::base64_url;
+use crate::{pycompat, pypath};
 
 use crate::sessions::Credentials;
 
@@ -59,7 +64,34 @@ fn expand_home(home: Option<OsString>, rest: &str) -> PathBuf {
 
 #[derive(Deserialize)]
 struct Profiles {
-    profiles: Vec<serde_json::Value>,
+    profiles: Vec<Value>,
+}
+
+/// A user as the status reports them (`finanze/domain/user.py`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct User {
+    /// `User.hashed_id()`.
+    pub id: String,
+    pub username: String,
+    /// `str(user.path.absolute())`: the user's directory.
+    pub path: String,
+}
+
+/// The user who logged in or signed up last, as `profiles.json` records them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LastLogged {
+    /// The profile's `name`.
+    pub username: Value,
+    /// The profile's `guest`, `false` without one: the user still has to register.
+    pub guest: Value,
+}
+
+/// The profile of a user, found by name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Profile {
+    /// The id in the form `str(uuid.UUID(...))` writes.
+    id: String,
+    username: String,
 }
 
 /// The data directory of the backend.
@@ -75,20 +107,84 @@ impl DataDir {
         &self.0
     }
 
-    /// The database of the user with this name: that of the first profile with
-    /// the name, as Python's `get_user` finds it. Python keeps `profiles.json` in
-    /// memory and writes it on every change, so the file is current once Python
-    /// has answered a login or signup.
-    pub fn database_path(&self, username: &str) -> Option<PathBuf> {
+    /// The profile of the user with this name: the first profile with the name, as
+    /// Python's `get_user` finds it. Python keeps `profiles.json` in memory and
+    /// writes it on every change, so the file is current once Python has answered
+    /// a login or signup.
+    pub fn profile(&self, username: &str) -> Option<Profile> {
         let text = std::fs::read(self.0.join("profiles.json")).ok()?;
         let profiles: Profiles = serde_json::from_slice(&text).ok()?;
         let profile = profiles
             .profiles
             .iter()
-            .find(|profile| profile.get("name").and_then(|name| name.as_str()) == Some(username))?;
+            .find(|profile| profile.get("name").and_then(Value::as_str) == Some(username))?;
         let id = canonical_uuid(profile.get("id")?.as_str()?)?;
-        Some(self.0.join("profiles").join(id).join("data.db"))
+        Some(Profile {
+            id,
+            username: username.to_owned(),
+        })
     }
+
+    /// The database of the user with this name (`profile`).
+    pub fn database_path(&self, username: &str) -> Option<PathBuf> {
+        self.profile(username)
+            .map(|profile| self.database_of(&profile))
+    }
+
+    /// The database of a profile, `profiles/<id>/data.db`.
+    pub fn database_of(&self, profile: &Profile) -> PathBuf {
+        self.0.join("profiles").join(&profile.id).join("data.db")
+    }
+
+    /// A profile's user as the status reports them. Python builds the user's
+    /// directory as `os.path.join(<data dir>, "profiles", <id>)` and makes it
+    /// absolute with the working directory, `cwd`, which a relative data directory
+    /// needs.
+    pub fn user_of(&self, profile: &Profile, cwd: Option<&[u8]>) -> Option<User> {
+        let base = pypath::normalize(self.0.as_os_str().as_bytes());
+        let directory = pypath::join(&pypath::join(&base, b"profiles"), profile.id.as_bytes());
+        let path = pypath::absolute(&directory, cwd)?;
+        Some(User {
+            id: hashed_id(&profile.id)?,
+            username: profile.username.clone(),
+            path: String::from_utf8_lossy(&path).into_owned(),
+        })
+    }
+
+    /// The user who logged in or signed up last, as Python's `get_last_user` finds
+    /// them: the profile whose `id` is the `last_logged` of `profiles.json`. Python
+    /// reads the file at startup and fails on a profile it cannot read; Rust reads
+    /// the file, which Python writes on every change, and takes what it finds.
+    pub fn last_logged(&self) -> Option<LastLogged> {
+        let text = std::fs::read(self.0.join("profiles.json")).ok()?;
+        let data: Value = serde_json::from_slice(&text).ok()?;
+        let last = data.get("last_logged")?;
+        if !pycompat::truthy(last) {
+            return None;
+        }
+        let profile = data
+            .get("profiles")?
+            .as_array()?
+            .iter()
+            .find(|profile| profile.get("id") == Some(last))?;
+        Some(LastLogged {
+            username: profile.get("name").cloned().unwrap_or(Value::Null),
+            guest: profile.get("guest").cloned().unwrap_or(Value::Bool(false)),
+        })
+    }
+}
+
+/// `User.hashed_id()`: the first 10 bytes of the SHA-1 digest of the id's 16 bytes,
+/// in URL-safe Base64 without padding, with `-` and `_` replaced by `a` and `z`.
+fn hashed_id(canonical: &str) -> Option<String> {
+    let digits: Vec<u8> = canonical.bytes().filter(|byte| *byte != b'-').collect();
+    let bytes = digits
+        .chunks(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    let digest = Sha1::digest(&bytes);
+    let encoded = base64_url(digest.get(..10)?);
+    Some(encoded.replace('-', "a").replace('_', "z"))
 }
 
 /// Why a user's database could not be opened.
@@ -149,6 +245,11 @@ impl UserDatabase {
         let path = data_dir
             .database_path(&credentials.username)
             .ok_or(UnlockError::NoProfile)?;
+        Self::open_at(path, credentials)
+    }
+
+    /// Opens the database at `path` with the credentials.
+    pub fn open_at(path: PathBuf, credentials: Credentials) -> Result<Self, UnlockError> {
         let connection = connect(&path, &credentials.password)?;
         Ok(UserDatabase {
             connection: Some(connection),
@@ -305,5 +406,99 @@ mod tests {
         assert_eq!(data_dir.database_path("anna"), None);
         std::fs::remove_dir_all(&directory).unwrap();
         assert_eq!(data_dir.database_path("anna"), None);
+    }
+
+    #[test]
+    fn hashes_ids_like_python() {
+        assert_eq!(
+            hashed_id("0d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7b").as_deref(),
+            Some("pzYaT1SJsVifVQ")
+        );
+        assert_eq!(
+            hashed_id("00000000-0000-0000-0000-00000000000f").as_deref(),
+            Some("LDWeSTzmV8uBag")
+        );
+        assert_eq!(
+            hashed_id("00000000-0000-0000-0000-000000000000").as_deref(),
+            Some("4SnyfFEDvFzESw")
+        );
+    }
+
+    #[test]
+    fn reports_users_with_the_directory_python_builds() {
+        let profile = Profile {
+            id: "0d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7b".to_owned(),
+            username: "anna".to_owned(),
+        };
+        let user = |data_dir: &str, cwd: Option<&[u8]>| {
+            DataDir::new(PathBuf::from(data_dir))
+                .user_of(&profile, cwd)
+                .map(|user| user.path)
+        };
+        let id = &profile.id;
+        let cwd = Some(b"/srv".as_slice());
+        assert_eq!(user("/data", None), Some(format!("/data/profiles/{id}")));
+        assert_eq!(
+            user("/data/./x/../y/", None),
+            Some(format!("/data/x/../y/profiles/{id}"))
+        );
+        assert_eq!(user("//data", None), Some(format!("//data/profiles/{id}")));
+        assert_eq!(user("data", cwd), Some(format!("/srv/data/profiles/{id}")));
+        assert_eq!(user("", cwd), Some(format!("/srv/profiles/{id}")));
+        assert_eq!(user("data", None), None);
+        let anna = DataDir::new(PathBuf::from("/data"))
+            .user_of(&profile, None)
+            .unwrap();
+        assert_eq!(anna.id, "pzYaT1SJsVifVQ");
+        assert_eq!(anna.username, "anna");
+    }
+
+    #[test]
+    fn finds_the_last_logged_user_by_the_id_python_wrote() {
+        let directory =
+            std::env::temp_dir().join(format!("ferrofolio-last-logged-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let data_dir = DataDir::new(directory.clone());
+        let last = |profiles: Value| {
+            std::fs::write(directory.join("profiles.json"), profiles.to_string()).unwrap();
+            data_dir.last_logged()
+        };
+        let id = "0d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7b";
+        assert_eq!(
+            last(serde_json::json!({"last_logged": id, "profiles": [
+                {"id": "11111111-1111-1111-1111-111111111111", "name": "other"},
+                {"id": id, "name": "anna", "guest": true},
+            ]})),
+            Some(LastLogged {
+                username: Value::from("anna"),
+                guest: Value::Bool(true),
+            })
+        );
+        assert_eq!(
+            last(serde_json::json!({"last_logged": id, "profiles": [{"id": id, "name": "anna"}]})),
+            Some(LastLogged {
+                username: Value::from("anna"),
+                guest: Value::Bool(false),
+            })
+        );
+        // The ids are compared as Python wrote them, not as UUIDs.
+        assert_eq!(
+            last(serde_json::json!({"last_logged": id, "profiles": [
+                {"id": id.to_uppercase(), "name": "anna"},
+            ]})),
+            None
+        );
+        assert_eq!(
+            last(
+                serde_json::json!({"last_logged": null, "profiles": [{"id": id, "name": "anna"}]})
+            ),
+            None
+        );
+        assert_eq!(
+            last(serde_json::json!({"last_logged": "", "profiles": [{"id": "", "name": "anna"}]})),
+            None
+        );
+        std::fs::remove_dir_all(&directory).unwrap();
+        assert_eq!(data_dir.last_logged(), None);
     }
 }

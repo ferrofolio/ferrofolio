@@ -9,6 +9,7 @@
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::os::unix::ffi::OsStringExt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -25,7 +26,7 @@ use crate::app::AppState;
 use crate::error::ApiError;
 use crate::routes::{apply_cors, budgeted_body, is_json};
 use crate::sessions::{Credentials, LoginAttempt, LoginBody, SessionError};
-use crate::user_data::UserDatabase;
+use crate::user_data::{User, UserDatabase};
 
 /// Largest login response Rust reads; Python's carries a token of 43 characters.
 const TOKEN_RESPONSE_LIMIT: usize = 64 * 1024;
@@ -80,8 +81,15 @@ async fn login(
         .headers
         .insert(CONTENT_LENGTH, HeaderValue::from(login.forwarded.len()));
     let attempt = state.sessions.login_attempt();
+    let LoginBody {
+        forwarded,
+        remember,
+        credentials,
+        username,
+        guest,
+    } = login;
     let body = Body::new(BudgetedBody {
-        data: Some(login.forwarded),
+        data: Some(forwarded),
         budget: Some(budget),
     });
     let response = match state
@@ -92,35 +100,40 @@ async fn login(
         Ok(response) => response,
         Err(error) => return refuse(error.into_response()),
     };
+    // Without API sessions Python refuses a login while the data is unlocked with
+    // 409; it may have been unlocked without a login Rust saw, by the automatic
+    // login at startup or a guest's backup import. The password is checked by
+    // opening the database.
+    if response.status() == StatusCode::CONFLICT && !state.sessions.enabled() && !signup {
+        unlock(state, attempt, credentials).await;
+        return response;
+    }
+    if !matches!(response.status(), StatusCode::OK | StatusCode::NO_CONTENT) {
+        return response;
+    }
     // A guest's signup leaves the data locked; every other login or signup the
-    // backend accepts has unlocked it.
-    let unlocks = !(signup && login.guest);
-    match response.status() {
-        StatusCode::OK if state.sessions.enabled() => {}
-        // Without a token: the backend runs without API sessions, a login running
-        // at the same time has unlocked the data already, or a guest signed up.
-        // Without API sessions Python refuses a login while the data is unlocked
-        // with 409; it may have been unlocked without a login Rust saw, by the
-        // automatic login at startup or a guest's backup import. The password is
-        // checked by opening the database.
-        StatusCode::CONFLICT if !state.sessions.enabled() && !signup => {
-            unlock(state, attempt, login.credentials).await;
-            return response;
+    // backend accepts has unlocked it. Python holds the named user from now on,
+    // which the status reports; the database for Rust is opened separately, under
+    // the replacement lock, so that it never meets a concurrent replacement.
+    let unlocks = !(signup && guest);
+    let user = read_user(state, username).await;
+    if let Err(error) = state.sessions.accept_login(attempt, unlocks, user) {
+        tracing::warn!(%error, "a login did not record Python's user and lock state");
+    }
+    if unlocks {
+        unlock(state, attempt, credentials).await;
+    }
+    // Without a token: the backend runs without API sessions, a login running at
+    // the same time has unlocked the data already, or a guest signed up.
+    if response.status() == StatusCode::NO_CONTENT || !state.sessions.enabled() {
+        let mut response = response;
+        if response.status() == StatusCode::OK {
+            // The response may carry a session token, which no cache may store.
+            response
+                .headers_mut()
+                .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
         }
-        StatusCode::OK | StatusCode::NO_CONTENT => {
-            if unlocks {
-                unlock(state, attempt, login.credentials).await;
-            }
-            let mut response = response;
-            if response.status() == StatusCode::OK {
-                // The response may carry a session token, which no cache may store.
-                response
-                    .headers_mut()
-                    .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
-            }
-            return response;
-        }
-        _ => return response,
+        return response;
     }
 
     let (mut parts, body) = response.into_parts();
@@ -135,17 +148,11 @@ async fn login(
     };
     // Without the rewritten body the backend token may expire before the session
     // would, so a body Rust cannot read starts none.
-    let Some(remember) = login.remember else {
+    let Some(remember) = remember else {
         tracing::warn!("the backend accepted a login body Rust cannot read");
         let message = "Failed to decode JSON object";
         return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
     };
-    // Best effort, and before the session starts: a logout that overtakes the
-    // login ends the sessions, and `start` then refuses the login instead of
-    // answering with a token the logout has revoked already.
-    if unlocks {
-        unlock(state, attempt, login.credentials).await;
-    }
     let token = match state.sessions.start(attempt, remember, &backend_token) {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
@@ -192,10 +199,33 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
     }
 }
 
-/// Unlocks the database for Rust with the credentials of Python's automatic login
-/// at startup (`USERNAME` and `PASSWORD`), once Python has logged in with them.
+/// The user a login or signup names, as Python's `DBManager` holds them once it has
+/// accepted the request: the first profile with that name in `profiles.json`.
+/// Reading the file takes a while, so it runs on the blocking pool.
+async fn read_user(state: &AppState, username: Option<String>) -> Option<User> {
+    let (Some(data_dir), Some(username)) = (state.data_dir.clone(), username) else {
+        return None;
+    };
+    tokio::task::spawn_blocking(move || {
+        let profile = data_dir.profile(&username)?;
+        let cwd = std::env::current_dir()
+            .ok()
+            .map(|directory| directory.into_os_string().into_vec());
+        data_dir.user_of(&profile, cwd.as_deref())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Unlocks the data for Rust as Python's automatic login at startup (`USERNAME`
+/// and `PASSWORD`) did, once Python has logged in with them.
 pub async fn unlock_at_startup(state: &AppState, credentials: Credentials) {
     let attempt = state.sessions.login_attempt();
+    let user = read_user(state, Some(credentials.username.clone())).await;
+    if let Err(error) = state.sessions.accept_login(attempt, true, user) {
+        tracing::warn!(%error, "the automatic login did not record Python's user and lock state");
+    }
     unlock(state, attempt, Some(credentials)).await;
 }
 

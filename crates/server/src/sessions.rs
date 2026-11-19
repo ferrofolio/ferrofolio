@@ -15,7 +15,8 @@
 //! therefore never hold a token Python knows.
 //!
 //! A login Python accepts also unlocks the user's database for Rust, read-only, and
-//! the logout that ends the sessions closes it again.
+//! the logout that ends the sessions closes it again. Rust follows which user
+//! Python holds and whether its data is unlocked, as the status reports them.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -31,7 +32,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::pycompat;
-use crate::user_data::{UnlockError, UserDatabase};
+use crate::user_data::{UnlockError, User, UserDatabase};
 use infra_db::Database;
 use tokio::sync::{OwnedRwLockWriteGuard, RwLock};
 
@@ -177,6 +178,13 @@ struct State {
     logouts: u64,
     /// The database of the last login, while the data is unlocked.
     database: Option<OpenDatabase>,
+    /// Whether Python has unlocked the data: it accepted a login or signup that
+    /// was not a guest's, and no logout has ended the sessions since. Rust may
+    /// still have no database, if it could not open it.
+    unlocked: bool,
+    /// The user Python holds (`DBManager.get_user`): that of the last login or
+    /// signup it accepted, a guest's included, until a logout locks the data.
+    user: Option<User>,
 }
 
 /// The sessions of the API. Clones share them.
@@ -299,19 +307,13 @@ impl Sessions {
             return None;
         }
         let token = bearer_token(headers)?;
-        let token_digest = digest(&token);
         let now = self.clock.now();
-        let mut state = self.lock();
-        let session = state.sessions.get(&token_digest)?;
-        if session.expires.is_some_and(|expires| now >= expires) {
-            state.sessions.remove(&token_digest);
-            return None;
-        }
-        Some(session.backend.clone())
+        valid_session(&mut self.lock(), &token, now)
     }
 
     /// Keeps the database a login opened, unless a logout has ended the sessions
-    /// since the login reached Rust, which may have locked the data again.
+    /// since the login reached Rust, which may have locked the data again. Python's
+    /// user and lock state stay as they are: Python had unlocked the data already.
     fn unlock(&self, attempt: LoginAttempt, database: UserDatabase) -> Result<(), SessionError> {
         let mut state = self.lock();
         if state.logouts != attempt.logouts {
@@ -319,6 +321,56 @@ impl Sessions {
         }
         state.database = Some(Arc::new(Mutex::new(database)));
         Ok(())
+    }
+
+    /// Records a login or signup the backend has accepted, as Python's `DBManager`
+    /// does. A guest's signup only sets Python's user (`unlocks` false). Any other
+    /// unlocks the data with the login's user, if Rust knows it, unless a logout
+    /// has ended the sessions since the login reached Rust, which may have locked
+    /// the data again. The database Rust opens for the login is kept separately
+    /// (`open_and_unlock`), under the replacement lock.
+    pub fn accept_login(
+        &self,
+        attempt: LoginAttempt,
+        unlocks: bool,
+        user: Option<User>,
+    ) -> Result<(), SessionError> {
+        let mut state = self.lock();
+        if !unlocks {
+            // Python only signs a guest up while the data is locked, which a
+            // logout leaves as it is.
+            state.user = user;
+            return Ok(());
+        }
+        if state.logouts != attempt.logouts {
+            return Err(SessionError::LoggedOut);
+        }
+        state.unlocked = true;
+        // A login whose username Rust cannot read leaves Python's user to Python;
+        // without a session it shows to nobody.
+        if user.is_some() {
+            state.user = user;
+        }
+        Ok(())
+    }
+
+    /// What the status reports for a request, as Python's `GetStatus` decides:
+    /// whether the data is unlocked, which it is for a request with a valid
+    /// session, and the user, whom a request with a valid session learns and,
+    /// while the data is locked, anyone. Without API sessions only Python knows
+    /// whether the data is unlocked, as it also unlocks and locks it without a
+    /// login Rust sees, so there is no answer.
+    pub fn status(&self, headers: &HeaderMap) -> Option<(bool, Option<User>)> {
+        if !self.settings.enabled {
+            return None;
+        }
+        let now = self.clock.now();
+        let mut state = self.lock();
+        let valid = bearer_token(headers)
+            .and_then(|token| valid_session(&mut state, &token, now))
+            .is_some();
+        let authorized = valid || !state.unlocked;
+        Some((valid, state.user.clone().filter(|_| authorized)))
     }
 
     /// Whether a login has unlocked the data for Rust since the last logout.
@@ -393,11 +445,16 @@ impl Sessions {
     }
 
     /// Ends every session, forgets their backend tokens and closes the database, as
-    /// a logout does.
+    /// a logout does. Python forgets its user only when the logout locks the data,
+    /// so a guest's stays.
     pub fn revoke_all(&self) {
         let mut state = self.lock();
         state.sessions.clear();
         state.database = None;
+        if state.unlocked {
+            state.user = None;
+        }
+        state.unlocked = false;
         state.logouts = state.logouts.wrapping_add(1);
     }
 
@@ -406,6 +463,18 @@ impl Sessions {
         // single insert, removal or assignment.
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+/// The backend token of the session with this client token, if it is valid at
+/// `now`. An expired session is removed.
+fn valid_session(state: &mut State, token: &str, now: SystemTime) -> Option<HeaderValue> {
+    let token_digest = digest(token);
+    let session = state.sessions.get(&token_digest)?;
+    if session.expires.is_some_and(|expires| now >= expires) {
+        state.sessions.remove(&token_digest);
+        return None;
+    }
+    Some(session.backend.clone())
 }
 
 /// The session token of a request as Python's session guard reads it: the
@@ -448,6 +517,9 @@ pub struct LoginBody {
     pub remember: Option<bool>,
     /// The username and password, if the body is a JSON object that has both.
     pub credentials: Option<Credentials>,
+    /// The username, if the body is a JSON object that has one; a guest signs up
+    /// without a password.
+    pub username: Option<String>,
     /// Whether a signup is a guest's, which leaves the data locked.
     pub guest: bool,
 }
@@ -481,20 +553,23 @@ impl LoginBody {
     /// Without API sessions there is no token to ask for, and the body goes on
     /// unchanged (`ask_lasting` false).
     pub fn new(body: Bytes, is_json: bool, ask_lasting: bool) -> Self {
-        let unchanged = |body, credentials, guest| LoginBody {
+        let unchanged = |body, credentials, username, guest| LoginBody {
             forwarded: body,
             remember: None,
             credentials,
+            username,
             guest,
         };
         if !is_json {
-            return unchanged(body, None, false);
+            return unchanged(body, None, None, false);
         }
         let Ok(Value::Object(fields)) = serde_json::from_slice::<Value>(&body) else {
-            return unchanged(body, None, false);
+            return unchanged(body, None, None, false);
         };
         let text = |key: &str| fields.get(key).and_then(Value::as_str).map(str::to_owned);
-        let credentials = text("username")
+        let username = text("username");
+        let credentials = username
+            .clone()
             .zip(text("password"))
             .map(|(username, password)| Credentials { username, password });
         // `LoginRequest.guest` is a pydantic `bool`; a value it rejects fails the
@@ -506,7 +581,7 @@ impl LoginBody {
         // serde_json allows only whitespace after the object.
         let end = body.iter().rposition(|byte| *byte == b'}');
         let Some(end) = end.filter(|_| ask_lasting) else {
-            return unchanged(body, credentials, guest);
+            return unchanged(body, credentials, username, guest);
         };
         let member: &[u8] = if fields.is_empty() {
             br#""remember":false"#
@@ -518,6 +593,7 @@ impl LoginBody {
             forwarded: Bytes::from([head, member, tail].concat()),
             remember: Some(fields.get("remember").is_some_and(pycompat::truthy)),
             credentials,
+            username,
             guest,
         }
     }
@@ -535,7 +611,7 @@ fn digest(token: &str) -> TokenDigest {
 }
 
 /// URL-safe Base64 without padding (RFC 4648, section 5).
-fn base64_url(bytes: &[u8]) -> String {
+pub(crate) fn base64_url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -772,6 +848,82 @@ mod tests {
             sessions.backend_authorization(&bearer(&later)).unwrap(),
             "Bearer third"
         );
+    }
+
+    fn user(name: &str) -> User {
+        User {
+            id: format!("{name}-id"),
+            username: name.to_owned(),
+            path: format!("/data/profiles/{name}"),
+        }
+    }
+
+    #[test]
+    fn the_status_reports_the_user_to_sessions_or_while_the_data_is_locked() {
+        let (sessions, _) = sessions(None);
+        assert_eq!(sessions.status(&HeaderMap::new()), Some((false, None)));
+
+        // A guest's signup sets the user without unlocking the data, and a logout
+        // while the data is locked keeps it.
+        let attempt = sessions.login_attempt();
+        sessions
+            .accept_login(attempt, false, Some(user("gast")))
+            .unwrap();
+        assert_eq!(
+            sessions.status(&HeaderMap::new()),
+            Some((false, Some(user("gast"))))
+        );
+        sessions.revoke_all();
+        assert_eq!(
+            sessions.status(&HeaderMap::new()),
+            Some((false, Some(user("gast"))))
+        );
+
+        let attempt = sessions.login_attempt();
+        sessions
+            .accept_login(attempt, true, Some(user("anna")))
+            .unwrap();
+        let token = sessions.start(attempt, false, "backend").unwrap();
+        assert_eq!(
+            sessions.status(&bearer(&token)),
+            Some((true, Some(user("anna"))))
+        );
+        // Others learn neither the lock state nor the user while it is unlocked.
+        assert_eq!(sessions.status(&bearer("unknown")), Some((false, None)));
+        assert_eq!(sessions.status(&HeaderMap::new()), Some((false, None)));
+        // Without a database Rust has not unlocked the data for ported routes.
+        assert!(!sessions.is_unlocked());
+
+        // A logout that locks the data forgets the user.
+        sessions.revoke_all();
+        assert_eq!(sessions.status(&bearer(&token)), Some((false, None)));
+    }
+
+    #[test]
+    fn a_login_that_a_logout_overtook_unlocks_nothing() {
+        let (sessions, _) = sessions(None);
+        let attempt = sessions.login_attempt();
+        sessions.revoke_all();
+        assert!(matches!(
+            sessions.accept_login(attempt, true, Some(user("anna"))),
+            Err(SessionError::LoggedOut)
+        ));
+        assert_eq!(sessions.status(&HeaderMap::new()), Some((false, None)));
+    }
+
+    #[test]
+    fn without_sessions_the_status_is_left_to_python() {
+        let clock = Arc::new(TestClock(Mutex::new(SystemTime::UNIX_EPOCH)));
+        let settings = SessionSettings {
+            enabled: false,
+            remember_ttl: None,
+        };
+        let sessions = Sessions::new(settings, clock);
+        let attempt = sessions.login_attempt();
+        sessions
+            .accept_login(attempt, true, Some(user("anna")))
+            .unwrap();
+        assert_eq!(sessions.status(&HeaderMap::new()), None);
     }
 
     #[test]

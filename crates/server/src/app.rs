@@ -20,6 +20,7 @@ use tower::ServiceExt;
 
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
+use crate::routes::status::{self, StatusConfig};
 use crate::routes::{self, calculations};
 use crate::sessions::Sessions;
 use crate::user_data::DataDir;
@@ -49,6 +50,17 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
         path: calculations::SAVINGS_PATH,
         mount: |filter| any(forward).on(filter, routes::calculate_savings),
     },
+    // axum would answer `HEAD` with the `GET` handler; it goes to the backend
+    // like every other method.
+    PortedRoute {
+        method: Method::GET,
+        path: status::PATH,
+        mount: |filter| {
+            any(forward)
+                .on(filter, status::status)
+                .on(MethodFilter::HEAD, forward)
+        },
+    },
 ];
 
 /// Shared state of all handlers.
@@ -59,6 +71,9 @@ pub struct AppState {
     /// The data directory, where a login finds the user's database. Without it,
     /// logins unlock no database for Rust.
     pub data_dir: Option<DataDir>,
+    /// What the status reports besides the lock state. Without it, the backend
+    /// answers the status.
+    pub status: Option<Arc<StatusConfig>>,
     pub calculate_loan: CalculateLoan,
     pub calculate_savings: CalculateSavings,
     /// Admission of the CPU-bound work of ported routes: one permit per core, so
@@ -79,6 +94,7 @@ impl AppState {
             backend,
             sessions,
             data_dir: None,
+            status: None,
             calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
             calculate_savings: CalculateSavings,
             calculations: Arc::new(Semaphore::new(cores)),

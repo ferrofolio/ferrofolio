@@ -132,6 +132,9 @@ jobs:
       - name: Check the Rust parity fixtures against the Python backend
         run: python tests/parity/generate_calculation_fixtures.py --check crates/server/tests/fixtures/calculations_parity.json
 
+      - name: Check the Rust status fixtures against the Python backend
+        run: python tests/parity/generate_status_fixtures.py --check crates/server/tests/fixtures/status_parity.json
+
       - name: Check the Rust Unicode tables against Python
         run: python tests/parity/generate_unicode_tables.py --check
 
@@ -186,7 +189,7 @@ jobs:
       - name: Build the server image
         run: docker build --build-arg SELENIUM_SUPPORT=false --tag ferrofolio-server:ci .
 
-      - name: Call a forwarded and a ported route in the running image
+      - name: Call the ported routes in the running image
         run: |
           docker run --detach --name ferrofolio-ci --publish 127.0.0.1:7592:7592 ferrofolio-server:ci \
             --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
@@ -197,7 +200,7 @@ jobs:
             fi
             sleep 2
           done
-          # Forwarded to Python. A new data directory is locked.
+          # Served by Rust. A new data directory is locked.
           status="$(curl --silent --show-error --fail --max-time 10 http://127.0.0.1:7592/api/v1/status)"
           echo "$status"
           echo "$status" | grep --quiet '"status":"LOCKED"'
@@ -301,6 +304,9 @@ jobs:
           test "$(code "${json[@]}" --data '{}' "$base/calculation/loan")" = 400
           test "$(unlocks ferrofolio-ci-auto)" = 1
           test "$(code "${json[@]}" --data "$credentials" "$base/login")" = 409
+          # Without sessions the status is Python's, which knows of the automatic
+          # login.
+          test "$(curl --silent --show-error --fail --max-time 10 "$base/status" | jq --raw-output .status)" = UNLOCKED
 
       - name: Show the container logs
         if: ${{ always() }}

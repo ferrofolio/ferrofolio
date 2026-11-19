@@ -355,6 +355,8 @@ impl SessionClock for TestClock {
     }
 }
 
+/// `AppState::new` leaves the status to the backend, as remote feature flags do, so
+/// the fake backend's status shows how Python sees the token a request carries.
 fn state(backend_url: &str, settings: SessionSettings, clock: Arc<TestClock>) -> AppState {
     let today = Date::new(2026, 11, 18).unwrap();
     AppState::new(

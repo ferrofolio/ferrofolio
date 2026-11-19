@@ -51,7 +51,7 @@ in Python's place.
 | `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, domain types and errors as they are needed |
 | `core-app` | `finanze/application` | Ports such as `Clock` and `LoanCalculatorPort`, use cases, the loan calculator |
 | `infra-db` | `finanze/infrastructure/repository/db` | Opens the encrypted database read-only and reads its migration state |
-| `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session`, `infrastructure/user_files` | Forwarding, process management, API sessions, unlocking the database at a login, ported routes |
+| `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session`, `infrastructure/user_files`, `infrastructure/config`, `infrastructure/features` | Forwarding, process management, API sessions, unlocking the database at a login, the status, ported routes |
 
 `Dezimal` reproduces Python's `decimal` arithmetic in its default context: every result of `+ - * /` is the exact
 result rounded to 28 significant digits with `ROUND_HALF_EVEN`, and integer powers follow libmpdec. Values below
@@ -83,11 +83,12 @@ target in both. The amount of a target that is kept is parsed exactly.
 |---|---|---|
 | `POST /api/v1/calculation/loan` | `routes/calculate_loan.py`, `calculations/loan_calculator.py` | Calculators (phase 4, slice 8, pulled forward) |
 | `POST /api/v1/calculations/savings` | `routes/calculate_savings.py`, `use_cases/calculate_savings.py` | Calculators |
+| `GET /api/v1/status` | `routes/get_status.py`, `use_cases/get_status.py`, `config/server_details_adapter.py`, `features/env_feature_flag_adapter.py`, `controller/public_url.py` | Status (phase 4, slice 1), with API sessions and local feature flags; see [Status](#status) |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
 route, and a Rust test keeps the two lists equal. Other methods on these paths, in particular CORS preflight
-requests, still go to Python, which keeps the routes until the cutover. Python decodes percent-escapes in the path,
+requests and `HEAD` on the status, still go to Python, which keeps the routes until the cutover. Python decodes percent-escapes in the path,
 collapses leading slashes and ignores the case of the method before routing, so Rust serves a ported route also when
 it is spelled `/api/v1/calculation/%6Coan`, `//api/v1/calculation/loan`, `/%2Fapi/v1/calculation/loan` or with a
 lowercase `post`, with the same limits; requests it forwards keep the method and path as the client sent them. Responses of ported routes carry the CORS headers quart-cors would add.
@@ -141,10 +142,9 @@ sequenceDiagram
   logins follow. A body Rust cannot read as a JSON object goes on unchanged, so that Python answers it as
   before; should Python accept it, Rust starts no session and answers `400 INVALID_REQUEST`.
 - **Requests.** A request with the token of a valid session reaches Python with `Authorization: Bearer` and the
-  backend token instead. Every other request reaches Python as the client sent it, so Python's session guard and its
-  status route decide about it as before: with a token Python does not know, the data counts as locked for the
-  status, and a guarded route answers `401 NOT_LOGGED` while the data is unlocked. The token of the MCP endpoint,
-  which Python checks itself, passes through untouched.
+  backend token instead. Every other request reaches Python as the client sent it, so Python's session guard decides
+  about it as before: a guarded route answers `401 NOT_LOGGED` while the data is unlocked. The token of the MCP
+  endpoint, which Python checks itself, passes through untouched.
 - **Logout.** Rust passes it on, with the backend token for a valid session. Python's logout handler ends its sessions
   before anything else, so they may be gone whenever the request reached it, and a session Rust kept would come back
   with the backend token of the next login. A logout with a valid session carries the backend token, which Python's
@@ -182,14 +182,52 @@ sequenceDiagram
   login Rust sees (the automatic login, a guest's backup import, a failed restore): they send `GET /api/v1/status` and
   proceed only on `UNLOCKED`, answer `502` when Python cannot be reached or its answer is not a readable status, and
   `504` when it does not answer within 30 seconds.
+- **Python's user and lock state.** For the status with API sessions, Rust also follows what Python's `DBManager`
+  holds: a login or signup Python accepts, and the automatic login, unlock the data with the user they name, from
+  `profiles.json`, whether or not Rust could open the database; a guest's signup only sets the user. A login whose
+  username Rust cannot read keeps the user Rust knows. A logout that ends the sessions locks the data and forgets
+  the user, but only if the data was unlocked, as Python's `lock()` does, so a guest stays the user after a logout.
 
 Rust learns of an unlock and a lock only through the login, signup and logout it passes on, and the automatic login.
 Python can also lock the data on its own, when a backup import fails after it has closed the database, and unlock it,
 when a guest imports a backup from the cloud. In the first case the sessions stay valid in both processes, as they
-did in Python, and ported routes keep accepting them; in the second the client has no session in either, and logs in.
-Without API sessions such a login is refused with `409`, and Rust opens the database with its password. The
+did in Python, ported routes keep accepting them, and the status reports the data unlocked to them; in the second
+the client has no session in either, and logs in. Without API sessions such a login is refused with `409`, and Rust
+opens the database with its password. The
 database Rust holds matters only to routes that read data, none of which is ported yet; a route that needs it answers
 as for locked data while Rust has none open.
+
+## Status
+
+Rust answers `GET /api/v1/status` (phase 4, slice 1) with API sessions as Python's `GetStatus` does:
+
+- **Lock state and user.** With API sessions the data is `UNLOCKED` for a request with the token of a valid Rust
+  session and `LOCKED` for every other; the user goes to a request with a valid session and, while the data is
+  locked, to anyone, so a guest who has just signed up sees themselves. While the data is unlocked, a request without
+  a session learns neither. The user is the one Rust follows for Python (see [Sessions](#sessions)): its
+  `hashed_id()` (the first ten bytes of the SHA-1 digest of the id, in URL-safe Base64 with `-` and `_` replaced by
+  `a` and `z`), its name and `str(path.absolute())` of `<data dir>/profiles/<id>`.
+- **Last user.** `lastLogged` and `pendingRegister` are the `name` and `guest` of the profile whose `id` is
+  `last_logged` in `profiles.json`. Python keeps the file in memory and writes it on every change; Rust reads it.
+- **Server details.** The version is the workspace version, which `.bumpversion.toml` changes together with
+  `finanze/version.py`; the status fixture generator stops if they differ. The platform is `LINUX` or `MACOS` with
+  the kernel release (`uname`) or, on macOS, the `ProductVersion` of `SystemVersion.plist`, as `platform` reads
+  them. The options are those the gateway passes to Python, with Python's defaults for the others; the port is the
+  public one, and the data and log directories are resolved on every request as `Path.resolve()` does, following
+  symbolic links and keeping components that do not exist.
+- **Feature flags.** `TR_V2_AUTH_API` is `ON` unless an `FF_<NAME>` variable says otherwise, and every `FF_<NAME>`
+  adds `<NAME>`, read once at startup from the environment both processes share. With `FEATURE_FLAG_URL` set,
+  Python loads the flags from that URL at startup; Rust then forwards the status to Python, which answers it as
+  before, with the backend token of a valid session in place of the client's.
+- **Without API sessions** only Python knows whether the data is unlocked: it also unlocks and locks it without a
+  login Rust sees, and the ported routes ask its status for that reason. Rust therefore forwards the status to Python
+  in this mode instead of deriving the lock state from the database it opened; a status that disagreed with the
+  ported routes would show the login to a client the routes accept, or the reverse.
+- **Public URL.** `FINANZE_PUBLIC_URL`, without surrounding whitespace and trailing slashes, or the URL the request
+  gives, with the headers Python would get: the first item of `X-Forwarded-Host`, else `Host`, and the scheme from
+  the first item of `X-Forwarded-Proto` if it is `http` or `https`, else from the last `X-Forwarded-Proto` that uvicorn
+  takes from the gateway when `FORWARDED_ALLOW_IPS` (by default `127.0.0.1,::1`) trusts 127.0.0.1. Headers that
+  `Connection` names do not count, as the gateway does not forward them.
 
 ## Parity tests
 
@@ -199,6 +237,25 @@ routes and the production session guard, with a fixed date, and writes the respo
 `crates/server/tests/fixtures/calculations_parity.json`.
 `crates/server/tests/parity_calculations.rs` replays every case against the Rust router. CI runs the generator with
 `--check` in the Python job, so the fixtures cannot drift from the Python code.
+
+`tests/parity/generate_status_fixtures.py` runs scripted scenarios, each from a new data directory with API
+sessions, through the real status, login, signup and logout routes, their use cases, the session store and guard,
+the user data manager and the database manager: signups, logins with right and wrong passwords, a guest who
+registers later, logouts with and without a session, a restart with the automatic login, feature flags and public
+URLs from the environment and the headers. It records every status answer and the status code and `profiles.json` of every other step in
+`crates/server/tests/fixtures/status_parity.json`. `crates/server/tests/parity_status.rs` replays the scenarios
+against the Rust router, with a fake backend that answers as Python did and writes the same `profiles.json`. Two
+tables check how Rust writes, completes and resolves paths on a tree with symbolic links and loops, and whether
+uvicorn trusts the gateway for a `FORWARDED_ALLOW_IPS`. The temporary directory, the version and the platform are
+placeholders in the fixture; a Rust test compares the kernel release with `uname -r`, and the Docker job exercises
+the status in the running image, before and after a signup and a logout. Without API sessions the status is Python's
+own (see [Status](#status)); a Rust test checks that it is forwarded.
+
+Regenerate the status fixtures after changing the status, the logins or `profiles.json`:
+
+```sh
+python tests/parity/generate_status_fixtures.py --output crates/server/tests/fixtures/status_parity.json
+```
 
 Every generator under `tests/parity` runs only on the CPython version CI uses, which it reads from
 `.github/workflows/ci.yml`, and stops with a message on any other: error messages and the Unicode database differ
@@ -251,6 +308,10 @@ Each case states what it compares:
 | A logout without a session that Python, having locked the data on its own, lets through and answers late | Its sessions have ended | Until the answer, Rust's sessions still pass the ported routes, which read no data; forwarded requests carry their own, ended backend tokens and are refused by Python |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
+| The status with API sessions while Python has locked or unlocked the data on its own (a failed backup import, a guest's cloud backup import) | Python's state | The state Rust followed through logins and logouts: after a failed import `UNLOCKED` with the user for a valid session; after a guest's import `LOCKED` with the guest for a request without a session, to which Python reports no user |
+| The status for a request without a `Host` header, such as HTTP/1.0 | Behind the gateway, hyper sends the backend's address as `Host`, so `publicUrl` is `http://127.0.0.1:<backend port>` | `publicUrl` is `null`, as Python answered without the gateway |
+| Text that is not UTF-8 in an `FF_` variable, `FINANZE_PUBLIC_URL` or a path the status reports | Escaped surrogates such as `\udcff` | U+FFFD |
+| A `profiles.json` Python cannot read in full (a profile without a name, an id that is no UUID) or one another process changes while the server runs | `500`, or the profiles it read at startup and wrote since | The profiles the file holds, as far as they can be read |
 
 ### Weaknesses of the Python reference
 
@@ -323,6 +384,6 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1, continued: Rust holds the sessions and opens the database at a login. Next it serves the status
-   and then the settings, which it reads from the database.
+1. Phase 4, slice 1, continued: Rust holds the sessions, opens the database at a login and serves the status with
+   API sessions. Next it serves the settings, which it reads from the database.
 2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.

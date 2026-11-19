@@ -15,6 +15,7 @@ pub mod error;
 pub mod gateway;
 pub mod proxy;
 pub mod pycompat;
+pub mod pypath;
 pub mod python_printable;
 pub mod routes;
 pub mod sessions;
@@ -35,6 +36,7 @@ use crate::backend::BackendProcess;
 use crate::clock::SystemClock;
 use crate::config::{Cli, LogLevel};
 use crate::proxy::Backend;
+use crate::routes::status::{ServerOptions, StatusConfig};
 use crate::sessions::{Credentials, SessionSettings, Sessions, SystemSessionClock};
 use crate::user_data::{DataDir, default_data_dir};
 
@@ -213,7 +215,13 @@ pub async fn run(mut cli: Cli) -> ExitCode {
     };
     let sessions = Sessions::new(SessionSettings::from_env(), Arc::new(SystemSessionClock));
     let mut state = AppState::new(backend, Arc::new(SystemClock), sessions);
-    state.data_dir = Some(DataDir::new(data_dir));
+    state.data_dir = Some(DataDir::new(data_dir.clone()));
+    state.status = StatusConfig::from_env(ServerOptions::from_cli(&cli, data_dir)).map(Arc::new);
+    if state.status.is_none() {
+        tracing::info!(
+            "the backend answers the status: it loads the feature flags from FEATURE_FLAG_URL"
+        );
+    }
     if let Some(credentials) = startup_credentials() {
         gateway::unlock_at_startup(&state, credentials).await;
     }
