@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
-use axum::extract::{Request, State};
+use axum::extract::Request;
 use axum::http::{Method, Uri};
 use axum::response::Response;
 use axum::routing::{MethodFilter, MethodRouter, any};
@@ -82,7 +82,7 @@ impl AppState {
 
 /// Builds the router. Other methods on a ported path go to the backend, which
 /// answers CORS preflight requests and `405 Method Not Allowed` as before, with its
-/// own `Allow` header.
+/// own `Allow` header; so does every path that is not ported.
 pub fn router(state: AppState) -> Router {
     let ported: Router = PORTED_ROUTES
         .iter()
@@ -93,38 +93,45 @@ pub fn router(state: AppState) -> Router {
                 Err(_) => router,
             }
         })
-        .with_state(state.clone());
-    let canonical = ported.clone();
-    ported.fallback(move |request: Request| dispatch(state.clone(), canonical.clone(), request))
+        .fallback(forward)
+        .with_state(state);
+    Router::new().fallback(move |request: Request| route(ported.clone(), request))
 }
 
-/// Requests whose raw path is not a ported route. The backend decodes
-/// percent-escapes in the path before routing, so a ported route spelled with
-/// escapes (`/api/v1/calculation/%6Coan`) is still served by Rust. Everything else
-/// goes to the backend unchanged.
-async fn dispatch(state: AppState, ported: Router, request: Request) -> Response {
-    let raw_path = request.uri().path();
-    let decoded = percent_decode(raw_path);
-    let is_ported = decoded != raw_path
-        && PORTED_ROUTES
-            .iter()
-            .any(|route| route.method == request.method() && route.path == decoded);
-    let canonical_uri = match request.uri().query() {
-        Some(query) => format!("{decoded}?{query}"),
-        None => decoded,
+/// Routes a request. The backend decodes percent-escapes in the path, collapses
+/// leading slashes and ignores the case of the method before it routes, so every
+/// spelling that would reach the Python handler of a ported route, such as
+/// `/api/v1/calculation/%6Coan`, `//api/v1/calculation/loan` or a lowercase `post`,
+/// is served by Rust under the route's own method and path, with its limits.
+/// Everything else keeps the method and path the client sent.
+async fn route(ported: Router, mut request: Request) -> Response {
+    if let Some((method, uri)) = canonical_ported(&request) {
+        *request.method_mut() = method;
+        *request.uri_mut() = uri;
     }
-    .parse::<Uri>();
-    match canonical_uri {
-        Ok(uri) if is_ported => {
-            let (mut parts, body) = request.into_parts();
-            parts.uri = uri;
-            match ported.oneshot(Request::from_parts(parts, body)).await {
-                Ok(response) => response,
-                Err(never) => match never {},
-            }
-        }
-        _ => forward(State(state), request).await,
+    match ported.oneshot(request).await {
+        Ok(response) => response,
+        Err(never) => match never {},
     }
+}
+
+/// The ported route's method and the request's URI with the route's path, if the
+/// backend would route the request to a ported route.
+fn canonical_ported(request: &Request) -> Option<(Method, Uri)> {
+    let decoded = percent_decode(request.uri().path());
+    let path = format!("/{}", decoded.trim_start_matches('/'));
+    let route = PORTED_ROUTES.iter().find(|route| {
+        route.path == path
+            && route
+                .method
+                .as_str()
+                .eq_ignore_ascii_case(request.method().as_str())
+    })?;
+    let uri = match request.uri().query() {
+        Some(query) => format!("{path}?{query}"),
+        None => path,
+    };
+    Some((route.method.clone(), uri.parse().ok()?))
 }
 
 #[cfg(test)]

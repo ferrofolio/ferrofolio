@@ -344,13 +344,39 @@ async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
 
-    let mut request = loan_request(Some(VALID_TOKEN));
-    *request.uri_mut() = "/api/v1/calculation/%6Coan?x=1".parse().unwrap();
-    let (status, _, body) = send(&app, request).await;
-    assert_eq!(status, StatusCode::OK);
-    let result: Value = serde_json::from_slice(&body).unwrap();
-    assert!(result["current_installment_payment"].is_number());
-    assert_eq!(recorded.paths(), ["/api/v1/status"]);
+    // Spellings the backend would route to its loan handler: escapes, repeated
+    // leading slashes, an escaped slash and a lowercase method.
+    let post = Method::POST;
+    let lowercase_post = Method::from_bytes(b"post").unwrap();
+    for (method, path) in [
+        (&post, "/api/v1/calculation/%6Coan?x=1"),
+        (&post, "//api/v1/calculation/loan"),
+        (&post, "/%2Fapi/v1/calculation/loan"),
+        (&lowercase_post, "/api/v1/calculation/loan"),
+    ] {
+        let mut request = loan_request(Some(VALID_TOKEN));
+        *request.method_mut() = method.clone();
+        *request.uri_mut() = path.parse().unwrap();
+        let (status, _, body) = send(&app, request).await;
+        assert_eq!(status, StatusCode::OK, "{method} {path}");
+        let result: Value = serde_json::from_slice(&body).unwrap();
+        assert!(
+            result["current_installment_payment"].is_number(),
+            "{method} {path}"
+        );
+    }
+    assert_eq!(recorded.paths(), ["/api/v1/status"; 4]);
+
+    // Served by Rust, these spellings get its body limit too.
+    let request = Request::post("//api/v1/calculation/loan")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CONTENT_LENGTH, "1048577")
+        .header(header::AUTHORIZATION, format!("Bearer {VALID_TOKEN}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _, _) = send(&app, request).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(recorded.paths(), ["/api/v1/status"; 5]);
 
     // Other methods still reach the backend with the path as the client sent it.
     let (status, _, _) = send(
@@ -361,10 +387,9 @@ async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
     )
     .await;
     assert_eq!(status, StatusCode::IM_A_TEAPOT);
-    assert_eq!(
-        recorded.paths(),
-        ["/api/v1/status", "/api/v1/calculation/%6Coan"]
-    );
+    let mut expected = vec!["/api/v1/status"; 5];
+    expected.push("/api/v1/calculation/%6Coan");
+    assert_eq!(recorded.paths(), expected);
 }
 
 #[tokio::test]
