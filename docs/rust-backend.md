@@ -82,9 +82,10 @@ target in both. The amount of a target that is kept is parsed exactly.
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
 route, and a Rust test keeps the two lists equal. Other methods on these paths, in particular CORS preflight
-requests, still go to Python, which keeps the routes until the cutover. Python decodes percent-escapes in the path
-before routing, so Rust serves a ported route also when its path is spelled with escapes; requests it forwards keep
-the path as the client sent it. Responses of ported routes carry the CORS headers quart-cors would add.
+requests, still go to Python, which keeps the routes until the cutover. Python decodes percent-escapes in the path,
+collapses leading slashes and ignores the case of the method before routing, so Rust serves a ported route also when
+it is spelled `/api/v1/calculation/%6Coan`, `//api/v1/calculation/loan`, `/%2Fapi/v1/calculation/loan` or with a
+lowercase `post`, with the same limits; requests it forwards keep the method and path as the client sent them. Responses of ported routes carry the CORS headers quart-cors would add.
 
 Calculations run on the blocking thread pool, at most one per core; further requests wait up to 30 seconds and are
 then refused with `503 SERVER_BUSY` and `Retry-After: 5`. Within the input limits the slowest request found, 50
@@ -160,6 +161,7 @@ Each case states what it compares:
 | Messages of pydantic validation errors | Full pydantic text | The first lines of it |
 | More than 200 years of accumulation or retirement, or more than 50 scenarios (savings) | Computed, however long it takes and however much memory it needs | `400 INVALID_REQUEST` |
 | A calculation that finds every core busy for 30 seconds (no fixture case, which would need concurrent requests; `tests/gateway.rs` covers it) | Waits; a calculation blocks Python's event loop and every other request with it | `503 SERVER_BUSY` with `Retry-After: 5` |
+| A request body nested deeper than 128 levels, also in a field the route ignores | Accepted | `400 INVALID_REQUEST`; serde_json's recursion limit keeps a crafted body from exhausting the stack |
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked") |
 
 ### Known issues of the Python reference
