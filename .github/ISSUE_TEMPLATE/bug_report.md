@@ -19,11 +19,11 @@ Steps to reproduce the behavior:
 4. See error / Blank screen / App crashes / ...
 
 **Version**
-0.8.3
+The commit you built from (`git rev-parse --short HEAD`), e.g. 0d797146.
 
 **Platform**
- - OS: [e.g. iOS 26.5, macOS 26.2]
- - Browser (if applies when Docker) [e.g. chrome, safari]
+ - Host OS running Docker: [e.g. Debian 13, Unraid 7, macOS 26]
+ - Browser: [e.g. Firefox 145, Safari 26]
  - Device (if smartphone): [e.g. iPhone 15]
 
 **Screenshots**
