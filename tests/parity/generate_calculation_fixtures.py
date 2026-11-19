@@ -166,7 +166,7 @@ FLOAT_OVERFLOW = {
 
 NON_JSON_LITERAL = {
     "reason": "Python's json module accepts NaN and Infinity, which are not JSON, and "
-    "the calculation fails with an unexpected error; Rust rejects the body",
+    "the loan calculator rejects the value as not finite; Rust rejects the body",
     "status": 400,
     "code": "INVALID_REQUEST",
 }

@@ -544,6 +544,29 @@ class TestInterestBreakdown:
         assert low.current_installment_interests < high.current_installment_interests
 
 
+class TestNonFiniteInputs:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("loan_amount", "NaN"),
+            ("loan_amount", "Infinity"),
+            ("principal_outstanding", "NaN"),
+            ("interest_rate", "-Infinity"),
+        ],
+    )
+    async def test_rejects_amounts_and_rates_that_are_not_finite(
+        self, monkeypatch, field, value
+    ):
+        # Past its last installment the loan would need no arithmetic at all.
+        params = _params(start=date(2020, 1, 15), end=date(2021, 1, 15))
+        setattr(params, field, Dezimal(value))
+
+        _on(monkeypatch, _TODAY)
+        with pytest.raises(CalculationInputError, match=f"{field} must be a finite"):
+            await _calculator().calculate(params)
+
+
 class TestCalendarBounds:
     @pytest.mark.asyncio
     async def test_rejects_an_end_before_the_start(self):

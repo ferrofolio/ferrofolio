@@ -300,6 +300,17 @@ class LoanCalculator(LoanCalculatorPort):
             missing.append("fixed_years (required for MIXED)")
         if missing:
             raise MissingFieldsError(missing)
+        for name in (
+            "loan_amount",
+            "principal_outstanding",
+            "interest_rate",
+            "euribor_rate",
+            "fixed_interest_rate",
+            "tracking_ref_outstanding",
+        ):
+            value = getattr(params, name)
+            if value is not None and not value.val.is_finite():
+                raise CalculationInputError(f"{name} must be a finite number")
         if params.end < params.start:
             raise CalculationInputError("end must not be before start")
         if params.interest_type is InterestType.MIXED and params.fixed_years < 0:
