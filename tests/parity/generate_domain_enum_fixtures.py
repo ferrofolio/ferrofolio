@@ -18,30 +18,37 @@ to compute the same outputs.
 """
 
 import argparse
+import decimal
 import inspect
 import json
 import sys
 from enum import Enum
 from pathlib import Path
+from uuid import UUID
 
 from ci_python import require_ci_python
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "finanze"))
 
+import domain.commodity as commodity  # noqa: E402
 import domain.constants as constants  # noqa: E402
+import domain.crypto as crypto  # noqa: E402
 import domain.earnings_expenses as earnings_expenses  # noqa: E402
 import domain.entity as entity  # noqa: E402
 import domain.entity_account as entity_account  # noqa: E402
 import domain.external_integration as external_integration  # noqa: E402
 import domain.fetch_record as fetch_record  # noqa: E402
 import domain.public_key as public_key  # noqa: E402
+from domain.dezimal import Dezimal  # noqa: E402
 
 ENUMS = "domain_enums.json"
 CASES = "domain_cases.json"
 
 # Modules ported completely: every enum they define must exist in Rust.
 COMPLETE_MODULES = [
+    commodity,
+    crypto,
     entity,
     entity_account,
     fetch_record,
@@ -89,6 +96,31 @@ def enums() -> dict[str, list[str]]:
     return entries
 
 
+def decimal_text(value: Dezimal | None) -> str | None:
+    """A Dezimal as Python's str() of its Decimal, which uses an exponent for very
+    large or small values instead of writing out every digit."""
+    return None if value is None else str(value.val)
+
+
+def signal_name(error: decimal.DecimalException) -> str:
+    for signal in (decimal.DivisionByZero, decimal.Overflow, decimal.InvalidOperation):
+        if isinstance(error, signal):
+            return signal.__name__
+    raise error
+
+
+def outcome(compute) -> dict:
+    """The result of compute(), or the decimal signal it raised."""
+    try:
+        return {"result": compute()}
+    except decimal.DecimalException as error:
+        return {"error": signal_name(error)}
+
+
+# Larger than half of the largest decimal, so that adding it to itself overflows.
+HUGE = "9.999999999999999999999999999E+999999"
+
+
 def entity_cases() -> dict:
     return {
         "is_account_scoped_entity": [
@@ -121,9 +153,355 @@ def constant_cases() -> dict:
     }
 
 
+def commodity_cases() -> dict:
+    amounts = [
+        "0",
+        "1",
+        "2.5",
+        "31.1034768",
+        "-3",
+        "123456789.123456789",
+        "0.000001",
+        "1E-999999",
+        HUGE,
+    ]
+    return {
+        "COMMODITY_HISTORIC_CUTOFF": commodity.COMMODITY_HISTORIC_CUTOFF.isoformat(),
+        "commodity_symbols": {
+            commodity_type.value: symbol
+            for commodity_type, symbol in commodity.COMMODITY_SYMBOLS.items()
+        },
+        "weight_conversions": [
+            {"from": source.value, "to": target.value, "factor": decimal_text(factor)}
+            for source, factors in commodity.WEIGHT_CONVERSIONS.items()
+            for target, factor in factors.items()
+        ],
+        "to_troy_ounces": [
+            {
+                "amount": amount,
+                "unit": unit.value,
+                **outcome(
+                    lambda amount=amount, unit=unit: decimal_text(
+                        commodity.to_troy_ounces(Dezimal(amount), unit)
+                    )
+                ),
+            }
+            for amount in amounts
+            for unit in commodity.WeightUnit
+        ],
+    }
+
+
+def crypto_rate_key_cases() -> list[dict]:
+    symbols = [None, "", "eth", "Eth", "straße", "ǆ"]
+    contracts = [None, "", "0xAbC", "İX", "ΟΔΟΣ"]
+    return [
+        {
+            "type": asset_type.value,
+            "symbol": symbol,
+            "contract_address": contract,
+            "result": crypto.crypto_rate_key(asset_type, symbol, contract),
+        }
+        for asset_type in crypto.CryptoCurrencyType
+        for symbol in symbols
+        for contract in contracts
+    ]
+
+
+def asset(symbol: str, balance: str, **fields) -> dict:
+    """A CryptoFetchedPosition as the fixture writes it; fields override defaults."""
+    spec = {
+        "id": None,
+        "symbol": symbol,
+        "balance": balance,
+        "type": "NATIVE",
+        "name": None,
+        "contract_address": None,
+        "chain": None,
+        "protocol": None,
+        "position_type": "HOLDING",
+        "market_value": None,
+        "currency": None,
+        "icon_url": None,
+    }
+    unknown = fields.keys() - spec.keys()
+    if unknown:
+        raise SystemExit(f"unknown asset fields {unknown}")
+    spec.update(fields)
+    return spec
+
+
+def fetched(address: str, assets: list[dict], has_txs=None) -> dict:
+    return {"address": address, "assets": assets, "has_txs": has_txs}
+
+
+def build_asset(spec: dict) -> crypto.CryptoFetchedPosition:
+    def optional_decimal(value):
+        return None if value is None else Dezimal(value)
+
+    return crypto.CryptoFetchedPosition(
+        id=None if spec["id"] is None else UUID(spec["id"]),
+        symbol=spec["symbol"],
+        balance=Dezimal(spec["balance"]),
+        type=crypto.CryptoCurrencyType(spec["type"]),
+        name=spec["name"],
+        contract_address=spec["contract_address"],
+        chain=spec["chain"],
+        protocol=spec["protocol"],
+        position_type=crypto.CryptoPositionType(spec["position_type"]),
+        market_value=optional_decimal(spec["market_value"]),
+        currency=spec["currency"],
+        icon_url=spec["icon_url"],
+    )
+
+
+def build_results(spec: list) -> crypto.CryptoFetchResults:
+    return crypto.CryptoFetchResults(
+        results={
+            address: None
+            if result is None
+            else crypto.CryptoFetchResult(
+                address=result["address"],
+                assets=[build_asset(entry) for entry in result["assets"]],
+                has_txs=result["has_txs"],
+            )
+            for address, result in spec
+        }
+    )
+
+
+def asset_json(position: crypto.CryptoFetchedPosition) -> dict:
+    return {
+        "id": None if position.id is None else str(position.id),
+        "symbol": position.symbol,
+        "balance": decimal_text(position.balance),
+        "type": position.type.value,
+        "name": position.name,
+        "contract_address": position.contract_address,
+        "chain": position.chain,
+        "protocol": position.protocol,
+        "position_type": position.position_type.value,
+        "market_value": decimal_text(position.market_value),
+        "currency": position.currency,
+        "icon_url": position.icon_url,
+    }
+
+
+def results_json(results: crypto.CryptoFetchResults) -> list:
+    return [
+        [
+            address,
+            None
+            if result is None
+            else {
+                "address": result.address,
+                "assets": [asset_json(entry) for entry in result.assets],
+                "has_txs": result.has_txs,
+            },
+        ]
+        for address, result in results.results.items()
+    ]
+
+
+def crypto_fetch_results_add_cases() -> list[dict]:
+    token = {"type": "TOKEN"}
+    scenarios = {
+        "addresses of both, the left ones first": (
+            [["a", fetched("a", [asset("ETH", "1")])]],
+            [["b", fetched("b", [asset("BTC", "2")])], ["c", None]],
+        ),
+        "a result replaces a missing one in its place": (
+            [["a", None], ["b", fetched("b", [asset("BTC", "2")])]],
+            [["a", fetched("a", [asset("ETH", "1")])]],
+        ),
+        "a missing result keeps the present one": (
+            [["a", fetched("a", [asset("ETH", "1")], True)]],
+            [["a", None]],
+        ),
+        "two missing results": ([["a", None]], [["a", None]]),
+        "balances and market values add up": (
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("ETH", "1.5"),
+                            asset("BTC", "0.1"),
+                            asset("SOL", "3", market_value="30"),
+                            asset("ADA", "10", market_value="4.10"),
+                        ],
+                    ),
+                ]
+            ],
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("ETH", "0.25"),
+                            asset("BTC", "0.2", market_value="5000"),
+                            asset("SOL", "1"),
+                            asset("ADA", "5", market_value="2.05"),
+                            asset("DOT", "7", market_value="35"),
+                        ],
+                    ),
+                ]
+            ],
+        ),
+        "tokens are keyed by their contract": (
+            [
+                [
+                    "a",
+                    fetched(
+                        "a", [asset("USDC", "10", contract_address="0xA", **token)]
+                    ),
+                ]
+            ],
+            [
+                [
+                    "a",
+                    fetched(
+                        "a", [asset("USDC.e", "5", contract_address="0xA", **token)]
+                    ),
+                ]
+            ],
+        ),
+        "a contract and a symbol with the same text share a key": (
+            [["a", fetched("a", [asset("0xA", "1", **token)])]],
+            [["a", fetched("a", [asset("X", "2", contract_address="0xA", **token)])]],
+        ),
+        "an empty contract and a native coin's contract do not count": (
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("USDT", "1", contract_address="", **token),
+                            asset("ETH", "1", contract_address="0xA"),
+                        ],
+                    ),
+                ]
+            ],
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("USDT", "2", **token),
+                            asset("ETH", "2", contract_address="0xB"),
+                        ],
+                    ),
+                ]
+            ],
+        ),
+        "type, position type, chain and protocol separate assets": (
+            [["a", fetched("a", [asset("ETH", "1")])]],
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("ETH", "2", **token),
+                            asset("ETH", "3", position_type="STAKED"),
+                            asset("ETH", "4", chain="base"),
+                            asset("ETH", "5", protocol="aave"),
+                        ],
+                    ),
+                ]
+            ],
+        ),
+        "assets of the left result with one key collapse into the last": (
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset("ETH", "1", name="first"),
+                            asset("BTC", "2"),
+                            asset("ETH", "3", name="second"),
+                        ],
+                    ),
+                ]
+            ],
+            [["a", fetched("a", [asset("ETH", "4")])]],
+        ),
+        "assets of the right result with one key add up": (
+            [["a", fetched("a", [asset("BTC", "1")])]],
+            [["a", fetched("a", [asset("ETH", "1"), asset("ETH", "2")])]],
+        ),
+        "transactions are known when either result knows them": (
+            [
+                [address, fetched(address, [], left)]
+                for address, left in zip(
+                    "abcdefghi", [None, None, None] + [False] * 3 + [True] * 3
+                )
+            ],
+            [
+                [address, fetched(address, [], right)]
+                for address, right in zip("abcdefghi", [None, False, True] * 3)
+            ],
+        ),
+        "other fields of the left asset are kept": (
+            [
+                [
+                    "a",
+                    fetched(
+                        "a",
+                        [
+                            asset(
+                                "ETH",
+                                "1",
+                                id="0b9c2f8e-5a39-4c43-9a5e-1f2d3c4b5a69",
+                                name="Ether",
+                                currency="EUR",
+                                icon_url="https://example.com/eth.png",
+                            )
+                        ],
+                    ),
+                ]
+            ],
+            [["a", fetched("a", [asset("ETH", "1", name="Other", currency="USD")])]],
+        ),
+        "an overflowing balance": (
+            [["a", fetched("a", [asset("ETH", HUGE)])]],
+            [["a", fetched("a", [asset("ETH", HUGE)])]],
+        ),
+        "an overflowing market value": (
+            [["a", fetched("a", [asset("ETH", "1", market_value=HUGE)])]],
+            [["a", fetched("a", [asset("ETH", "1", market_value=HUGE)])]],
+        ),
+    }
+    return [
+        {
+            "name": name,
+            "left": left,
+            "right": right,
+            **outcome(
+                lambda left=left, right=right: results_json(
+                    build_results(left) + build_results(right)
+                )
+            ),
+        }
+        for name, (left, right) in scenarios.items()
+    ]
+
+
+def crypto_cases() -> dict:
+    return {
+        "crypto_rate_key": crypto_rate_key_cases(),
+        "crypto_fetch_results_add": crypto_fetch_results_add_cases(),
+    }
+
+
 def cases() -> dict:
     groups = {}
-    for build in (entity_cases, constant_cases):
+    for build in (entity_cases, constant_cases, commodity_cases, crypto_cases):
         for name, group in build().items():
             if name in groups:
                 raise SystemExit(f"case group {name} is defined twice")

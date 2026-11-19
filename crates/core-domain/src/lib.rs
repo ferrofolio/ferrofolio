@@ -7,7 +7,9 @@
 //! is named after its Python module.
 
 pub mod calculations;
+pub mod commodity;
 pub mod constants;
+pub mod crypto;
 pub mod dates;
 pub mod datetime;
 pub mod dezimal;

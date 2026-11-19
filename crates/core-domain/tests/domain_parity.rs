@@ -18,10 +18,18 @@
 use std::collections::BTreeMap;
 
 use core_domain::StrEnum;
+use core_domain::Uuid;
+use core_domain::commodity::{
+    COMMODITY_HISTORIC_CUTOFF, CommodityType, WeightUnit, to_troy_ounces, weight_conversion,
+};
 use core_domain::constants::{
     CAPITAL_GAINS_BASE_TAX, PUSD_CONTRACT_ADDRESS, PUSD_SYMBOL, SUPPORTED_CURRENCIES,
 };
-use core_domain::dezimal::Dezimal;
+use core_domain::crypto::{
+    AddressSource, CryptoCurrencyType, CryptoFetchResult, CryptoFetchResults,
+    CryptoFetchedPosition, CryptoPositionType, CryptoWalletConnectionFailureCode, crypto_rate_key,
+};
+use core_domain::dezimal::{ArithmeticError, Dezimal};
 use core_domain::earnings_expenses::FlowFrequency;
 use core_domain::entity::{
     Entity, EntityOrigin, EntityType, Feature, TransactionKind, is_account_scoped_entity,
@@ -51,6 +59,35 @@ fn dezimal(value: &Value) -> Dezimal {
     Dezimal::from_python_str(text(value)).unwrap()
 }
 
+fn optional_text(value: &Value) -> Option<&str> {
+    if value.is_null() {
+        None
+    } else {
+        Some(text(value))
+    }
+}
+
+fn optional_dezimal(value: &Value) -> Option<Dezimal> {
+    optional_text(value).map(|text| Dezimal::from_python_str(text).unwrap())
+}
+
+/// The name of the decimal signal Python raises for an error.
+fn signal(error: ArithmeticError) -> &'static str {
+    match error {
+        ArithmeticError::Overflow => "Overflow",
+        ArithmeticError::DivisionByZero => "DivisionByZero",
+        ArithmeticError::InvalidOperation => "InvalidOperation",
+    }
+}
+
+/// Python's outcome of a case: its `result`, or the signal it raised.
+fn expected(case: &Value) -> Result<&Value, &str> {
+    match case.get("error") {
+        Some(error) => Err(text(error)),
+        None => Ok(&case["result"]),
+    }
+}
+
 fn parse_enum<E: StrEnum>(value: &Value) -> E {
     E::from_value(text(value)).unwrap_or_else(|| panic!("{value} is not a {}", E::NAME))
 }
@@ -65,6 +102,15 @@ fn values<E: StrEnum>() -> (&'static str, Vec<&'static str>) {
 /// Every ported enum, keyed as the fixture keys it: Python module and class name.
 fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
     BTreeMap::from([
+        ("commodity.CommodityType", values::<CommodityType>()),
+        ("commodity.WeightUnit", values::<WeightUnit>()),
+        ("crypto.AddressSource", values::<AddressSource>()),
+        ("crypto.CryptoCurrencyType", values::<CryptoCurrencyType>()),
+        ("crypto.CryptoPositionType", values::<CryptoPositionType>()),
+        (
+            "crypto.CryptoWalletConnectionFailureCode",
+            values::<CryptoWalletConnectionFailureCode>(),
+        ),
         ("earnings_expenses.FlowFrequency", values::<FlowFrequency>()),
         ("entity.EntityOrigin", values::<EntityOrigin>()),
         ("entity.EntityType", values::<EntityType>()),
@@ -135,4 +181,116 @@ fn constants() {
         PUSD_CONTRACT_ADDRESS,
         text(&constants["PUSD_CONTRACT_ADDRESS"])
     );
+}
+
+#[test]
+fn commodities() {
+    assert_eq!(
+        COMMODITY_HISTORIC_CUTOFF.to_string(),
+        text(&cases("COMMODITY_HISTORIC_CUTOFF"))
+    );
+    let symbols = cases("commodity_symbols");
+    assert_eq!(symbols.as_object().unwrap().len(), CommodityType::ALL.len());
+    for commodity_type in CommodityType::ALL {
+        assert_eq!(
+            commodity_type.symbol(),
+            text(&symbols[commodity_type.as_str()])
+        );
+    }
+    let conversions = cases("weight_conversions");
+    for from in WeightUnit::ALL {
+        for to in WeightUnit::ALL {
+            let python = conversions
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|case| case["from"] == from.as_str() && case["to"] == to.as_str());
+            assert_eq!(
+                weight_conversion(*from, *to),
+                python.map(|case| dezimal(&case["factor"])),
+                "{from} to {to}"
+            );
+        }
+    }
+}
+
+#[test]
+fn troy_ounces() {
+    for case in cases("to_troy_ounces").as_array().unwrap() {
+        let result = to_troy_ounces(dezimal(&case["amount"]), parse_enum(&case["unit"]));
+        let expected = expected(case).map(dezimal);
+        assert_eq!(result.map_err(signal), expected, "{case}");
+    }
+}
+
+#[test]
+fn crypto_rate_keys() {
+    for case in cases("crypto_rate_key").as_array().unwrap() {
+        let key = crypto_rate_key(
+            parse_enum(&case["type"]),
+            optional_text(&case["symbol"]),
+            optional_text(&case["contract_address"]),
+        );
+        assert_eq!(key.as_deref(), optional_text(&case["result"]), "{case}");
+    }
+}
+
+fn fetched_position(spec: &Value) -> CryptoFetchedPosition {
+    let optional_string = |value: &Value| optional_text(value).map(str::to_owned);
+    CryptoFetchedPosition {
+        id: optional_text(&spec["id"]).map(|id| Uuid::parse_str(id).unwrap()),
+        symbol: text(&spec["symbol"]).to_owned(),
+        balance: dezimal(&spec["balance"]),
+        r#type: parse_enum(&spec["type"]),
+        name: optional_string(&spec["name"]),
+        contract_address: optional_string(&spec["contract_address"]),
+        chain: optional_string(&spec["chain"]),
+        protocol: optional_string(&spec["protocol"]),
+        position_type: parse_enum(&spec["position_type"]),
+        market_value: optional_dezimal(&spec["market_value"]),
+        currency: optional_string(&spec["currency"]),
+        icon_url: optional_string(&spec["icon_url"]),
+    }
+}
+
+/// Results as the fixture writes them: pairs of an address and a result or null.
+fn fetch_results(spec: &Value) -> CryptoFetchResults {
+    let results = spec
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pair| {
+            let result = (!pair[1].is_null()).then(|| CryptoFetchResult {
+                address: text(&pair[1]["address"]).to_owned(),
+                assets: pair[1]["assets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(fetched_position)
+                    .collect(),
+                has_txs: pair[1]["has_txs"].as_bool(),
+            });
+            (text(&pair[0]).to_owned(), result)
+        })
+        .collect();
+    CryptoFetchResults { results }
+}
+
+#[test]
+fn adding_crypto_fetch_results() {
+    for case in cases("crypto_fetch_results_add").as_array().unwrap() {
+        let sum = fetch_results(&case["left"]) + fetch_results(&case["right"]);
+        let expected = expected(case).map(fetch_results);
+        // Maps compare like Python's dicts, whatever their order; the order of the
+        // addresses is checked on its own.
+        let order =
+            |results: &CryptoFetchResults| results.results.keys().cloned().collect::<Vec<_>>();
+        assert_eq!(
+            sum.as_ref().map(order).map_err(|error| signal(*error)),
+            expected.as_ref().map(order).map_err(|error| *error),
+            "{}",
+            case["name"]
+        );
+        assert_eq!(sum.map_err(signal), expected, "{}", case["name"]);
+    }
 }
