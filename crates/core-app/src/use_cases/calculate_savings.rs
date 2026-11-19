@@ -492,43 +492,68 @@ fn accumulate(
     Ok(balance)
 }
 
-/// The smallest contribution in whole cents, from the given one up, that reaches its
-/// goal under the projection's rounding of returns.
+/// The smallest contribution in whole cents that reaches its goal under the
+/// projection's rounding of returns, searched from the given one in both directions.
 fn raise_until(
     contribution: Dezimal,
     reaches: impl Fn(Dezimal) -> Result<bool, CalculationError>,
 ) -> Result<Dezimal, CalculationError> {
     let start = Dezimal::ZERO.max(contribution);
+    let mut step = Dezimal::CENT;
     if reaches(start)? {
-        return Ok(start);
+        // Rounding returns to cents can let a smaller contribution reach it too.
+        let mut reaching = start;
+        for _ in 0..MAX_STEP_DOUBLINGS {
+            if reaching <= Dezimal::ZERO {
+                return Ok(reaching);
+            }
+            let candidate = Dezimal::ZERO.max(value(start - step)?);
+            if !reaches(candidate)? {
+                return narrow(candidate, reaching, &reaches);
+            }
+            reaching = candidate;
+            step = value(step * Dezimal::TWO)?;
+        }
+        if reaching <= Dezimal::ZERO || reaches(Dezimal::ZERO)? {
+            return Ok(Dezimal::ZERO);
+        }
+        return narrow(Dezimal::ZERO, reaching, &reaches);
     }
-    let at = |cents: i64| value(start + Dezimal::CENT * Dezimal::from(cents));
-    // In cents above the start: `failing` does not reach the goal, `reaching` does.
-    let (mut failing, mut reaching) = (0_i64, 1_i64);
-    let mut found = false;
+    let mut failing = start;
     for _ in 0..MAX_STEP_DOUBLINGS {
-        if reaches(at(reaching)?)? {
-            found = true;
+        let candidate = value(start + step)?;
+        if reaches(candidate)? {
+            return narrow(failing, candidate, &reaches);
+        }
+        failing = candidate;
+        step = value(step * Dezimal::TWO)?;
+    }
+    Err(
+        CalculationInputError::new("no contribution reaches the goal with this market performance")
+            .into(),
+    )
+}
+
+/// The smallest contribution in whole cents above `failing`, which does not reach the
+/// goal, and up to `reaching`, which does.
+fn narrow(
+    mut failing: Dezimal,
+    mut reaching: Dezimal,
+    reaches: &impl Fn(Dezimal) -> Result<bool, CalculationError>,
+) -> Result<Dezimal, CalculationError> {
+    while value(reaching - failing)? > Dezimal::CENT {
+        let middle = round_cents(value((failing + reaching) / Dezimal::TWO)?)?;
+        // Near 28 significant digits, rounding can keep the middle on a bound.
+        if middle == failing || middle == reaching {
             break;
         }
-        failing = reaching;
-        reaching = reaching.checked_mul(2).ok_or_else(non_finite)?;
-    }
-    if !found {
-        return Err(CalculationInputError::new(
-            "no contribution reaches the goal with this market performance",
-        )
-        .into());
-    }
-    while reaching - failing > 1 {
-        let middle = failing + (reaching - failing) / 2;
-        if reaches(at(middle)?)? {
+        if reaches(middle)? {
             reaching = middle;
         } else {
             failing = middle;
         }
     }
-    at(reaching)
+    Ok(reaching)
 }
 
 fn solve_required_contribution_periods(

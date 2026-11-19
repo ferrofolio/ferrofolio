@@ -371,6 +371,43 @@ class TestSolvedValuesHold:
         assert scenario.final_balance - target < Dezimal(60) * Dezimal("0.02")
 
     @pytest.mark.asyncio
+    async def test_a_contribution_below_the_estimate_is_found(self):
+        # The estimate 0.125 rounds to 0.13, but the return of -0.0048 on 0.12
+        # rounds to zero, so 0.12 reaches the target too.
+        req = _request(
+            years=1,
+            periodicity=SavingsPeriodicity.YEARLY,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal("-0.04"),
+                    target_amount=Dezimal("0.12"),
+                )
+            ],
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.periodic_contribution == Dezimal("0.12")
+        assert scenario.final_balance == Dezimal("0.12")
+
+    @pytest.mark.asyncio
+    async def test_a_retirement_contribution_below_the_estimate_is_found(self):
+        # The bisection settles on 0.26 after rounding to cents, but 0.25 funds
+        # both withdrawals as well; 0.24 does not.
+        req = _request(
+            years=1,
+            periodicity=SavingsPeriodicity.YEARLY,
+            scenarios=[_scenario(annual_market_performance=Dezimal("-0.04"))],
+            retirement=SavingsRetirementRequest(
+                withdrawal_amount=Dezimal("0.12"), withdrawal_years=2
+            ),
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.periodic_contribution == Dezimal("0.25")
+
+    @pytest.mark.asyncio
     async def test_a_rate_too_small_to_matter_acts_as_zero(self):
         req = _request(
             years=1,

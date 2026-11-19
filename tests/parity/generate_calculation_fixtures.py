@@ -903,6 +903,30 @@ def savings_cases():
             ),
         ),
         case(
+            # The estimate 0.125 rounds to 0.13, but the return on 0.12 rounds to
+            # zero, so 0.12 reaches the target too.
+            "target a contribution below the estimate reaches",
+            SAVINGS_PATH,
+            savings(
+                base_amount=0,
+                years=1,
+                periodicity="YEARLY",
+                scenarios=[scenario("below", "-0.04", target_amount="0.12")],
+            ),
+        ),
+        case(
+            # The bisection settles on 0.26, but 0.25 funds both withdrawals too.
+            "retirement a contribution below the estimate funds",
+            SAVINGS_PATH,
+            savings(
+                base_amount=0,
+                years=1,
+                periodicity="YEARLY",
+                scenarios=[scenario("below", "-0.04")],
+                retirement={"withdrawal_amount": "0.12", "withdrawal_years": 2},
+            ),
+        ),
+        case(
             "negative withdrawal",
             SAVINGS_PATH,
             savings(
