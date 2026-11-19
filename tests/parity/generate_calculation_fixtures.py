@@ -420,6 +420,23 @@ def loan_cases():
             deviation=FLOAT_OVERFLOW,
         ),
         case(
+            "ignored field nested deeper than 128 levels",
+            LOAN_PATH,
+            None,
+            raw='{"loan_amount": 200000, "interest_rate": 0.03, "interest_type": "FIXED", '
+            '"start": "2020-01-15", "end": "2050-01-15", "extra": '
+            + "[" * 130
+            + "]" * 130
+            + "}",
+            compare="deviation",
+            deviation={
+                "reason": "Python ignores the unknown field; serde_json stops at 128 "
+                "levels of nesting, so that a crafted body cannot exhaust the stack",
+                "status": 400,
+                "code": "INVALID_REQUEST",
+            },
+        ),
+        case(
             "NaN literal as an amount",
             LOAN_PATH,
             None,
