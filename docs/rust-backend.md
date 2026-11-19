@@ -125,6 +125,10 @@ routes and the production session guard, with a fixed date, and writes the respo
 `crates/server/tests/parity_calculations.rs` replays every case against the Rust router. CI runs the generator with
 `--check` in the Python job, so the fixtures cannot drift from the Python code.
 
+Every generator under `tests/parity` runs only on the CPython version CI uses, which it reads from
+`.github/workflows/ci.yml`, and stops with a message on any other: error messages and the Unicode database differ
+between versions, and a fixture recorded with another one would not match what CI records.
+
 Regenerate the fixtures after changing a Python calculator:
 
 ```sh
