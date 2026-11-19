@@ -17,6 +17,7 @@ pub mod proxy;
 pub mod pycompat;
 pub mod python_printable;
 pub mod routes;
+pub mod sessions;
 
 use std::net::SocketAddr;
 use std::process::ExitCode;
@@ -33,6 +34,7 @@ use crate::backend::BackendProcess;
 use crate::clock::SystemClock;
 use crate::config::{Cli, LogLevel};
 use crate::proxy::Backend;
+use crate::sessions::{SessionSettings, Sessions, SystemSessionClock};
 
 /// Time the server gets to finish open requests on shutdown. Together with
 /// `BACKEND_SHUTDOWN_GRACE` and `RUNTIME_SHUTDOWN_GRACE` it stays below Docker's
@@ -190,7 +192,8 @@ pub async fn run(cli: Cli) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let state = AppState::new(backend, Arc::new(SystemClock));
+    let sessions = Sessions::new(SessionSettings::from_env(), Arc::new(SystemSessionClock));
+    let state = AppState::new(backend, Arc::new(SystemClock), sessions);
     let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     let (stop_server, server_stopped) = oneshot::channel::<()>();

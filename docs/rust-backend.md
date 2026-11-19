@@ -19,7 +19,8 @@ earlier are refused, as by the Python server. Because the gateway created the ba
 in Python's place.
 
 - **Forwarding.** Method, path, query, body and headers, including `Host`, `Authorization` and `X-Forwarded-*`, reach
-  Python unchanged. Hop-by-hop headers are removed and the client address is appended to `X-Forwarded-For`, which
+  Python unchanged, except that the token of a valid session becomes the backend token and a login asks for a lasting
+  one (see [Sessions](#sessions)). Hop-by-hop headers are removed and the client address is appended to `X-Forwarded-For`, which
   uvicorn trusts from the loopback interface; a body without a known length is sent on with chunked framing, whatever
   the method. Responses are streamed, so long fetches, downloads and the MCP endpoint
   keep working. If Python cannot be reached the server answers `502` with the code `BACKEND_UNAVAILABLE`.
@@ -47,7 +48,7 @@ in Python's place.
 | `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, domain types and errors as they are needed |
 | `core-app` | `finanze/application` | Ports such as `Clock` and `LoanCalculatorPort`, use cases, the loan calculator |
 | `infra-db` | `finanze/infrastructure/repository/db` | Opens the encrypted database read-only and reads its migration state |
-| `server` | `finanze/infrastructure/controller`, `server.py` | Forwarding, process management, ported routes and their session check |
+| `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session` | Forwarding, process management, API sessions, ported routes |
 
 `Dezimal` reproduces Python's `decimal` arithmetic in its default context: every result of `+ - * /` is the exact
 result rounded to 28 significant digits with `ROUND_HALF_EVEN`, and integer powers follow libmpdec. Values below
@@ -104,17 +105,53 @@ share addresses.
 
 ## Sessions
 
-Python issues and checks the API session tokens and stays the only place that knows them; Rust keeps no session
-state. A ported route asks Python whether the request may proceed: it sends `GET /api/v1/status` with the client's
-own `Authorization` header and proceeds only when the status is `UNLOCKED`, which Python reports exactly when the
-data is unlocked and the request is authorised by a valid session token or because `FINANZE_API_SESSION` is off.
-Otherwise the route answers `401 NOT_LOGGED` like Python's session guard. When Python cannot be reached or its
-answer is not a readable status, the route answers `502`; when it does not answer within 30 seconds, `504`. The
-calculation does not run in either case. Login, signup and logout are forwarded
-unchanged; responses that carry a token get `Cache-Control: no-store`.
+Rust holds the API sessions (phase 4, slice 1). It issues and checks the tokens clients use, as Python's
+`InMemoryApiSessionStore` did: 32 random bytes in URL-safe Base64, kept only as their SHA-256 digest, valid until the
+next logout, or for a remembered session until `FINANZE_API_SESSION_REMEMBER_DAYS` days have passed.
+`FINANZE_API_SESSION` and `FINANZE_API_SESSION_REMEMBER_DAYS` are read by both processes from the same environment,
+with the rules of `finanze/args.py`; with sessions off, Rust keeps none and passes login, signup and logout on
+unchanged. Python keeps its session guard, its login and its logout, and stays the second line of defence:
 
-Asking costs one request on the loopback interface per call of a ported route. Once login and sessions move to Rust
-(phase 4, slice 1), Rust becomes the session authority and the question goes away.
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant R as Rust
+  participant P as Python
+  C->>R: POST /api/v1/login with username, password, remember
+  R->>P: the same body, with remember false appended
+  P-->>R: 200 with the backend token
+  R-->>C: 200 with a new client token, not to be cached
+  C->>R: GET /api/v1/positions with the client token
+  R->>P: GET /api/v1/positions with the backend token
+```
+
+- **Login and signup.** When Python answers `200` with its token, Rust keeps that token as the backend token, starts
+  a session and answers with a token of its own; Python's token never reaches a client. A `200` without a token is
+  answered with `502` rather than passed on. Every other answer, such as `204` for a guest's signup or an error, passes
+  through and starts no session. Rust reads the body to do this, with the limits and the body budget of the ported
+  routes. A logout that ends the sessions while a login is with Python may have ended the backend token as well, so
+  that login starts no session and is answered with `500 UNEXPECTED_ERROR`; the client logs in again.
+- **The backend token lasts until the logout.** Rust appends `"remember": false` to the JSON object of a login, and
+  Python's `json` module keeps the last of repeated keys; the rest of the body reaches Python unchanged. Rust applies
+  the client's `remember` to its own session, so the backend token outlives every session. A body Rust cannot read as
+  a JSON object goes on unchanged, and its session counts as remembered.
+- **Requests.** A request with the token of a valid session reaches Python with `Authorization: Bearer` and the
+  backend token instead. Every other request reaches Python as the client sent it, so Python's session guard and its
+  status route decide about it as before: with a token Python does not know, the data counts as locked for the
+  status, and a guarded route answers `401 NOT_LOGGED` while the data is unlocked. The token of the MCP endpoint,
+  which Python checks itself, passes through untouched.
+- **Logout.** Rust passes it on, with the backend token for a valid session. Python's logout handler ends its sessions
+  before anything else, so Rust ends every session and forgets the backend token whenever the handler ran: on
+  success, and on a server error that happened later in the handler. A `401` from Python's guard leaves them.
+- **Ported routes** check the session in Rust and answer `401 NOT_LOGGED` without a valid one. Without API sessions
+  they still ask Python whether the data is unlocked: they send `GET /api/v1/status` and proceed only on `UNLOCKED`,
+  answer `502` when Python cannot be reached or its answer is not a readable status, and `504` when it does not
+  answer within 30 seconds.
+
+Rust learns of an unlock and a lock only through the login, signup and logout it passes on. Python can also lock the
+data on its own, when a backup import fails after it has closed the database, and unlock it, when a guest imports a
+backup from the cloud. In the first case the sessions stay valid in both processes, as they did in Python, and
+ported routes keep accepting them; in the second the client has no session in either, and logs in.
 
 ## Parity tests
 
@@ -166,7 +203,12 @@ Each case states what it compares:
 | More than 200 years of accumulation or retirement, or more than 50 scenarios (savings) | Computed, however long it takes and however much memory it needs | `400 INVALID_REQUEST` |
 | A calculation that finds every core busy for 30 seconds (no fixture case, which would need concurrent requests; `tests/gateway.rs` covers it) | Waits; a calculation blocks Python's event loop and every other request with it | `503 SERVER_BUSY` with `Retry-After: 5` |
 | A request body nested deeper than 128 levels, also in a field the route ignores | Accepted | `400 INVALID_REQUEST`; serde_json's recursion limit keeps a crafted body from exhausting the stack |
-| A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked") |
+| A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
+| A login or signup body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body to ask for a lasting backend token |
+| The end of a remembered session | The remember period is added to the local wall-clock time, so a change to or from daylight saving time in between moves the end by the size of the change | Exactly that many days of 24 hours after the login |
+| A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | `remember` as the body says | The session counts as remembered |
+| A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
+| A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
 
 ### Weaknesses of the Python reference
 
@@ -238,6 +280,6 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1: status, login and settings in Rust; Rust then holds the sessions itself and opens the database
-   with `infra-db`.
+1. Phase 4, slice 1, continued: Rust holds the sessions. Next it opens the database with `infra-db` at the login and
+   checks the password itself, then serves the status and the settings.
 2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.

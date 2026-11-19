@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! The gateway against a fake Python backend: forwarding, the authorisation of
-//! ported routes and the request handling they get.
+//! The gateway against a fake Python backend: forwarding, sessions, the
+//! authorisation of ported routes and the request handling they get.
 
 // Test helpers outside #[test] functions may panic on broken fixtures.
 #![allow(
@@ -12,8 +12,9 @@
 )]
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use axum::Router;
 use axum::body::{Body, Bytes, to_bytes};
@@ -27,10 +28,11 @@ use core_domain::dates::Date;
 use serde_json::{Value, json};
 use server::app::{AppState, router};
 use server::proxy::Backend;
+use server::sessions::{SessionClock, SessionSettings, Sessions};
 use tower::ServiceExt;
 
 const LOAN: &str = "/api/v1/calculation/loan";
-/// The only bearer token the fake backend accepts.
+/// The token the fake backend issues at a login, and the only one it accepts.
 const VALID_TOKEN: &str = "valid-session-token";
 
 /// What the fake backend received.
@@ -41,7 +43,9 @@ struct Recorded {
     release_second_chunk: Arc<tokio::sync::Notify>,
     /// The backend runs without API sessions and is unlocked: its status is
     /// `UNLOCKED` for every request, with or without a token.
-    sessions_disabled: std::sync::atomic::AtomicBool,
+    sessions_disabled: AtomicBool,
+    /// The logout handler fails after it has ended the backend's sessions.
+    logout_fails: AtomicBool,
 }
 
 impl Recorded {
@@ -53,9 +57,20 @@ impl Recorded {
             .map(|(_, path, _, _)| path.clone())
             .collect()
     }
+
+    /// The `Authorization` header of the last request, if it had one.
+    fn last_authorization(&self) -> Option<String> {
+        let requests = self.requests.lock().unwrap();
+        let (_, _, headers, _) = requests.last().unwrap();
+        headers
+            .get(header::AUTHORIZATION)
+            .map(|value| value.to_str().unwrap().to_owned())
+    }
 }
 
-/// A backend whose `/api/v1/status` answers `UNLOCKED` only for `VALID_TOKEN`.
+/// A backend whose `/api/v1/status` answers `UNLOCKED` only for `VALID_TOKEN`, as
+/// its logout does, and whose login answers with `VALID_TOKEN`: with `204` for a
+/// guest and without a token for the username `no-token`.
 async fn fake_backend() -> (String, Arc<Recorded>) {
     let recorded = Arc::new(Recorded::default());
 
@@ -72,10 +87,7 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
 
         match (parts.method, parts.uri.path()) {
             (Method::GET, "/api/v1/status") => {
-                if recorded
-                    .sessions_disabled
-                    .load(std::sync::atomic::Ordering::SeqCst)
-                {
+                if recorded.sessions_disabled.load(Ordering::SeqCst) {
                     return axum::Json(json!({"status": "UNLOCKED", "apiSession": false}))
                         .into_response();
                 }
@@ -89,9 +101,27 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
             // the method.
             (
                 method,
-                "/api/v1/login" | "/api/v1/logi%6E" | "//api/v1/login" | "/%2Fapi/v1/signup",
+                "/api/v1/login" | "/api/v1/logi%6E" | "//api/v1/login" | "/api/v1/signup"
+                | "/%2Fapi/v1/signup",
             ) if method.as_str().eq_ignore_ascii_case("POST") => {
-                axum::Json(json!({"token": VALID_TOKEN})).into_response()
+                let login: Value = serde_json::from_slice(&body).unwrap_or_default();
+                match login["username"].as_str() {
+                    Some("guest") => StatusCode::NO_CONTENT.into_response(),
+                    Some("no-token") => axum::Json(json!({"message": "welcome"})).into_response(),
+                    _ => axum::Json(json!({"token": VALID_TOKEN})).into_response(),
+                }
+            }
+            (Method::POST, "/api/v1/logout") => {
+                let authorized = parts.headers.get(header::AUTHORIZATION)
+                    == Some(&format!("Bearer {VALID_TOKEN}").parse().unwrap());
+                if !authorized {
+                    let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
+                    (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response()
+                } else if recorded.logout_fails.load(Ordering::SeqCst) {
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                } else {
+                    StatusCode::NO_CONTENT.into_response()
+                }
             }
             (Method::OPTIONS, LOAN) => {
                 (StatusCode::OK, [("x-answered-by", "backend")]).into_response()
@@ -159,12 +189,81 @@ fn closed_port() -> (tokio::net::TcpSocket, String) {
     (socket, format!("http://127.0.0.1:{port}"))
 }
 
-fn gateway(backend_url: &str) -> Router {
+/// A wall clock the tests move.
+#[derive(Debug)]
+struct TestClock(Mutex<SystemTime>);
+
+impl TestClock {
+    fn new() -> Arc<Self> {
+        Arc::new(TestClock(Mutex::new(SystemTime::UNIX_EPOCH)))
+    }
+
+    fn advance(&self, by: Duration) {
+        *self.0.lock().unwrap() += by;
+    }
+}
+
+impl SessionClock for TestClock {
+    fn now(&self) -> SystemTime {
+        *self.0.lock().unwrap()
+    }
+}
+
+fn state(backend_url: &str, settings: SessionSettings, clock: Arc<TestClock>) -> AppState {
     let today = Date::new(2026, 11, 18).unwrap();
-    router(AppState::new(
+    AppState::new(
         Backend::new(backend_url).unwrap(),
         Arc::new(FixedClock(today)),
+        Sessions::new(settings, clock),
+    )
+}
+
+/// The gateway with API sessions.
+fn gateway(backend_url: &str) -> Router {
+    router(state(
+        backend_url,
+        SessionSettings::default(),
+        TestClock::new(),
     ))
+}
+
+/// The gateway without API sessions.
+fn gateway_without_sessions(backend_url: &str) -> Router {
+    let settings = SessionSettings {
+        enabled: false,
+        remember_ttl: None,
+    };
+    router(state(backend_url, settings, TestClock::new()))
+}
+
+fn login_request(path: &str, body: &str) -> Request<Body> {
+    Request::post(path)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_owned()))
+        .unwrap()
+}
+
+/// Logs in and returns the token of the new session.
+async fn login(app: &Router) -> String {
+    let request = login_request("/api/v1/login", r#"{"username":"u","password":"p"}"#);
+    let (status, _, body) = send(app, request).await;
+    assert_eq!(status, StatusCode::OK);
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    body["token"].as_str().unwrap().to_owned()
+}
+
+fn get(path: &str, token: Option<&str>) -> Request<Body> {
+    let mut builder = Request::get(path);
+    if let Some(token) = token {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
+    }
+    builder.body(Body::empty()).unwrap()
+}
+
+fn logout(token: Option<&str>) -> Request<Body> {
+    let mut request = get("/api/v1/logout", token);
+    *request.method_mut() = Method::POST;
+    request
 }
 
 async fn send(app: &Router, request: Request<Body>) -> (StatusCode, HeaderMap, Bytes) {
@@ -309,11 +408,12 @@ async fn streams_backend_responses() {
 }
 
 #[tokio::test]
-async fn ported_routes_ask_the_backend_whether_the_session_is_valid() {
+async fn ported_routes_check_the_session_in_rust() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
 
-    for token in [None, Some("made-up")] {
+    // The backend's own token is no session of Rust's.
+    for token in [None, Some("made-up"), Some(VALID_TOKEN)] {
         let (status, _, body) = send(&app, loan_request(token)).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(
@@ -322,7 +422,8 @@ async fn ported_routes_ask_the_backend_whether_the_session_is_valid() {
         );
     }
 
-    let (status, _, body) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    let token = login(&app).await;
+    let (status, _, body) = send(&app, loan_request(Some(&token))).await;
     assert_eq!(status, StatusCode::OK);
     let result: Value = serde_json::from_slice(&body).unwrap();
     let payment = &result["current_installment_payment"];
@@ -332,30 +433,16 @@ async fn ported_routes_ask_the_backend_whether_the_session_is_valid() {
         Dezimal::from_python_str("843.21").unwrap()
     );
 
-    // Only the status was asked, each time with the client's own token; the
-    // calculation itself never reached the backend.
-    let requests = recorded.requests.lock().unwrap();
-    assert_eq!(requests.len(), 3);
-    assert!(
-        requests
-            .iter()
-            .all(|(method, path, _, _)| method == Method::GET && path == "/api/v1/status")
-    );
-    assert!(!requests[0].2.contains_key(header::AUTHORIZATION));
-    assert_eq!(requests[1].2[header::AUTHORIZATION], "Bearer made-up");
-    assert_eq!(
-        requests[2].2[header::AUTHORIZATION],
-        format!("Bearer {VALID_TOKEN}")
-    );
+    // Only the login reached the backend; neither the session check nor the
+    // calculation did.
+    assert_eq!(recorded.paths(), ["/api/v1/login"]);
 }
 
 #[tokio::test]
 async fn ported_routes_need_no_token_while_api_sessions_are_disabled() {
     let (url, recorded) = fake_backend().await;
-    recorded
-        .sessions_disabled
-        .store(true, std::sync::atomic::Ordering::SeqCst);
-    let app = gateway(&url);
+    recorded.sessions_disabled.store(true, Ordering::SeqCst);
+    let app = gateway_without_sessions(&url);
 
     let (status, _, body) = send(&app, loan_request(None)).await;
     assert_eq!(status, StatusCode::OK);
@@ -372,6 +459,7 @@ async fn ported_routes_need_no_token_while_api_sessions_are_disabled() {
 async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
+    let token = login(&app).await;
 
     // Spellings the backend would route to its loan handler: escapes, repeated
     // leading slashes, an escaped slash and a lowercase method.
@@ -383,7 +471,7 @@ async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
         (&post, "/%2Fapi/v1/calculation/loan"),
         (&lowercase_post, "/api/v1/calculation/loan"),
     ] {
-        let mut request = loan_request(Some(VALID_TOKEN));
+        let mut request = loan_request(Some(&token));
         *request.method_mut() = method.clone();
         *request.uri_mut() = path.parse().unwrap();
         let (status, _, body) = send(&app, request).await;
@@ -394,18 +482,18 @@ async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
             "{method} {path}"
         );
     }
-    assert_eq!(recorded.paths(), ["/api/v1/status"; 4]);
+    assert_eq!(recorded.paths(), ["/api/v1/login"]);
 
     // Served by Rust, these spellings get its body limit too.
     let request = Request::post("//api/v1/calculation/loan")
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::CONTENT_LENGTH, "1048577")
-        .header(header::AUTHORIZATION, format!("Bearer {VALID_TOKEN}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
     let (status, _, _) = send(&app, request).await;
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
-    assert_eq!(recorded.paths(), ["/api/v1/status"; 5]);
+    assert_eq!(recorded.paths(), ["/api/v1/login"]);
 
     // Other methods still reach the backend with the path as the client sent it.
     let (status, _, _) = send(
@@ -416,20 +504,22 @@ async fn ported_routes_spelled_with_percent_escapes_are_served_by_rust() {
     )
     .await;
     assert_eq!(status, StatusCode::IM_A_TEAPOT);
-    let mut expected = vec!["/api/v1/status"; 5];
-    expected.push("/api/v1/calculation/%6Coan");
-    assert_eq!(recorded.paths(), expected);
+    assert_eq!(
+        recorded.paths(),
+        ["/api/v1/login", "/api/v1/calculation/%6Coan"]
+    );
 }
 
 #[tokio::test]
 async fn ported_routes_refuse_a_declared_body_above_the_limit_without_reading_it() {
     let (url, _) = fake_backend().await;
     let app = gateway(&url);
+    let token = login(&app).await;
     let first_read = Arc::new(tokio::sync::Notify::new());
     let request = Request::post(LOAN)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::CONTENT_LENGTH, "1048577")
-        .header(header::AUTHORIZATION, format!("Bearer {VALID_TOKEN}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::from_stream(PendingBody(Arc::clone(&first_read))))
         .unwrap();
     let response = tokio::time::timeout(Duration::from_secs(30), app.oneshot(request))
@@ -448,7 +538,7 @@ async fn ported_routes_refuse_a_declared_body_above_the_limit_without_reading_it
 }
 
 #[tokio::test]
-async fn token_responses_are_not_cached() {
+async fn logins_answer_with_a_token_of_rust_that_is_not_cached() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
     let post = Method::POST;
@@ -460,33 +550,243 @@ async fn token_responses_are_not_cached() {
         (&post, "//api/v1/login"),
         (&post, "/%2Fapi/v1/signup"),
     ];
+    let mut tokens = Vec::new();
     for (method, path) in spellings {
-        let (status, headers, _) = send(
-            &app,
-            Request::builder()
-                .method(method.clone())
-                .uri(path)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"username":"u","password":"p"}"#))
-                .unwrap(),
-        )
-        .await;
+        let mut request = login_request(path, r#"{"username":"u","password":"p"}"#);
+        *request.method_mut() = method.clone();
+        let (status, headers, body) = send(&app, request).await;
         assert_eq!(status, StatusCode::OK, "{method} {path}");
         assert_eq!(
             headers[header::CACHE_CONTROL],
             "no-store",
             "{method} {path}"
         );
+        assert_eq!(
+            headers[header::CONTENT_LENGTH],
+            body.len().to_string(),
+            "{method} {path}"
+        );
+        // The backend's token never reaches the client.
+        let body = std::str::from_utf8(&body).unwrap();
+        assert!(!body.contains(VALID_TOKEN), "{method} {path}");
+        let token = serde_json::from_str::<Value>(body).unwrap()["token"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert_eq!(body, format!("{{\"token\":\"{token}\"}}\n"));
+        assert_eq!(token.len(), 43);
+        tokens.push(token);
     }
+    tokens.sort();
+    tokens.dedup();
+    assert_eq!(tokens.len(), spellings.len());
     assert_eq!(recorded.paths(), spellings.map(|(_, path)| path.to_owned()));
 
     // Other responses keep the backend's headers.
-    let (_, headers, _) = send(
-        &app,
-        Request::get("/api/v1/other").body(Body::empty()).unwrap(),
-    )
-    .await;
+    let (_, headers, _) = send(&app, get("/api/v1/other", None)).await;
     assert!(!headers.contains_key(header::CACHE_CONTROL));
+}
+
+#[tokio::test]
+async fn logins_ask_the_backend_for_a_token_that_lasts_until_the_logout() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let body = r#"{"username":"u","password":"p","remember":true}"#;
+    let (status, _, _) = send(&app, login_request("/api/v1/login", body)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let requests = recorded.requests.lock().unwrap();
+    let (_, _, headers, forwarded) = requests.last().unwrap();
+    let expected = r#"{"username":"u","password":"p","remember":true,"remember":false}"#;
+    assert_eq!(forwarded, expected);
+    assert_eq!(headers[header::CONTENT_LENGTH], expected.len().to_string());
+}
+
+#[tokio::test]
+async fn a_session_reaches_the_backend_with_the_backend_token() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let token = login(&app).await;
+
+    send(&app, get("/api/v1/positions", Some(&token))).await;
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {VALID_TOKEN}"))
+    );
+    let (status, _, body) = send(&app, get("/api/v1/status", Some(&token))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["status"],
+        "UNLOCKED"
+    );
+
+    // Python's session guard decides about every other request, which reaches it
+    // as the client sent it, including the MCP endpoint's own token.
+    for path in ["/api/v1/positions", "/mcp", "/api/v1/status"] {
+        send(&app, get(path, Some("mcp-or-unknown-token"))).await;
+        assert_eq!(
+            recorded.last_authorization().as_deref(),
+            Some("Bearer mcp-or-unknown-token"),
+            "{path}"
+        );
+        send(&app, get(path, None)).await;
+        assert_eq!(recorded.last_authorization(), None, "{path}");
+    }
+    let (_, _, body) = send(&app, get("/api/v1/status", None)).await;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["status"],
+        "LOCKED"
+    );
+}
+
+#[tokio::test]
+async fn a_logout_ends_every_session() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let first = login(&app).await;
+    let second = login(&app).await;
+
+    let (status, _, _) = send(&app, logout(Some(&first))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {VALID_TOKEN}"))
+    );
+    for token in [&first, &second] {
+        let (status, _, _) = send(&app, loan_request(Some(token))).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        send(&app, get("/api/v1/positions", Some(token))).await;
+        assert_eq!(
+            recorded.last_authorization(),
+            Some(format!("Bearer {token}"))
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_logout_the_backend_refuses_keeps_the_sessions() {
+    let (url, _) = fake_backend().await;
+    let app = gateway(&url);
+    let token = login(&app).await;
+
+    for request in [logout(None), logout(Some("made-up"))] {
+        let (status, _, _) = send(&app, request).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn a_logout_that_fails_in_the_backend_ends_the_sessions() {
+    let (url, recorded) = fake_backend().await;
+    recorded.logout_fails.store(true, Ordering::SeqCst);
+    let app = gateway(&url);
+    let token = login(&app).await;
+
+    let (status, _, _) = send(&app, logout(Some(&token))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn a_remembered_session_expires_after_the_remember_period() {
+    let (url, recorded) = fake_backend().await;
+    let clock = TestClock::new();
+    let settings = SessionSettings {
+        enabled: true,
+        remember_ttl: Some(Duration::from_secs(86_400)),
+    };
+    let app = router(state(&url, settings, Arc::clone(&clock)));
+    let remembered = login_request(
+        "/api/v1/login",
+        r#"{"username":"u","password":"p","remember":true}"#,
+    );
+    let (_, _, body) = send(&app, remembered).await;
+    let remembered = serde_json::from_slice::<Value>(&body).unwrap()["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let forgotten = login(&app).await;
+
+    clock.advance(Duration::from_secs(86_399));
+    let (status, _, _) = send(&app, loan_request(Some(&remembered))).await;
+    assert_eq!(status, StatusCode::OK);
+    clock.advance(Duration::from_secs(1));
+    let (status, _, _) = send(&app, loan_request(Some(&remembered))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    send(&app, get("/api/v1/positions", Some(&remembered))).await;
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {remembered}"))
+    );
+
+    // A session that is not remembered lasts until the logout.
+    clock.advance(Duration::from_secs(365 * 86_400));
+    let (status, _, _) = send(&app, loan_request(Some(&forgotten))).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn logins_without_a_token_start_no_session() {
+    let (url, _) = fake_backend().await;
+    let app = gateway(&url);
+
+    // A guest's signup leaves the data locked and answers without a body.
+    let request = login_request("/api/v1/signup", r#"{"username":"guest","guest":true}"#);
+    let (status, _, body) = send(&app, request).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(body.is_empty());
+
+    // An answer that should carry a token but does not is not passed on.
+    let mut request = login_request("/api/v1/login", r#"{"username":"no-token"}"#);
+    request
+        .headers_mut()
+        .insert(header::ORIGIN, "http://localhost:8080".parse().unwrap());
+    let (status, headers, body) = send(&app, request).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(headers[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["code"],
+        "BACKEND_UNAVAILABLE"
+    );
+}
+
+#[tokio::test]
+async fn a_login_body_above_the_limit_is_refused() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let padding = " ".repeat(1024 * 1024);
+    let request = login_request("/api/v1/login", &format!("{{}}{padding}"));
+    let (status, _, _) = send(&app, request).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(recorded.paths().is_empty());
+}
+
+#[tokio::test]
+async fn without_sessions_logins_and_tokens_pass_through_unchanged() {
+    let (url, recorded) = fake_backend().await;
+    recorded.sessions_disabled.store(true, Ordering::SeqCst);
+    let app = gateway_without_sessions(&url);
+    let body = r#"{"username":"u","password":"p","remember":true}"#;
+
+    let (status, headers, answer) = send(&app, login_request("/api/v1/login", body)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers[header::CACHE_CONTROL], "no-store");
+    assert_eq!(
+        serde_json::from_slice::<Value>(&answer).unwrap()["token"],
+        VALID_TOKEN
+    );
+    {
+        let requests = recorded.requests.lock().unwrap();
+        assert_eq!(requests.last().unwrap().3, body);
+    }
+    send(&app, get("/api/v1/positions", Some("client-token"))).await;
+    assert_eq!(
+        recorded.last_authorization().as_deref(),
+        Some("Bearer client-token")
+    );
 }
 
 #[tokio::test]
@@ -542,19 +842,25 @@ async fn other_methods_on_ported_paths_go_to_the_backend() {
 async fn an_unreachable_backend_answers_502() {
     let (_closed, url) = closed_port();
     let app = gateway(&url);
-    let (status, _, body) = send(
-        &app,
-        Request::get("/api/v1/status").body(Body::empty()).unwrap(),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_GATEWAY);
-    assert_eq!(
-        serde_json::from_slice::<Value>(&body).unwrap()["code"],
-        "BACKEND_UNAVAILABLE"
-    );
+    for request in [
+        get("/api/v1/status", None),
+        login_request("/api/v1/login", r#"{"username":"u","password":"p"}"#),
+        logout(None),
+    ] {
+        let (status, _, body) = send(&app, request).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            serde_json::from_slice::<Value>(&body).unwrap()["code"],
+            "BACKEND_UNAVAILABLE"
+        );
+    }
 
-    // Ported routes cannot check the session either.
+    // With sessions, ported routes check the session without the backend.
     let (status, _, _) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    // Without them, they cannot tell whether the data is unlocked.
+    let app = gateway_without_sessions(&url);
+    let (status, _, _) = send(&app, loan_request(None)).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
 }
 
@@ -576,10 +882,10 @@ impl futures_core::Stream for PendingBody {
 #[tokio::test]
 async fn a_calculation_that_waits_too_long_for_a_permit_is_refused() {
     let (url, _) = fake_backend().await;
-    let today = Date::new(2026, 11, 18).unwrap();
-    let mut state = AppState::new(Backend::new(&url).unwrap(), Arc::new(FixedClock(today)));
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
     state.calculation_wait = Duration::from_millis(50);
     let app = router(state.clone());
+    let token = login(&app).await;
     // Every permit is taken by calculations that are still running.
     let permits = state.calculations.available_permits();
     let running = Arc::clone(&state.calculations)
@@ -587,14 +893,14 @@ async fn a_calculation_that_waits_too_long_for_a_permit_is_refused() {
         .await
         .unwrap();
 
-    let (status, headers, body) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    let (status, headers, body) = send(&app, loan_request(Some(&token))).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(headers[header::RETRY_AFTER], "5");
     let body: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body["code"], "SERVER_BUSY");
 
     drop(running);
-    let (status, _, _) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -602,16 +908,17 @@ async fn a_calculation_that_waits_too_long_for_a_permit_is_refused() {
 async fn a_slow_body_on_a_ported_route_is_cut_off() {
     let (url, _) = fake_backend().await;
     let app = gateway(&url);
+    let token = login(&app).await;
     let first_read = Arc::new(tokio::sync::Notify::new());
     let request = Request::post(LOAN)
         .header(header::CONTENT_TYPE, "application/json")
-        .header(header::AUTHORIZATION, format!("Bearer {VALID_TOKEN}"))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::from_stream(PendingBody(Arc::clone(&first_read))))
         .unwrap();
     let mut response = tokio::spawn(async move { app.oneshot(request).await.unwrap() });
-    // Once the gateway waits on the body, the session check over the loopback
-    // interface is done; only then may the clock skip ahead to the deadline. The
-    // clock still runs in real time here, so the wait for that is bounded.
+    // Only once the gateway waits on the body may the clock skip ahead to the
+    // deadline. The clock still runs in real time here, so the wait for that is
+    // bounded.
     tokio::select! {
         () = first_read.notified() => {}
         answered = &mut response => {

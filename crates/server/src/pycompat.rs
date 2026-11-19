@@ -32,6 +32,14 @@ pub fn truthy(value: &Value) -> bool {
     }
 }
 
+/// `str.strip()`: Python also strips the separators U+001C to U+001F, which Rust
+/// does not count as whitespace.
+pub fn strip(text: &str) -> &str {
+    text.trim_matches(|character: char| {
+        character.is_whitespace() || ('\u{1C}'..='\u{1F}').contains(&character)
+    })
+}
+
 /// The name of the Python type a JSON value is parsed into.
 pub fn type_name(value: &Value) -> &'static str {
     match value {
