@@ -166,9 +166,13 @@ sequenceDiagram
   (`POST /api/v1/cloud/backup/import`) deletes `data.db` and writes a new one, and a change of the password
   (`POST /api/v1/change-password`) rewrites it with a new key. SQLite names the WAL and shared-memory files after the
   path, so a connection Rust kept open meanwhile would leave the old ones for Python's new connection, which can
-  corrupt the new database. Rust therefore closes its connection before it passes such a request on, waiting for a
-  reader to finish, keeps it closed until Python has answered, also when the client goes away, and a reader then
-  opens the database again (`UserDatabase::current`), as it does when the file has been replaced in any other way.
+  corrupt the new database. Rust therefore opens, installs and reads its connection only under a readers-writer lock
+  (`Sessions::open_and_unlock`, `Sessions::with_database`). Before it passes such a request on, Rust takes the lock
+  for writing, which waits for readers and for logins that are opening the database, closes the connection, and holds
+  the lock until Python has answered, also when the client goes away. Meanwhile a reader fails at once as for locked
+  data, and a login waits before it opens the database. Afterwards a reader opens the database again
+  (`UserDatabase::current`), as it does when the file has been replaced in any other way. Ported routes read the
+  database only through `Sessions::with_database`, on the blocking pool.
   The `guest` flag of a signup is read with pydantic's rules for a `bool`, as Python's `LoginRequest` does.
 - **Ported routes** need the data unlocked. With API sessions they check the session in Rust, which exists only
   between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a

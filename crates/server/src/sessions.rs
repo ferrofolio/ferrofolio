@@ -30,7 +30,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::pycompat;
-use crate::user_data::{ReplacementGate, ReplacementGuard, UserDatabase};
+use crate::user_data::{UnlockError, UserDatabase};
+use infra_db::Database;
+use tokio::sync::{OwnedRwLockWriteGuard, RwLock};
 
 /// Whether clients need a session (`finanze/args.py`).
 pub const ENABLED_VARIABLE: &str = "FINANZE_API_SESSION";
@@ -127,6 +129,21 @@ pub enum SessionError {
     LoggedOut,
 }
 
+/// Why a login did not unlock the database for Rust.
+#[derive(Debug, thiserror::Error)]
+pub enum UnlockFailure {
+    #[error(transparent)]
+    Open(UnlockError),
+    #[error(transparent)]
+    Session(SessionError),
+}
+
+/// Keeps Rust's connection to the database closed while it lives.
+#[derive(Debug)]
+pub struct ReplacementGuard {
+    _closed: OwnedRwLockWriteGuard<()>,
+}
+
 /// A login on its way to the backend.
 #[derive(Debug, Clone, Copy)]
 pub struct LoginAttempt {
@@ -150,7 +167,7 @@ struct Session {
 }
 
 /// A user's database, open read-only while the data is unlocked.
-pub type OpenDatabase = Arc<Mutex<UserDatabase>>;
+type OpenDatabase = Arc<Mutex<UserDatabase>>;
 
 #[derive(Default)]
 struct State {
@@ -167,7 +184,10 @@ pub struct Sessions {
     settings: SessionSettings,
     clock: Arc<dyn SessionClock>,
     state: Arc<Mutex<State>>,
-    replacement: ReplacementGate,
+    /// Held for reading while Rust opens, installs or reads the database, and for
+    /// writing while a request with which Python replaces or rekeys the database is
+    /// with Python, which so never meets a connection of Rust's (`UserDatabase`).
+    replacement: Arc<RwLock<()>>,
 }
 
 impl fmt::Debug for Sessions {
@@ -185,7 +205,7 @@ impl Sessions {
             settings,
             clock,
             state: Arc::default(),
-            replacement: ReplacementGate::default(),
+            replacement: Arc::default(),
         }
     }
 
@@ -268,12 +288,7 @@ impl Sessions {
 
     /// Keeps the database a login opened, unless a logout has ended the sessions
     /// since the login reached Rust, which may have locked the data again.
-    pub fn unlock(
-        &self,
-        attempt: LoginAttempt,
-        mut database: UserDatabase,
-    ) -> Result<(), SessionError> {
-        database.follow(&self.replacement);
+    fn unlock(&self, attempt: LoginAttempt, database: UserDatabase) -> Result<(), SessionError> {
         let mut state = self.lock();
         if state.logouts != attempt.logouts {
             return Err(SessionError::LoggedOut);
@@ -287,18 +302,46 @@ impl Sessions {
         self.lock().database.is_some()
     }
 
-    /// The database a login unlocked, while the data is unlocked. Reading it runs
-    /// on the blocking pool, through `UserDatabase::current`.
-    pub fn database(&self) -> Option<OpenDatabase> {
-        self.lock().database.clone()
+    /// Opens the database with `open` and keeps it as `unlock` does, with no request
+    /// that replaces the database with Python meanwhile. Blocks while one is, so it
+    /// runs on the blocking pool.
+    pub fn open_and_unlock(
+        &self,
+        attempt: LoginAttempt,
+        open: impl FnOnce() -> Result<UserDatabase, UnlockError>,
+    ) -> Result<(), UnlockFailure> {
+        let _opening = self.replacement.blocking_read();
+        let database = open().map_err(UnlockFailure::Open)?;
+        self.unlock(attempt, database)
+            .map_err(UnlockFailure::Session)
     }
 
-    /// Closes Rust's connection to the database until the guard is dropped, for a
-    /// request that replaces or rekeys the database. Waits for a reader that holds
-    /// the database, so it runs on the blocking pool.
-    pub fn close_for_replacement(&self) -> ReplacementGuard {
-        let database = self.database();
-        self.replacement.close(database.as_deref())
+    /// Reads the database a login unlocked. Fails while the data is locked for
+    /// Rust or a request that replaces the database is with Python, rather than
+    /// wait for it. Opening and reading block, so it runs on the blocking pool.
+    pub fn with_database<T>(&self, read: impl FnOnce(&Database) -> T) -> Result<T, UnlockError> {
+        let _reading = self
+            .replacement
+            .try_read()
+            .map_err(|_| UnlockError::Replacing)?;
+        let database = self.lock().database.clone().ok_or(UnlockError::Locked)?;
+        let mut database = database.lock().unwrap_or_else(PoisonError::into_inner);
+        Ok(read(database.current()?))
+    }
+
+    /// Closes Rust's connection to the database and keeps it closed until the guard
+    /// is dropped, for a request that replaces or rekeys the database. Waits for
+    /// readers and for logins that are opening the database.
+    pub async fn close_for_replacement(&self) -> ReplacementGuard {
+        let guard = Arc::clone(&self.replacement).write_owned().await;
+        // No reader holds the database now: readers hold the lock for reading.
+        if let Some(database) = self.lock().database.clone() {
+            database
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .close();
+        }
+        ReplacementGuard { _closed: guard }
     }
 
     /// Ends every session, forgets their backend tokens and closes the database, as
