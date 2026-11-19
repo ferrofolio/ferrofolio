@@ -305,6 +305,140 @@ def loan_cases():
             ),
         ),
         case(
+            # The only period begins on the calendar's last day, which a fixed
+            # period ending beyond the calendar still covers.
+            "fixed period beyond the calendar on its last day",
+            LOAN_PATH,
+            loan(
+                interest_type="MIXED",
+                euribor_rate=0.01,
+                fixed_years=1,
+                fixed_interest_rate=0.02,
+                start="9999-12-31",
+                end="9999-12-31",
+            ),
+        ),
+        # The schedule (TODAY is 2026-11-18): installment i is due i periods after
+        # the start; the ones due before today are paid.
+        case(
+            "installment due today",
+            LOAN_PATH,
+            loan(start="2026-08-18", end="2027-08-18", interest_rate=0),
+        ),
+        case(
+            "installment due yesterday",
+            LOAN_PATH,
+            loan(start="2026-08-17", end="2027-08-17", interest_rate=0),
+        ),
+        case(
+            "loan starting today",
+            LOAN_PATH,
+            loan(start="2026-11-18", end="2027-11-18"),
+        ),
+        case(
+            "loan starting next month",
+            LOAN_PATH,
+            loan(start="2026-12-18", end="2027-12-18"),
+        ),
+        case(
+            "month-end start",
+            LOAN_PATH,
+            loan(start="2026-01-31", end="2027-01-31"),
+        ),
+        case(
+            "month-end start, variable",
+            LOAN_PATH,
+            loan(
+                start="2026-01-31",
+                end="2027-01-31",
+                interest_type="VARIABLE",
+                euribor_rate=0.01,
+            ),
+        ),
+        case(
+            "payment recovered from the outstanding on a month-end schedule",
+            LOAN_PATH,
+            loan(
+                start="2025-11-30",
+                end="2027-11-30",
+                loan_amount=...,
+                principal_outstanding=150000,
+            ),
+        ),
+        case(
+            # The fixed period of 0 % ends today, on a due date: the installment due
+            # today still pays the fixed rate for its period.
+            "mixed loan whose fixed period ends today",
+            LOAN_PATH,
+            loan(
+                loan_amount=12000,
+                start="2025-11-18",
+                end="2027-11-18",
+                interest_type="MIXED",
+                interest_rate=0.12,
+                euribor_rate=0,
+                fixed_interest_rate=0,
+                fixed_years=1,
+            ),
+        ),
+        case(
+            "mixed loan whose fixed period ended yesterday",
+            LOAN_PATH,
+            loan(
+                loan_amount=12000,
+                start="2025-11-17",
+                end="2027-11-17",
+                interest_type="MIXED",
+                interest_rate=0.12,
+                euribor_rate=0,
+                fixed_interest_rate=0,
+                fixed_years=1,
+            ),
+        ),
+        # Once every installment is past, a loan computed from its amount is
+        # repaid; a given outstanding stays due with the last installment.
+        case(
+            "loan past its last installment",
+            LOAN_PATH,
+            loan(start="2024-01-15", end="2025-01-15"),
+        ),
+        case(
+            "variable loan past its last installment",
+            LOAN_PATH,
+            loan(
+                start="2024-01-15",
+                end="2025-01-15",
+                interest_type="VARIABLE",
+                euribor_rate=0.01,
+            ),
+        ),
+        case(
+            "given outstanding past the last installment",
+            LOAN_PATH,
+            loan(
+                loan_amount=...,
+                principal_outstanding=300,
+                start="2024-01-15",
+                end="2025-01-15",
+                interest_type="VARIABLE",
+                euribor_rate=0.01,
+            ),
+        ),
+        case(
+            "given outstanding and amount past the last installment",
+            LOAN_PATH,
+            loan(
+                principal_outstanding=300,
+                start="2024-01-15",
+                end="2025-01-15",
+            ),
+        ),
+        case(
+            "last installment due today",
+            LOAN_PATH,
+            loan(start="2025-11-18", end="2026-11-18", interest_rate=0),
+        ),
+        case(
             "negative fixed period",
             LOAN_PATH,
             loan(interest_type="MIXED", euribor_rate=0.01, fixed_years=-2020),

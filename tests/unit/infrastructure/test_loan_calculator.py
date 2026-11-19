@@ -1,16 +1,33 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
+from dateutil.relativedelta import relativedelta
 
 from domain.dezimal import Dezimal
 from domain.exception.exceptions import CalculationInputError, MissingFieldsError
 from domain.global_position import InstallmentFrequency, InterestType
 from domain.loan_calculator import LoanCalculationParams
+from infrastructure.calculations import loan_calculator
 from infrastructure.calculations.loan_calculator import LoanCalculator
 
 
 def _calculator() -> LoanCalculator:
     return LoanCalculator()
+
+
+# The day that tests which do not choose their own date compute as of.
+_TODAY = date(2026, 6, 15)
+
+
+def _on(monkeypatch, today: date) -> None:
+    """Makes the calculator compute as of `today`."""
+
+    class _Today(date):
+        @classmethod
+        def today(cls):
+            return today
+
+    monkeypatch.setattr(loan_calculator, "date", _Today)
 
 
 def _params(
@@ -305,9 +322,10 @@ class TestMixedRate:
 
 class TestInstallmentDate:
     @pytest.mark.asyncio
-    async def test_installment_date_in_future(self):
+    async def test_installment_date_in_future(self, monkeypatch):
         """For a loan that started in the past, the next installment date
         should be on or after today."""
+        _on(monkeypatch, _TODAY)
         calc = _calculator()
         params = _params(
             start=date(2020, 1, 15),
@@ -316,7 +334,7 @@ class TestInstallmentDate:
 
         result = await calc.calculate(params)
 
-        today = date.today()
+        today = _TODAY
         assert result.installment_date is not None
         assert result.installment_date >= today
 
@@ -536,15 +554,15 @@ class TestCalendarBounds:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "frequency, start",
+        "frequency, start, first_installment",
         [
-            (InstallmentFrequency.WEEKLY, date(9999, 12, 20)),
-            (InstallmentFrequency.MONTHLY, date(9999, 10, 31)),
-            (InstallmentFrequency.YEARLY, date(9990, 12, 31)),
+            (InstallmentFrequency.WEEKLY, date(9999, 12, 20), date(9999, 12, 27)),
+            (InstallmentFrequency.MONTHLY, date(9999, 10, 31), date(9999, 11, 30)),
+            (InstallmentFrequency.YEARLY, date(9990, 12, 31), date(9991, 12, 31)),
         ],
     )
     async def test_a_schedule_ending_on_the_last_day_of_the_calendar(
-        self, frequency, start
+        self, frequency, start, first_installment
     ):
         params = _params(
             start=start, end=date(9999, 12, 31), installment_frequency=frequency
@@ -552,7 +570,8 @@ class TestCalendarBounds:
 
         result = await _calculator().calculate(params)
 
-        assert result.installment_date == start
+        # The first installment is due one period after the start.
+        assert result.installment_date == first_installment
 
     @pytest.mark.asyncio
     async def test_rejects_a_negative_fixed_period(self):
@@ -584,3 +603,309 @@ class TestCalendarBounds:
         expected = await _calculator().calculate(fixed_only)
 
         assert result == expected
+
+    @pytest.mark.asyncio
+    async def test_a_fixed_period_beyond_the_calendar_covers_its_last_day(self):
+        # The only installment's period begins on the last day of the calendar,
+        # which the fixed period, ending beyond it, still covers.
+        params = _params(
+            loan_amount=Dezimal(12000),
+            interest_rate=Dezimal("0.04"),
+            interest_type=InterestType.MIXED,
+            euribor_rate=Dezimal("0.01"),
+            fixed_years=1,
+            fixed_interest_rate=Dezimal("0.02"),
+            start=date(9999, 12, 31),
+            end=date(9999, 12, 31),
+        )
+
+        result = await _calculator().calculate(params)
+
+        # 2 % a year is 20 a month on 12000; the floating 5 % would be 50.
+        assert result.current_installment_interests == Dezimal(20)
+
+
+def _due_dates(start, end, months=1):
+    """The schedule by its definition: installment i is due i periods after the
+    start, counted from the start each time, the last one on or before the end."""
+    dates = []
+    index = 1
+    while (due := start + relativedelta(months=index * months)) <= end:
+        dates.append(due)
+        index += 1
+    return dates or [end]
+
+
+class TestSchedule:
+    def _next(self, start, end, today, frequency=InstallmentFrequency.MONTHLY):
+        return _calculator().next_installment_date(start, end, frequency, today)
+
+    def test_the_first_installment_is_due_one_period_after_the_start(self):
+        start, end = date(2025, 1, 15), date(2025, 12, 15)
+
+        assert self._next(start, end, date(2025, 1, 10)) == date(2025, 2, 15)
+        assert self._next(start, end, start) == date(2025, 2, 15)
+
+    def test_an_installment_due_today_is_the_current_one(self):
+        start, end = date(2025, 1, 15), date(2025, 12, 15)
+
+        assert self._next(start, end, date(2025, 3, 15)) == date(2025, 3, 15)
+        assert self._next(start, end, date(2025, 3, 16)) == date(2025, 4, 15)
+
+    def test_month_ends_do_not_drift(self):
+        start, end = date(2025, 1, 31), date(2025, 12, 31)
+
+        assert self._next(start, end, date(2025, 2, 1)) == date(2025, 2, 28)
+        assert self._next(start, end, date(2025, 3, 1)) == date(2025, 3, 31)
+        assert self._next(start, end, date(2025, 4, 1)) == date(2025, 4, 30)
+
+    def test_after_the_last_installment_it_stays_the_current_one(self):
+        start, end = date(2025, 1, 15), date(2025, 12, 15)
+
+        assert self._next(start, end, date(2026, 6, 1)) == end
+
+    def test_weekly_installments(self):
+        start, end = date(2025, 1, 6), date(2025, 12, 29)
+
+        assert self._next(
+            start, end, date(2025, 1, 14), InstallmentFrequency.WEEKLY
+        ) == date(2025, 1, 20)
+
+    @pytest.mark.asyncio
+    async def test_paid_installments_are_the_ones_due_before_today(self, monkeypatch):
+        # Without interest every installment repays the same share.
+        today = _TODAY
+        _on(monkeypatch, today)
+        for start in (
+            today - relativedelta(months=3),
+            today - relativedelta(months=3, days=1),
+            today - timedelta(days=1),
+            today + timedelta(days=10),
+        ):
+            end = start + relativedelta(months=12)
+            due = _due_dates(start, end)
+            paid = sum(1 for day in due if day < today)
+            params = _params(
+                loan_amount=Dezimal(12000),
+                interest_rate=Dezimal(0),
+                start=start,
+                end=end,
+            )
+
+            result = await _calculator().calculate(params)
+
+            assert result.principal_outstanding == Dezimal(1000) * (12 - paid), start
+            assert result.current_installment_payment == Dezimal(1000)
+            assert result.installment_date == next(
+                (day for day in due if day >= today), due[-1]
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_month_end_start_counts_every_installment(self, monkeypatch):
+        # 31 January to 28 February is one installment, not none.
+        today = _TODAY
+        _on(monkeypatch, today)
+        start = date(today.year + 1, 1, 31)
+        params = _params(
+            loan_amount=Dezimal(1000),
+            interest_rate=Dezimal(0),
+            start=start,
+            end=date(today.year + 1, 2, 28),
+        )
+
+        result = await _calculator().calculate(params)
+
+        assert result.current_installment_payment == Dezimal(1000)
+        assert result.installment_date == date(today.year + 1, 2, 28)
+
+    @pytest.mark.asyncio
+    async def test_a_simulated_constant_rate_matches_the_closed_form(self, monkeypatch):
+        # A variable loan at a constant rate pays the same as a fixed one; the
+        # simulation only rounds each installment to cents.
+        today = _TODAY
+        _on(monkeypatch, today)
+        start = today - relativedelta(years=5, days=3)
+        end = start + relativedelta(years=30)
+        fixed = await _calculator().calculate(
+            _params(start=start, end=end, interest_rate=Dezimal("0.03"))
+        )
+        variable = await _calculator().calculate(
+            _params(
+                start=start,
+                end=end,
+                interest_rate=Dezimal("0.03"),
+                interest_type=InterestType.VARIABLE,
+                euribor_rate=Dezimal(0),
+            )
+        )
+
+        assert variable.installment_date == fixed.installment_date
+        assert abs(variable.principal_outstanding - fixed.principal_outstanding) < (
+            Dezimal(1)
+        )
+        assert abs(
+            variable.current_installment_payment - fixed.current_installment_payment
+        ) <= Dezimal("0.01")
+
+    @pytest.mark.asyncio
+    async def test_a_tracked_loan_continues_from_its_reference(self, monkeypatch):
+        # The reference is the outstanding before the installment due on the
+        # reference date; one installment later it is one installment less.
+        today = _TODAY
+        _on(monkeypatch, today)
+        start = today - relativedelta(months=6, days=3)
+        end = start + relativedelta(months=24)
+        due = _due_dates(start, end)
+        previous = [day for day in due if day < today][-1]
+        params = _params(
+            loan_amount=Dezimal(24000),
+            interest_rate=Dezimal(0),
+            start=start,
+            end=end,
+        )
+        params.tracking_ref_outstanding = Dezimal(19000)
+        params.tracking_ref_date = previous
+
+        result = await _calculator().calculate(params)
+
+        assert result.principal_outstanding == Dezimal(18000)
+
+    @pytest.mark.asyncio
+    async def test_an_installment_pays_the_rate_of_its_period(self, monkeypatch):
+        # The fixed period of 0 % ends on 2026-01-15; the installment due that day
+        # still pays the fixed rate for its period, the next one the floating rate.
+        params = _params(
+            loan_amount=Dezimal(12000),
+            interest_type=InterestType.MIXED,
+            interest_rate=Dezimal("0.12"),
+            euribor_rate=Dezimal(0),
+            fixed_interest_rate=Dezimal(0),
+            fixed_years=1,
+            start=date(2025, 1, 15),
+            end=date(2027, 1, 15),
+        )
+
+        _on(monkeypatch, date(2026, 1, 15))
+        due_on_the_end = await _calculator().calculate(params)
+        _on(monkeypatch, date(2026, 1, 16))
+        due_after_the_end = await _calculator().calculate(params)
+
+        # Eleven installments of 500 are paid at 0 %.
+        assert due_on_the_end.installment_date == date(2026, 1, 15)
+        assert due_on_the_end.principal_outstanding == Dezimal(6500)
+        assert due_on_the_end.current_installment_interests == Dezimal(0)
+        # The twelfth, also at 0 %, is paid; the thirteenth pays 1 % a month.
+        assert due_after_the_end.installment_date == date(2026, 2, 15)
+        assert due_after_the_end.principal_outstanding == Dezimal(6000)
+        assert due_after_the_end.current_installment_interests == Dezimal(60)
+
+
+class TestRepaidLoan:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "interest_type, euribor_rate",
+        [(InterestType.FIXED, None), (InterestType.VARIABLE, Dezimal(0))],
+    )
+    async def test_a_loan_past_its_last_installment_is_repaid(
+        self, monkeypatch, interest_type, euribor_rate
+    ):
+        params = _params(
+            loan_amount=Dezimal(1200),
+            interest_rate=Dezimal(0),
+            interest_type=interest_type,
+            euribor_rate=euribor_rate,
+            start=date(2025, 1, 15),
+            end=date(2025, 4, 15),
+        )
+
+        _on(monkeypatch, date(2025, 4, 15))
+        last_due_today = await _calculator().calculate(params)
+        _on(monkeypatch, date(2025, 4, 16))
+        all_past = await _calculator().calculate(params)
+
+        assert last_due_today.principal_outstanding == Dezimal(400)
+        assert last_due_today.current_installment_payment == Dezimal(400)
+        assert all_past.installment_date == date(2025, 4, 15)
+        assert all_past.principal_outstanding == Dezimal(0)
+        assert all_past.current_installment_payment == Dezimal(0)
+        assert all_past.current_installment_interests == Dezimal(0)
+
+    @pytest.mark.asyncio
+    async def test_a_tracked_loan_past_its_last_installment_is_repaid(
+        self, monkeypatch
+    ):
+        params = _params(
+            loan_amount=Dezimal(1200),
+            interest_rate=Dezimal("0.12"),
+            start=date(2025, 1, 15),
+            end=date(2025, 4, 15),
+        )
+        params.tracking_ref_outstanding = Dezimal(800)
+        params.tracking_ref_date = date(2025, 3, 1)
+
+        _on(monkeypatch, date(2025, 5, 1))
+        result = await _calculator().calculate(params)
+
+        assert result.principal_outstanding == Dezimal(0)
+        assert result.current_installment_payment == Dezimal(0)
+
+    @pytest.mark.asyncio
+    async def test_a_loan_tracked_from_after_its_last_installment_is_repaid(
+        self, monkeypatch
+    ):
+        params = _params(
+            loan_amount=Dezimal(1200),
+            interest_rate=Dezimal("0.12"),
+            start=date(2025, 1, 15),
+            end=date(2025, 4, 15),
+        )
+        params.tracking_ref_outstanding = Dezimal(400)
+        params.tracking_ref_date = date(2025, 4, 20)
+
+        _on(monkeypatch, date(2025, 5, 1))
+        result = await _calculator().calculate(params)
+
+        assert result.principal_outstanding == Dezimal(0)
+        assert result.current_installment_payment == Dezimal(0)
+        assert result.current_installment_interests == Dezimal(0)
+
+    @pytest.mark.asyncio
+    async def test_a_given_outstanding_is_due_in_full_with_the_loan_amount(
+        self, monkeypatch
+    ):
+        # The regular installment would be 400; the 300 left are due at once.
+        params = _params(
+            loan_amount=Dezimal(1200),
+            interest_rate=Dezimal(0),
+            principal_outstanding=Dezimal(300),
+            start=date(2025, 1, 15),
+            end=date(2025, 4, 15),
+        )
+
+        _on(monkeypatch, date(2025, 5, 1))
+        result = await _calculator().calculate(params)
+
+        assert result.installment_date == date(2025, 4, 15)
+        assert result.principal_outstanding == Dezimal(300)
+        assert result.current_installment_payment == Dezimal(300)
+
+    @pytest.mark.asyncio
+    async def test_a_given_outstanding_is_due_with_the_last_installment(
+        self, monkeypatch
+    ):
+        params = _params(
+            loan_amount=None,
+            interest_rate=Dezimal(0),
+            interest_type=InterestType.VARIABLE,
+            euribor_rate=Dezimal(0),
+            principal_outstanding=Dezimal(300),
+            start=date(2025, 1, 15),
+            end=date(2025, 4, 15),
+        )
+
+        _on(monkeypatch, date(2025, 5, 1))
+        result = await _calculator().calculate(params)
+
+        assert result.installment_date == date(2025, 4, 15)
+        assert result.principal_outstanding == Dezimal(300)
+        assert result.current_installment_payment == Dezimal(300)

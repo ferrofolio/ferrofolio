@@ -271,10 +271,9 @@ reviews:
       instructions: |
         This code ports Python use cases and must produce the same results (AGENTS.md: ported routes keep
         their behaviour; money arithmetic changes need a maintainer). Report every difference from the
-        Python implementation it names. Weaknesses that the Python code shares and that are listed under
-        "Known issues of the Python reference" in docs/rust-backend.md are known and intentional here; do not
-        request a Rust-only change for them. A new weakness shared with Python is reported as an addition to
-        that list.
+        Python implementation it names. A weakness the Python code shares is fixed in Python and Rust
+        together, never in Rust alone; report it as an addition to "Weaknesses of the Python reference" in
+        docs/rust-backend.md.
     - path: "{tests,e2e}/**"
       instructions: |
         Flag deleted tests and weakened or removed assertions explicitly.

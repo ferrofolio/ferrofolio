@@ -163,37 +163,39 @@ Each case states what it compares:
 | A request body nested deeper than 128 levels, also in a field the route ignores | Accepted | `400 INVALID_REQUEST`; serde_json's recursion limit keeps a crafted body from exhausting the stack |
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked") |
 
-### Known issues of the Python reference
+### Weaknesses of the Python reference
 
 Reviews of the port found weaknesses in the Python calculators. They are fixed in Python and Rust together, with
 regenerated fixtures, and each pull request points the change out to a maintainer, because it changes money
-arithmetic (AGENTS.md). The savings weaknesses are fixed; until a loan weakness is fixed, the Rust code reproduces it
-on purpose, marked with a comment at each place, because a ported route keeps its behaviour.
+arithmetic (AGENTS.md). A weakness found later is reproduced in Rust until it is fixed, marked with a comment at the
+place and listed here, because a ported route keeps its behaviour.
 
-#### Fixed
-
-The parity fixtures record the new answers of both implementations.
+The loan schedule in one sentence: the loan is disbursed on `start`, installment `i` is due `i` periods later (counted
+from `start` each time), the last one on or before `end`, and only a loan that ends before its first period is over
+has its single installment on `end`; the installments due before today are paid, and the one due
+today or next is the current installment. After the last due date that last installment stays the current one, as
+before, and a loan whose outstanding is computed from its amount or a tracking reference is repaid: outstanding,
+payment and interests are zero, whenever the reference was taken. An outstanding given in the request is still owed
+then and due in full, with the last period's interest, also when the loan amount is given too.
 
 | | Where | Fix |
 |---|---|---|
+| L1 | Loan, outstanding simulated from the start | The simulation applied one installment more than were due, from a schedule that stepped from date to date, so variable and mixed loans reported a lower outstanding than a fixed loan at the same rate. It now applies exactly the installments due before today, each over the installments left, the last one included |
+| L2 | Loan, monthly to yearly schedules | Periods were counted in calendar months while the schedule stepped from date to date, so a start on the 31st drifted to the 28th and could count one installment less. Every due date is now counted from the start (31 January, 28 February, 31 March) |
+| L3 | Loan, fixed rate with a known amount | Which installments counted as paid depended on how the next installment date had been reached. The installments due before today are paid; the one due today is the current one |
+| L4 | Loan, remaining balance | With inconsistent counts the balance could become zero while installments were still unpaid. All paths now count the same installments, so the balance is zero only after the last one |
+| L5 | Loan, schedule | The loan had an installment on `start` in one place and none in another, with the annuity spread over one installment fewer than the schedule had. The loan is disbursed on `start`; installment `i` is due `i` periods later, the last one on or before `end` |
+| L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST`, and so is a negative `fixed_years`, whose fixed period would end before the calendar begins |
+| L7 | Loan, end of the calendar | Counting and stepping the schedule went one period past `end`, so a schedule ending at the end of the calendar, or a fixed period of a mixed loan that ends beyond it, failed with `500`; the schedule now takes no step beyond 31 December 9999, and such a fixed period never ends |
+| L8 | Loan, request dates | A date that was neither a string nor `null` failed with `500`; it is now rejected with `400 INVALID_REQUEST`, as by the Rust route |
+| L9 | Loan, mixed rate | The current installment took the rate in force today, the simulation of the paid installments the rate in force when each period began, so the installment due on the day the fixed period ended paid a different rate than the one applied to it the day after. Every installment now pays the rate in force when its period began |
+| L10 | Loan, after the last installment | The last installment never counted as paid, so a loan that had ended still reported the principal of its last installment as outstanding. Once every installment is past, a loan computed from its amount or a tracking reference reports zero outstanding, payment and interests, and an outstanding given in the request is due in full on every path. The tracked-loan refresh, which skipped matured loans, now records that a fixed loan tracked from a reference is repaid |
+| L11 | Loan, mixed rate at the end of the calendar | A fixed period ending beyond the calendar was treated as ending on 31 December 9999, so a period beginning on that day paid the floating rate. Such a fixed period never ends |
 | S1 | Savings, contribution solved for a retirement | The search counted a withdrawal the balance could not cover as paid. It now counts every withdrawal that is not funded in full, widens its upper bound until that bound funds all of them, stops at once when the base alone does, and returns the smallest contribution in cents with which the projection funds every withdrawal |
 | S2 | Savings, contribution solved for a target | The solved contribution used the factor of an ordinary annuity, while the projection lets each contribution earn its period's return, so the projection missed the target by about one period's return. It now uses the factor of an annuity due and, searching from that estimate in both directions, returns the smallest contribution in cents with which the projection reaches the target, also when the base alone would reach it without rounding its returns |
 | S3 | Savings, horizon solved for a target | The search applied unrounded returns while the projection rounds them to cents, so the projection could fall short of the target. The search now rounds the same way; a target the rounded returns never reach has no horizon |
 | S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
 | S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
-| L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST`, and so is a negative `fixed_years`, whose fixed period would end before the calendar begins |
-| L7 | Loan, end of the calendar | Counting and stepping the schedule went one period past `end`, so a schedule ending at the end of the calendar, or a fixed period of a mixed loan that ends beyond it, failed with `500`; a step beyond 31 December 9999 now ends there |
-| L8 | Loan, request dates | A date that was neither a string nor `null` failed with `500`; it is now rejected with `400 INVALID_REQUEST`, as by the Rust route |
-
-#### Open
-
-| | Where | Issue |
-|---|---|---|
-| L1 | Loan, outstanding simulated from the start date | Each simulated payment spreads the balance over the periods to `end` without the installment due on `end`, while the payment reported for today includes it, so the simulated payments are slightly higher |
-| L2 | Loan, monthly to yearly schedules | Periods are counted in calendar months, but the schedule steps from date to date; a start on the 31st steps to the 28th after February, and the count can be one installment short |
-| L3 | Loan, fixed rate with a known amount | An installment counts as paid only once the next installment date is reached, so right after a payment the reported balance still includes it |
-| L4 | Loan, remaining balance | Once the count of payments reaches the count of periods, the balance is zero whatever is still unpaid |
-| L5 | Loan, fixed rate with a known amount | The schedule has an installment on `start` and one on `end`, but the annuity is spread over the intervals between them, one fewer than the installments |
 
 ## Running locally
 
