@@ -134,20 +134,14 @@ pub struct LoginAttempt {
 
 type TokenDigest = [u8; 32];
 
-/// The token the backend issued for a login, as the `Authorization` value that
-/// carries it.
-struct BackendToken {
-    authorization: HeaderValue,
-    /// Whether it lasts until the logout. Rust asks for such a token at every login
-    /// (`LoginBody`); only a body Rust cannot read gets one that may expire.
-    lasting: bool,
-}
-
 #[derive(Default)]
 struct State {
     /// The digest of each valid token, with the time its session ends, if it does.
     sessions: HashMap<TokenDigest, Option<SystemTime>>,
-    backend: Option<BackendToken>,
+    /// The `Authorization` value with the backend token of the newest login. Every
+    /// backend token lasts until the logout (`LoginBody`), so any of them serves
+    /// every session.
+    backend: Option<HeaderValue>,
     /// How many times a logout has ended the sessions.
     logouts: u64,
 }
@@ -203,7 +197,6 @@ impl Sessions {
         attempt: LoginAttempt,
         remember: bool,
         backend_token: &str,
-        backend_token_lasting: bool,
     ) -> Result<String, SessionError> {
         let mut authorization = HeaderValue::try_from(format!("Bearer {backend_token}"))
             .map_err(|_| SessionError::BackendToken)?;
@@ -223,18 +216,7 @@ impl Sessions {
             return Err(SessionError::LoggedOut);
         }
         state.sessions.insert(digest(&token), expires);
-        // A lasting backend token serves every session; one that may expire is
-        // replaced by the newest, which expires last.
-        let keep = state
-            .backend
-            .as_ref()
-            .is_some_and(|current| current.lasting && !backend_token_lasting);
-        if !keep {
-            state.backend = Some(BackendToken {
-                authorization,
-                lasting: backend_token_lasting,
-            });
-        }
+        state.backend = Some(authorization);
         Ok(token)
     }
 
@@ -258,10 +240,7 @@ impl Sessions {
             state.sessions.remove(&token_digest);
             return None;
         }
-        state
-            .backend
-            .as_ref()
-            .map(|backend| backend.authorization.clone())
+        state.backend.clone()
     }
 
     /// Ends every session and forgets the backend token, as a logout does.
@@ -298,10 +277,10 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
 pub struct LoginBody {
     /// The body the backend gets.
     pub forwarded: Bytes,
-    /// Whether the client asked to be remembered.
-    pub remember: bool,
-    /// Whether the backend's token will last until the logout.
-    pub backend_token_lasting: bool,
+    /// Whether the client asked to be remembered, if Rust could read the body and
+    /// so ask the backend for a token that lasts until the logout. A login whose
+    /// body Rust cannot read starts no session.
+    pub remember: Option<bool>,
 }
 
 impl LoginBody {
@@ -311,15 +290,18 @@ impl LoginBody {
     /// `json` module keeps the last of repeated keys. The rest of the body reaches
     /// Python unchanged.
     ///
-    /// A body that is not a JSON object Rust can read goes on unchanged. Python
-    /// then refuses it, or reads JSON that serde_json does not, such as `NaN`; the
-    /// session then counts as remembered, the shorter choice, and the backend token
-    /// may expire.
+    /// A body that is not a JSON object Rust can read goes on unchanged, so that
+    /// Python answers it as before: it refuses it, or reads JSON that serde_json
+    /// does not, such as `NaN`, and may then issue a token that expires.
+    ///
+    /// With `arbitrary_precision`, serde_json reads an object whose first key is its
+    /// private number token as a number, so such a `remember` can count as false
+    /// where Python counts it as true: the session then lasts until the logout, as
+    /// the client could ask for with `false` (docs/rust-backend.md, known deviations).
     pub fn new(body: Bytes, is_json: bool) -> Self {
         let unchanged = |body| LoginBody {
             forwarded: body,
-            remember: true,
-            backend_token_lasting: false,
+            remember: None,
         };
         if !is_json {
             return unchanged(body);
@@ -339,8 +321,7 @@ impl LoginBody {
         let (head, tail) = body.split_at(end);
         LoginBody {
             forwarded: Bytes::from([head, member, tail].concat()),
-            remember: fields.get("remember").is_some_and(pycompat::truthy),
-            backend_token_lasting: true,
+            remember: Some(fields.get("remember").is_some_and(pycompat::truthy)),
         }
     }
 }
@@ -492,7 +473,7 @@ mod tests {
     fn a_session_lasts_until_the_logout() {
         let (sessions, clock) = sessions(Some(Duration::from_secs(60)));
         let token = sessions
-            .start(sessions.login_attempt(), false, "backend", true)
+            .start(sessions.login_attempt(), false, "backend")
             .unwrap();
         *clock.0.lock().unwrap() += Duration::from_secs(365 * 86_400);
         assert_eq!(
@@ -512,7 +493,7 @@ mod tests {
         let started = clock.now();
         let attempt = sessions.login_attempt();
         *clock.0.lock().unwrap() += Duration::from_secs(1);
-        let token = sessions.start(attempt, true, "backend", true).unwrap();
+        let token = sessions.start(attempt, true, "backend").unwrap();
         *clock.0.lock().unwrap() = started + Duration::from_secs(59);
         assert!(sessions.is_valid(&bearer(&token)));
         *clock.0.lock().unwrap() = started + Duration::from_secs(60);
@@ -526,45 +507,27 @@ mod tests {
     fn without_a_period_a_remembered_session_does_not_expire() {
         let (sessions, clock) = sessions(None);
         let token = sessions
-            .start(sessions.login_attempt(), true, "backend", true)
+            .start(sessions.login_attempt(), true, "backend")
             .unwrap();
         *clock.0.lock().unwrap() += Duration::from_secs(3650 * 86_400);
         assert!(sessions.is_valid(&bearer(&token)));
     }
 
     #[test]
-    fn keeps_a_lasting_backend_token() {
+    fn every_session_reaches_the_backend_with_the_newest_backend_token() {
         let (sessions, _) = sessions(None);
-        let first = sessions
-            .start(sessions.login_attempt(), false, "lasting", true)
-            .unwrap();
-        let second = sessions
-            .start(sessions.login_attempt(), true, "expiring", false)
-            .unwrap();
-        for token in [&first, &second] {
-            assert_eq!(
-                sessions.backend_authorization(&bearer(token)).unwrap(),
-                "Bearer lasting"
-            );
-        }
-
-        // One that may expire gives way to a newer one, and to a lasting one.
-        let (sessions, _) = self::sessions(None);
         let mut tokens = Vec::new();
-        for (backend_token, lasting, expected) in [
-            ("expiring", false, "Bearer expiring"),
-            ("newer", false, "Bearer newer"),
-            ("lasting", true, "Bearer lasting"),
-            ("newest", false, "Bearer lasting"),
-        ] {
-            let token = sessions
-                .start(sessions.login_attempt(), false, backend_token, lasting)
-                .unwrap();
-            tokens.push(token);
+        for backend_token in ["first", "second"] {
+            tokens.push(
+                sessions
+                    .start(sessions.login_attempt(), false, backend_token)
+                    .unwrap(),
+            );
+            let expected = format!("Bearer {backend_token}");
             for token in &tokens {
                 assert_eq!(
                     sessions.backend_authorization(&bearer(token)).unwrap(),
-                    expected
+                    expected.as_str()
                 );
             }
         }
@@ -574,7 +537,7 @@ mod tests {
     fn refuses_a_backend_token_that_is_not_a_header_value() {
         let (sessions, _) = sessions(None);
         assert!(matches!(
-            sessions.start(sessions.login_attempt(), false, "a\nb", true),
+            sessions.start(sessions.login_attempt(), false, "a\nb"),
             Err(SessionError::BackendToken)
         ));
     }
@@ -588,7 +551,7 @@ mod tests {
         };
         let sessions = Sessions::new(settings, clock);
         let token = sessions
-            .start(sessions.login_attempt(), false, "backend", true)
+            .start(sessions.login_attempt(), false, "backend")
             .unwrap();
         assert!(!sessions.is_valid(&bearer(&token)));
     }
@@ -597,17 +560,17 @@ mod tests {
     fn a_login_that_a_logout_overtook_starts_no_session() {
         let (sessions, _) = sessions(None);
         let earlier = sessions
-            .start(sessions.login_attempt(), false, "first", true)
+            .start(sessions.login_attempt(), false, "first")
             .unwrap();
         let attempt = sessions.login_attempt();
         sessions.revoke_all();
         assert!(matches!(
-            sessions.start(attempt, false, "second", true),
+            sessions.start(attempt, false, "second"),
             Err(SessionError::LoggedOut)
         ));
         assert!(!sessions.is_valid(&bearer(&earlier)));
         let later = sessions
-            .start(sessions.login_attempt(), false, "third", true)
+            .start(sessions.login_attempt(), false, "third")
             .unwrap();
         assert_eq!(
             sessions.backend_authorization(&bearer(&later)).unwrap(),
@@ -623,20 +586,19 @@ mod tests {
             login.forwarded,
             r#"{"username":"u","password":"p","remember":true,"remember":false}"#
         );
-        assert!(login.remember);
-        assert!(login.backend_token_lasting);
+        assert_eq!(login.remember, Some(true));
 
         let login = body("{ \"username\": \"u\", \"remember\": 0 } \n");
         assert_eq!(
             login.forwarded,
             "{ \"username\": \"u\", \"remember\": 0 ,\"remember\":false} \n"
         );
-        assert!(!login.remember);
+        assert_eq!(login.remember, Some(false));
 
         let login = body(r#"{"remember":"no","remember":null}"#);
-        assert!(!login.remember);
+        assert_eq!(login.remember, Some(false));
         let login = body(r#"{"remember":"no"}"#);
-        assert!(login.remember);
+        assert_eq!(login.remember, Some(true));
 
         assert_eq!(body("{}").forwarded, r#"{"remember":false}"#);
         assert_eq!(body("{ }").forwarded, r#"{ "remember":false}"#);
@@ -654,12 +616,11 @@ mod tests {
         ] {
             let login = LoginBody::new(Bytes::from(raw), true);
             assert_eq!(login.forwarded, raw);
-            assert!(login.remember, "{raw}");
-            assert!(!login.backend_token_lasting, "{raw}");
+            assert_eq!(login.remember, None, "{raw}");
         }
         let raw = r#"{"username":"u"}"#;
         let login = LoginBody::new(Bytes::from(raw), false);
         assert_eq!(login.forwarded, raw);
-        assert!(!login.backend_token_lasting);
+        assert_eq!(login.remember, None);
     }
 }

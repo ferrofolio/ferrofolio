@@ -6,14 +6,19 @@
 //! place of the client's (`sessions`). Login, signup and logout pass through the
 //! session handling here on their way to the backend.
 
+use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use axum::body::{Body, to_bytes};
+use axum::body::{Body, Bytes, to_bytes};
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_LENGTH, ORIGIN};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
+use hyper::body::{Body as HttpBody, Frame, SizeHint};
 use serde_json::{Value, json};
+use tokio::sync::OwnedSemaphorePermit;
 
 use crate::app::AppState;
 use crate::error::ApiError;
@@ -72,10 +77,15 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         .headers
         .insert(CONTENT_LENGTH, HeaderValue::from(login.forwarded.len()));
     let attempt = state.sessions.login_attempt();
-    let request = Request::from_parts(parts, Body::from(login.forwarded));
-    let response = state.backend.forward(request, client_addr).await;
-    drop(budget);
-    let response = match response {
+    let body = Body::new(BudgetedBody {
+        data: Some(login.forwarded),
+        budget: Some(budget),
+    });
+    let response = match state
+        .backend
+        .forward(Request::from_parts(parts, body), client_addr)
+        .await
+    {
         Ok(response) => response,
         Err(error) => return refuse(error.into_response()),
     };
@@ -96,12 +106,14 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         tracing::error!("the backend accepted a login without answering with a token");
         return refuse(ApiError::BackendUnavailable.into_response());
     };
-    let token = match state.sessions.start(
-        attempt,
-        login.remember,
-        &backend_token,
-        login.backend_token_lasting,
-    ) {
+    // Without the rewritten body the backend token may expire before the session
+    // would, so a body Rust cannot read starts none.
+    let Some(remember) = login.remember else {
+        tracing::warn!("the backend accepted a login body Rust cannot read");
+        let message = "Failed to decode JSON object";
+        return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
+    };
+    let token = match state.sessions.start(attempt, remember, &backend_token) {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
             tracing::warn!(%error, "a login ended without a session");
@@ -137,21 +149,68 @@ fn token_of(body: &[u8]) -> Option<String> {
     }
 }
 
-/// Passes a logout on and ends every session once the backend has ended its own.
-/// Python's logout handler revokes its sessions before anything else, so they are
-/// gone whenever the handler ran: on success, and on a server error that happened
-/// later in the handler. A refusal of its session guard or of its routing leaves
-/// them, and so does Rust.
-async fn logout(state: &AppState, request: Request, client_addr: Option<SocketAddr>) -> Response {
-    let response = match state.backend.forward(request, client_addr).await {
-        Ok(response) => response,
-        Err(error) => return error.into_response(),
-    };
-    let status = response.status();
-    if status.is_success() || status.is_server_error() {
-        state.sessions.revoke_all();
+/// A login body on its way to the backend, holding its share of the body budget
+/// until it has been handed on, not while the backend works on the login.
+struct BudgetedBody {
+    data: Option<Bytes>,
+    budget: Option<OwnedSemaphorePermit>,
+}
+
+impl HttpBody for BudgetedBody {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Bytes>, Infallible>>> {
+        let this = self.get_mut();
+        let frame = this.data.take().map(|data| Ok(Frame::data(data)));
+        this.budget = None;
+        Poll::Ready(frame)
     }
-    response
+
+    fn is_end_stream(&self) -> bool {
+        self.data.is_none()
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        let length = self.data.as_ref().map_or(0, Bytes::len);
+        SizeHint::with_exact(u64::try_from(length).unwrap_or(u64::MAX))
+    }
+}
+
+/// Passes a logout on and ends every session unless the backend refused it.
+///
+/// Python's logout handler revokes its sessions before anything else, so they may
+/// be gone whenever the request reached it: on success, on a server error later in
+/// the handler and when the answer is lost. Only a refusal of its session guard or
+/// its routing, a `3xx` or `4xx`, shows that they are not. A session Rust kept
+/// after Python ended its own would otherwise come back with the backend token of
+/// the next login. The logout runs to its end in a task of its own, so that a
+/// client that goes away cannot stop Rust from ending the sessions.
+async fn logout(state: &AppState, request: Request, client_addr: Option<SocketAddr>) -> Response {
+    let backend = state.backend.clone();
+    let sessions = state.sessions.clone();
+    let logout = tokio::spawn(async move {
+        let response = backend.forward(request, client_addr).await;
+        let refused = response.as_ref().is_ok_and(|response| {
+            response.status().is_redirection() || response.status().is_client_error()
+        });
+        if !refused {
+            sessions.revoke_all();
+        }
+        response
+    });
+    match logout.await {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => error.into_response(),
+        Err(error) => {
+            tracing::error!(%error, "a logout did not complete");
+            state.sessions.revoke_all();
+            ApiError::Unexpected("Logout failed".to_owned()).into_response()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
