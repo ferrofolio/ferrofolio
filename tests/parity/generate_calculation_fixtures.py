@@ -25,6 +25,8 @@ import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
+from ci_python import require_ci_python
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "finanze"))
 
@@ -1408,6 +1410,7 @@ def render(fixtures):
 
 
 def main():
+    require_ci_python()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output", type=Path, help="write the fixtures to this file")

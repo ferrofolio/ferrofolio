@@ -18,6 +18,8 @@ import sys
 from decimal import ROUND_HALF_UP, Decimal, getcontext
 from pathlib import Path
 
+from ci_python import require_ci_python
+
 SEED = 28
 CENT = Decimal("0.01")
 
@@ -158,6 +160,7 @@ def render(entries):
 
 
 def main():
+    require_ci_python()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output", type=Path, help="write the fixtures to this file")
