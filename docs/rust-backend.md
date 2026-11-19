@@ -86,12 +86,11 @@ the routes that need them (the read paths of phase 4, slice 2, need the position
 
 | Python module | Ported |
 |---|---|
-| `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `profitability.py`, `public_key.py` | Completely |
+| `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `global_position.py`, `profitability.py`, `public_key.py` | Completely |
 | `calculations.py`, `loan_calculator.py` | The types of the calculators |
 | `dezimal.py` | See above; `round(value, n)` is `Dezimal::round`, `f"{value:.2f}"` is `Dezimal::to_fixed` |
 | `earnings_expenses.py` | `FlowFrequency` |
 | `external_integration.py` | `ExternalIntegrationId`, `ExternalIntegrationPayload`, `EnabledExternalIntegrations` |
-| `global_position.py` | The enums but `CryptoInitialInvestmentType`, `DerivativeContractType`, `PositionDirection` and `MarginType`; `ManualEntryData`, accounts, cards, loans with their hashes, stocks, funds and fund portfolios |
 
 The port follows Python's types:
 
@@ -109,20 +108,25 @@ The port follows Python's types:
   comes from a `new` constructor that takes the required fields.
 - `__post_init__` becomes a `post_init` method that takes the struct as written and returns it with the derived
   fields, or the error Python raises (`MissingFieldsError` or a decimal signal). `BaseData`, the base class of the
-  positions, is not ported: its only method, `from_dict`, is called nowhere.
+  positions, is not ported: its only method, `from_dict`, is called nowhere. `Crowdlending.distribution` and
+  `entries`, a `dict` and a `list` without types that no domain logic reads, hold their JSON text.
 - `Account`'s `Debug` output leaves out the IBAN, which must not reach a log.
 - Nothing in the domain reads the clock: where Python calls `datetime.now()`, the Rust function takes the time as a
-  parameter. There is no serde in the domain either; mapping to rows and to JSON stays in `infra-db` and `server`.
+  parameter, such as the `today` of `annualized_profitability` and of the `post_init` of factoring, real estate
+  crowdfunding and deposits. There is no serde in the domain either; mapping to rows and to JSON stays in
+  `infra-db` and `server`.
 
 Two differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
-which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. And `crypto_rate_key` changes the case of a symbol or contract address with the standard
-library of each language, and Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the 56 letters added
-in Unicode 17 change case in Rust and stay as they are in Python. No ticker symbol or hex address contains them.
+which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. And
+`crypto_rate_key` changes the case of a symbol or contract address with the standard library of each language, and
+Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the 56 letters added in Unicode 17 change case in
+Rust and stay as they are in Python. No ticker symbol or hex address contains them.
 
 `tests/parity/generate_domain_enum_fixtures.py` writes `domain_enums.json`, every enum of the ported modules with its
 values in order (for a completely ported module every enum it defines, so a new one makes `--check` fail), and
-`domain_cases.json`, inputs and Python's outputs for every function with logic; `crates/core-domain/tests/domain_parity.rs`
-requires Rust to have the same enums and compute the same outputs. CI runs the generator with `--check`.
+`domain_cases.json`, inputs and Python's outputs for every function with logic, with a fixed date where Python
+reads the clock; `crates/core-domain/tests/domain_parity.rs` requires Rust to have the same enums and compute the same
+outputs. CI runs the generator with `--check`.
 
 ## Ported routes
 
