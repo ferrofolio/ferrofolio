@@ -79,6 +79,39 @@ purpose: whether a savings scenario has a `target_amount` follows Python's truth
 a number with a fraction or an exponent as a float, so a value that underflows to zero, such as `1e-400`, means no
 target in both. The amount of a target that is kept is parsed exactly.
 
+### Domain modules
+
+`core-domain` ports the modules of `finanze/domain` one at a time, each to a Rust module of the same name, ahead of
+the routes that need them (the read paths of phase 4, slice 2, need the positions and what they are built from).
+
+| Python module | Ported |
+|---|---|
+| `constants.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `public_key.py` | Completely |
+| `calculations.py`, `loan_calculator.py` | The types of the calculators |
+| `dezimal.py` | See above |
+| `earnings_expenses.py` | `FlowFrequency` |
+| `external_integration.py` | `ExternalIntegrationId` |
+| `global_position.py` | `InterestType`, `InstallmentFrequency` |
+
+The port follows Python's types:
+
+- A `(str, Enum)` class becomes an enum declared with `str_enum!`, which gives it the values of the Python members in
+  their order (`ALL`, `as_str`, `from_value`, the trait `StrEnum`) and orders members by value, as Python does.
+- A dataclass becomes a struct with the same fields, `type` written as `r#type`. `Optional` becomes `Option`, `int`
+  becomes `i64`, `UUID` becomes `uuid::Uuid` (re-exported as `core_domain::Uuid`), `date` becomes jiff's civil
+  `Date`, and `datetime` becomes `core_domain::datetime::DateTime`, which is naive or aware like a Python `datetime`
+  read from the database with `fromisoformat`, and compares as Python does.
+- Values are written as struct literals. A Python default that is not the default of the Rust type (`None`,
+  `False`, zero, an empty string or list, or the variant an enum marks `#[default]`, such as `DataSource::Real`)
+  comes from a `new` constructor that takes the required fields.
+- Nothing in the domain reads the clock: where Python calls `datetime.now()`, the Rust function takes the time as a
+  parameter. There is no serde in the domain either; mapping to rows and to JSON stays in `infra-db` and `server`.
+
+`tests/parity/generate_domain_enum_fixtures.py` writes `domain_enums.json`, every enum of the ported modules with its
+values in order (for a completely ported module every enum it defines, so a new one makes `--check` fail), and
+`domain_cases.json`, inputs and Python's outputs for every function with logic; `crates/core-domain/tests/domain_parity.rs`
+requires Rust to have the same enums and compute the same outputs. CI runs the generator with `--check`.
+
 ## Ported routes
 
 These routes are served by Rust; every other route under `/api/v1` is forwarded to Python. The progress of the port

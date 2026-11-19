@@ -276,6 +276,9 @@ jobs:
       - name: Check the Rust decimal fixtures against Python
         run: python tests/parity/generate_decimal_fixtures.py --check crates/core-domain/tests/fixtures/decimal_parity.json
 
+      - name: Check the Rust domain fixtures against Python
+        run: python tests/parity/generate_domain_enum_fixtures.py --check crates/core-domain/tests/fixtures
+
       - name: Check that Python opens the Rust database fixture with every migration
         run: python tests/parity/generate_db_fixture.py --check crates/infra-db/tests/fixtures
 
