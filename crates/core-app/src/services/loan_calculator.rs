@@ -286,6 +286,11 @@ fn validate(params: &LoanCalculationParams) -> Result<Schedule, CalculationError
             if end < start {
                 return Err(CalculationInputError::new("end must not be before start").into());
             }
+            if params.interest_type == InterestType::Mixed
+                && params.fixed_years.is_some_and(|years| years < 0)
+            {
+                return Err(CalculationInputError::new("fixed_years must not be negative").into());
+            }
             Ok(Schedule {
                 start,
                 end,

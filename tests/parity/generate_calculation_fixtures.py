@@ -305,6 +305,11 @@ def loan_cases():
             ),
         ),
         case(
+            "negative fixed period",
+            LOAN_PATH,
+            loan(interest_type="MIXED", euribor_rate=0.01, fixed_years=-2020),
+        ),
+        case(
             "loan ending on its start date",
             LOAN_PATH,
             loan(start="2027-02-01", end="2027-02-01"),

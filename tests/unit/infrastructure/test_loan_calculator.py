@@ -555,6 +555,17 @@ class TestCalendarBounds:
         assert result.installment_date == start
 
     @pytest.mark.asyncio
+    async def test_rejects_a_negative_fixed_period(self):
+        params = _params(
+            interest_type=InterestType.MIXED,
+            euribor_rate=Dezimal("0.01"),
+            fixed_years=-2020,
+        )
+
+        with pytest.raises(CalculationInputError):
+            await _calculator().calculate(params)
+
+    @pytest.mark.asyncio
     async def test_a_fixed_period_beyond_the_calendar_never_ends(self):
         params = _params(
             interest_type=InterestType.MIXED,
