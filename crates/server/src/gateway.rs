@@ -31,13 +31,18 @@ pub async fn forward(State(state): State<AppState>, request: Request) -> Respons
 
 /// `POST /api/v1/login` and `POST /api/v1/signup`, which answer with a session
 /// token. The backend decodes percent-escapes before routing, so the comparison
-/// does too.
+/// does too. It also ignores the case of the method and repeated leading slashes,
+/// so that every spelling that may reach the backend's handler is covered; marking
+/// a response that carries no token costs nothing.
 fn issues_session_token(method: &Method, raw_path: &str) -> bool {
-    method == Method::POST
-        && matches!(
-            percent_decode(raw_path).as_str(),
-            "/api/v1/login" | "/api/v1/signup"
-        )
+    if !method.as_str().eq_ignore_ascii_case("POST") {
+        return false;
+    }
+    let decoded = percent_decode(raw_path);
+    matches!(
+        decoded.trim_start_matches('/'),
+        "api/v1/login" | "api/v1/signup"
+    )
 }
 
 /// Decodes `%XX` escapes like `urllib.parse.unquote`, which uvicorn applies to the
@@ -90,6 +95,11 @@ mod tests {
         assert!(issues_session_token(&Method::POST, "/api/v1/login"));
         assert!(issues_session_token(&Method::POST, "/api/v1/signup"));
         assert!(issues_session_token(&Method::POST, "/api/v1/%6Cogin"));
+        // Other spellings that may still reach the backend's handler.
+        let lowercase = Method::from_bytes(b"post").unwrap();
+        assert!(issues_session_token(&lowercase, "/api/v1/login"));
+        assert!(issues_session_token(&Method::POST, "//api/v1/login"));
+        assert!(issues_session_token(&Method::POST, "/%2Fapi/v1/signup"));
         assert!(!issues_session_token(&Method::GET, "/api/v1/login"));
         assert!(!issues_session_token(&Method::POST, "/api/v1/login/"));
         assert!(!issues_session_token(&Method::POST, "/api/v1/logout"));
