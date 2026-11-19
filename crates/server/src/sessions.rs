@@ -20,6 +20,7 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime};
 
@@ -188,6 +189,27 @@ pub struct Sessions {
     /// writing while a request with which Python replaces or rekeys the database is
     /// with Python, which so never meets a connection of Rust's (`UserDatabase`).
     replacement: Arc<RwLock<()>>,
+    /// Logins that wait for `replacement` before they open the database, and
+    /// requests that wait for it before Python replaces the database. Tests wait
+    /// for one to reach the lock instead of guessing at a delay.
+    opening: Arc<AtomicUsize>,
+    replacing: Arc<AtomicUsize>,
+}
+
+/// Counts a waiter of the replacement lock while it lives.
+struct Waiting(Arc<AtomicUsize>);
+
+impl Waiting {
+    fn start(counter: &Arc<AtomicUsize>) -> Waiting {
+        counter.fetch_add(1, Ordering::SeqCst);
+        Waiting(Arc::clone(counter))
+    }
+}
+
+impl Drop for Waiting {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 impl fmt::Debug for Sessions {
@@ -206,6 +228,8 @@ impl Sessions {
             clock,
             state: Arc::default(),
             replacement: Arc::default(),
+            opening: Arc::default(),
+            replacing: Arc::default(),
         }
     }
 
@@ -310,6 +334,7 @@ impl Sessions {
         attempt: LoginAttempt,
         open: impl FnOnce() -> Result<UserDatabase, UnlockError>,
     ) -> Result<(), UnlockFailure> {
+        let _waiting = Waiting::start(&self.opening);
         let _opening = self.replacement.blocking_read();
         let database = open().map_err(UnlockFailure::Open)?;
         self.unlock(attempt, database)
@@ -333,6 +358,7 @@ impl Sessions {
     /// is dropped, for a request that replaces or rekeys the database. Waits for
     /// readers and for logins that are opening the database.
     pub async fn close_for_replacement(&self) -> ReplacementGuard {
+        let _waiting = Waiting::start(&self.replacing);
         let guard = Arc::clone(&self.replacement).write_owned().await;
         // No reader holds the database now: readers hold the lock for reading.
         if let Some(database) = self.lock().database.clone() {
@@ -342,6 +368,28 @@ impl Sessions {
                 .close();
         }
         ReplacementGuard { _closed: guard }
+    }
+
+    /// Drops Rust's connection and the credentials a login left, without ending
+    /// the sessions. Python rekeys the database at a change of the password and
+    /// locks it, and a replacement whose answer did not arrive may still write
+    /// it; the next login opens the database again.
+    pub fn forget_database(&self) {
+        self.lock().database = None;
+    }
+
+    /// How many logins wait for the replacement lock before they open the
+    /// database. Tests use it to know that a login has reached the lock.
+    #[doc(hidden)]
+    pub fn waiting_openings(&self) -> usize {
+        self.opening.load(Ordering::SeqCst)
+    }
+
+    /// How many requests wait for the replacement lock before Python replaces the
+    /// database. Tests use it to know that one has reached the lock.
+    #[doc(hidden)]
+    pub fn waiting_replacements(&self) -> usize {
+        self.replacing.load(Ordering::SeqCst)
     }
 
     /// Ends every session, forgets their backend tokens and closes the database, as
