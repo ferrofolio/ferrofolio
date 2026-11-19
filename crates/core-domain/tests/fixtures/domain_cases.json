@@ -1,0 +1,10 @@
+{
+  "is_account_scoped_entity": [
+    {"result": false, "type": "FINANCIAL_INSTITUTION"},
+    {"result": false, "type": "CRYPTO_WALLET"},
+    {"result": true, "type": "CRYPTO_EXCHANGE"},
+    {"result": true, "type": "MARKET_FORECAST_PLATFORM"},
+    {"result": false, "type": "COMMODITY"}
+  ],
+  "constants": {"CAPITAL_GAINS_BASE_TAX": "0.19", "PUSD_CONTRACT_ADDRESS": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb", "PUSD_SYMBOL": "PUSD", "SUPPORTED_CURRENCIES": ["EUR", "USD"]}
+}

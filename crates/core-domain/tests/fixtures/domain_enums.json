@@ -1,0 +1,70 @@
+{
+  "entity.Feature": [
+    "POSITION",
+    "AUTO_CONTRIBUTIONS",
+    "TRANSACTIONS",
+    "HISTORIC"
+  ],
+  "entity.TransactionKind": [
+    "ACCOUNT",
+    "INVESTMENT"
+  ],
+  "entity.EntityType": [
+    "FINANCIAL_INSTITUTION",
+    "CRYPTO_WALLET",
+    "CRYPTO_EXCHANGE",
+    "MARKET_FORECAST_PLATFORM",
+    "COMMODITY"
+  ],
+  "entity.EntityOrigin": [
+    "MANUAL",
+    "NATIVE",
+    "EXTERNALLY_PROVIDED",
+    "INTERNAL"
+  ],
+  "fetch_record.DataSource": [
+    "SHEETS",
+    "MANUAL",
+    "REAL"
+  ],
+  "public_key.CoinType": [
+    "BITCOIN",
+    "LITECOIN"
+  ],
+  "public_key.ScriptType": [
+    "p2pkh",
+    "p2sh-p2wpkh",
+    "p2wpkh",
+    "p2tr"
+  ],
+  "earnings_expenses.FlowFrequency": [
+    "DAILY",
+    "WEEKLY",
+    "BIWEEKLY",
+    "SEMIMONTHLY",
+    "MONTHLY",
+    "EVERY_TWO_MONTHS",
+    "QUARTERLY",
+    "EVERY_FOUR_MONTHS",
+    "SEMIANNUALLY",
+    "YEARLY"
+  ],
+  "external_integration.ExternalIntegrationId": [
+    "GOOGLE_SHEETS",
+    "ETHERSCAN",
+    "ETHPLORER",
+    "ZERION",
+    "GOCARDLESS",
+    "ENABLE_BANKING",
+    "COINGECKO",
+    "COINMARKETCAP",
+    "CRYPTOCOMPARE",
+    "OPENROUTER",
+    "OPENAI",
+    "OPENAI_COMPATIBLE",
+    "LOCAL_MODELS",
+    "GITHUB_COPILOT",
+    "CLAUDE_AGENT",
+    "CHATGPT"
+  ]
+}

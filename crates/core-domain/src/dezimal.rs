@@ -99,6 +99,16 @@ impl Dezimal {
         }
     }
 
+    /// `value × 10^-scale`, exactly: `from_scaled(19, 2)` is 0.19. A `const`
+    /// constructor for the domain's fixed rates and factors.
+    pub const fn from_scaled(value: i64, scale: u16) -> Self {
+        Dezimal {
+            negative: value < 0,
+            coefficient: value.unsigned_abs() as u128,
+            exponent: -(scale as i32),
+        }
+    }
+
     /// Parses a string the way Python's `Decimal(str)` does for finite numbers:
     /// surrounding whitespace, a sign, underscores, digits of any script and an
     /// exponent are accepted. `NaN` and `Infinity` are rejected, because money is
@@ -1199,6 +1209,16 @@ mod tests {
             "0.002916666666666666666666666667"
         );
         assert_eq!((d("1E+30") + d("1E-30")).value().unwrap(), d("1E+30"));
+    }
+
+    #[test]
+    fn scaled_constants_are_exact() {
+        assert_eq!(Dezimal::from_scaled(19, 2), d("0.19"));
+        assert_eq!(Dezimal::from_scaled(-5, 0), d("-5"));
+        assert_eq!(
+            Dezimal::from_scaled(311_034_768, 7).to_string(),
+            "31.1034768"
+        );
     }
 
     #[test]
