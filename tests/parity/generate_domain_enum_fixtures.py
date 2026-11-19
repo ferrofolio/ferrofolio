@@ -43,9 +43,11 @@ import domain.entity as entity  # noqa: E402
 import domain.entity_account as entity_account  # noqa: E402
 import domain.external_integration as external_integration  # noqa: E402
 import domain.fetch_record as fetch_record  # noqa: E402
+import domain.global_position as global_position  # noqa: E402
 import domain.profitability as profitability  # noqa: E402
 import domain.public_key as public_key  # noqa: E402
 from domain.dezimal import Dezimal  # noqa: E402
+from domain.exception.exceptions import MissingFieldsError  # noqa: E402
 
 ENUMS = "domain_enums.json"
 CASES = "domain_cases.json"
@@ -65,6 +67,17 @@ COMPLETE_MODULES = [
 PARTIAL_MODULES = {
     earnings_expenses: ["FlowFrequency"],
     external_integration: ["ExternalIntegrationId"],
+    global_position: [
+        "ProductType",
+        "AccountType",
+        "CardType",
+        "LoanType",
+        "InterestType",
+        "InstallmentFrequency",
+        "AssetType",
+        "FundType",
+        "EquityType",
+    ],
 }
 
 # The date Python's clock reports while cases that depend on today are recorded.
@@ -120,11 +133,16 @@ def signal_name(error: decimal.DecimalException) -> str:
 
 
 def outcome(compute) -> dict:
-    """The result of compute(), or the decimal signal it raised."""
+    """The result of compute(), or the error it raised: a decimal signal, a
+    MissingFieldsError with its fields, or a ValueError for unreadable input."""
     try:
         return {"result": compute()}
     except decimal.DecimalException as error:
         return {"error": signal_name(error)}
+    except MissingFieldsError as error:
+        return {"error": "MissingFieldsError", "missing_fields": error.missing_fields}
+    except ValueError:
+        return {"error": "ValueError"}
 
 
 def optional_decimal(value: str | None) -> Dezimal | None:
@@ -670,6 +688,190 @@ def profitability_cases() -> dict:
     }
 
 
+def loan_hash_cases() -> list[dict]:
+    amounts = [
+        "100",
+        "100.005",
+        "100.015",
+        "0.125",
+        "-0.001",
+        "-0",
+        "0E-10",
+        "1E+30",
+        "1234567.891",
+        " 12_000.5 ",
+        "١٢٣.٥",
+        "abc",
+    ]
+    inputs = [("e1", amount, "2024-01-01") for amount in amounts] + [
+        ("", "100", "2024-01-01"),
+        ("ünï|code", "100", "2024-01-01"),
+        ("e1", "100", "0005-03-04"),
+        ("e1", "100", "2024-01-01T00:00:00"),
+    ]
+    return [
+        {
+            "entity_id": entity_id,
+            "amount": amount,
+            "date": creation,
+            **outcome(
+                lambda entity_id=entity_id, amount=amount, creation=creation: (
+                    global_position.compute_loan_hash(entity_id, amount, creation)
+                )
+            ),
+        }
+        for entity_id, amount, creation in inputs
+    ]
+
+
+def investment_hash_cases() -> list[dict]:
+    inputs = [
+        ("e1", "1000", "2024-01-01", "Fund A"),
+        ("e1", "999.995", "2024-01-01", ""),
+        ("e1", "-12.345", "2023-12-31", "Café ☕"),
+        ("e1", "1000", "2024-01-01", "a|b"),
+        ("", "0", "2024-01-01", "x"),
+        ("e1", "1e3", "2024-01-01", "Fund A"),
+        ("e1", "NaNa", "2024-01-01", "Fund A"),
+    ]
+    return [
+        {
+            "entity_id": entity_id,
+            "amount": amount,
+            "date": start,
+            "name": name,
+            **outcome(
+                lambda entity_id=entity_id, amount=amount, start=start, name=name: (
+                    global_position.compute_investment_hash(
+                        entity_id, amount, start, name
+                    )
+                )
+            ),
+        }
+        for entity_id, amount, start, name in inputs
+    ]
+
+
+def loan_cases() -> list[dict]:
+    inputs = [
+        ("100.50", "50", "2020-01-02", "x", ""),
+        ("250000", "180000.37", "2019-07-31", "e2", ""),
+        ("1000", "1000.01", "0005-03-04", "e3", ""),
+        ("100", "40", "2020-01-02", "x", "preset"),
+        (HUGE, "-" + HUGE, "2020-01-02", "x", ""),
+    ]
+
+    def run(amount, outstanding, creation, entity_id, preset):
+        loan = global_position.Loan(
+            id=None,
+            type=global_position.LoanType.MORTGAGE,
+            currency="EUR",
+            current_installment=Dezimal("500"),
+            interest_rate=Dezimal("0.03"),
+            loan_amount=Dezimal(amount),
+            creation=date.fromisoformat(creation),
+            maturity=date(2040, 1, 2),
+            principal_outstanding=Dezimal(outstanding),
+            principal_paid=Dezimal("1"),
+            hash=preset,
+        )
+        return {
+            "principal_paid": decimal_text(loan.principal_paid),
+            "hash": loan.compute_hash(entity_id),
+        }
+
+    return [
+        {
+            "loan_amount": amount,
+            "principal_outstanding": outstanding,
+            "creation": creation,
+            "entity_id": entity_id,
+            "hash": preset,
+            **outcome(lambda args=args: run(*args)),
+        }
+        for args in inputs
+        for amount, outstanding, creation, entity_id, preset in [args]
+    ]
+
+
+def security_cases(build) -> list[dict]:
+    investments = [None, "100", "0"]
+    prices = [None, "12.5", "0"]
+    shares = ["0", "0.000", "8", "3", "-2"]
+    inputs = list(itertools.product(investments, prices, shares)) + [
+        (None, HUGE, "10"),
+        ("1", None, "1E-999999"),
+    ]
+
+    def run(investment, price, count):
+        detail = build(
+            shares=Dezimal(count),
+            initial_investment=optional_decimal(investment),
+            average_buy_price=optional_decimal(price),
+        )
+        return {
+            "initial_investment": decimal_text(detail.initial_investment),
+            "average_buy_price": decimal_text(detail.average_buy_price),
+        }
+
+    return [
+        {
+            "initial_investment": investment,
+            "average_buy_price": price,
+            "shares": count,
+            **outcome(lambda args=args: run(*args)),
+        }
+        for args in inputs
+        for investment, price, count in [args]
+    ]
+
+
+def stock(**fields):
+    return global_position.StockDetail(
+        id=None,
+        name="Stock",
+        ticker="STK",
+        isin="XX0000000000",
+        market_value=Dezimal("100"),
+        currency="EUR",
+        type=global_position.EquityType.STOCK,
+        **fields,
+    )
+
+
+def fund(**fields):
+    return global_position.FundDetail(
+        id=None,
+        name="Fund",
+        isin="XX0000000000",
+        market=None,
+        market_value=Dezimal("100"),
+        currency="EUR",
+        type=global_position.FundType.MUTUAL_FUND,
+        **fields,
+    )
+
+
+def global_position_cases() -> dict:
+    return {
+        "installment_frequency": [
+            {
+                "value": frequency.value,
+                "payments_per_year": frequency.payments_per_year,
+                "flow_frequency": global_position.INSTALLMENT_TO_FLOW_FREQ[
+                    frequency
+                ].value,
+            }
+            for frequency in global_position.InstallmentFrequency
+        ],
+        "compute_loan_hash": loan_hash_cases(),
+        "compute_investment_hash": investment_hash_cases(),
+        "loan": loan_cases(),
+        "stock_detail": security_cases(stock),
+        "fund_detail": security_cases(fund),
+    }
+
+
 def cases() -> dict:
     groups = {}
     for build in (
@@ -679,6 +881,7 @@ def cases() -> dict:
         crypto_cases,
         dezimal_cases,
         profitability_cases,
+        global_position_cases,
     ):
         for name, group in build().items():
             if name in groups:

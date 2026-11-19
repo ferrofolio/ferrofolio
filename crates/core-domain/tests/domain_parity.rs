@@ -36,8 +36,14 @@ use core_domain::earnings_expenses::FlowFrequency;
 use core_domain::entity::{
     Entity, EntityOrigin, EntityType, Feature, TransactionKind, is_account_scoped_entity,
 };
+use core_domain::exception::PositionError;
 use core_domain::external_integration::ExternalIntegrationId;
 use core_domain::fetch_record::DataSource;
+use core_domain::global_position::{
+    AccountType, AssetType, CardType, EquityType, FundDetail, FundType, InstallmentFrequency,
+    InterestType, Loan, LoanType, ProductType, StockDetail, compute_investment_hash,
+    compute_loan_hash,
+};
 use core_domain::profitability::{ProfitabilityTerms, annualized_profitability};
 use core_domain::public_key::{CoinType, ScriptType};
 use jiff::tz::Offset;
@@ -116,6 +122,37 @@ fn datetime(text: &str) -> DateTime {
     }
 }
 
+/// An error as the fixture names it, with the fields of a `MissingFieldsError`.
+type NamedError = (String, Option<Vec<String>>);
+
+/// The initial investment and the average buy price of a position.
+type InvestmentFigures = (Option<Dezimal>, Option<Dezimal>);
+
+/// Python's error for a case that raised: a signal, `MissingFieldsError` with its
+/// fields, or `ValueError`.
+fn python_error(case: &Value) -> Option<NamedError> {
+    let error = text(case.get("error")?).to_owned();
+    let fields = case.get("missing_fields").map(|fields| {
+        fields
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|field| text(field).to_owned())
+            .collect()
+    });
+    Some((error, fields))
+}
+
+fn position_error(error: &PositionError) -> NamedError {
+    match error {
+        PositionError::MissingFields(missing) => (
+            "MissingFieldsError".to_owned(),
+            Some(missing.missing_fields.clone()),
+        ),
+        PositionError::Arithmetic(signal_error) => (signal(*signal_error).to_owned(), None),
+    }
+}
+
 fn parse_enum<E: StrEnum>(value: &Value) -> E {
     E::from_value(text(value)).unwrap_or_else(|| panic!("{value} is not a {}", E::NAME))
 }
@@ -149,6 +186,18 @@ fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
             values::<ExternalIntegrationId>(),
         ),
         ("fetch_record.DataSource", values::<DataSource>()),
+        ("global_position.AccountType", values::<AccountType>()),
+        ("global_position.AssetType", values::<AssetType>()),
+        ("global_position.CardType", values::<CardType>()),
+        ("global_position.EquityType", values::<EquityType>()),
+        ("global_position.FundType", values::<FundType>()),
+        (
+            "global_position.InstallmentFrequency",
+            values::<InstallmentFrequency>(),
+        ),
+        ("global_position.InterestType", values::<InterestType>()),
+        ("global_position.LoanType", values::<LoanType>()),
+        ("global_position.ProductType", values::<ProductType>()),
         ("public_key.CoinType", values::<CoinType>()),
         ("public_key.ScriptType", values::<ScriptType>()),
     ])
@@ -368,5 +417,179 @@ fn annualized_profitabilities() {
             expected(case).map(dezimal),
             "{case}"
         );
+    }
+}
+
+#[test]
+fn installment_frequencies() {
+    let group = cases("installment_frequency");
+    assert_eq!(
+        group.as_array().unwrap().len(),
+        InstallmentFrequency::ALL.len()
+    );
+    for case in group.as_array().unwrap() {
+        let frequency: InstallmentFrequency = parse_enum(&case["value"]);
+        assert_eq!(
+            u64::from(frequency.payments_per_year()),
+            case["payments_per_year"].as_u64().unwrap()
+        );
+        assert_eq!(
+            frequency.flow_frequency().as_str(),
+            text(&case["flow_frequency"])
+        );
+    }
+}
+
+fn hash_outcome(
+    result: Result<String, core_domain::dezimal::ParseDezimalError>,
+) -> Result<String, String> {
+    result.map_err(|_| "ValueError".to_owned())
+}
+
+fn expected_text(case: &Value) -> Result<String, String> {
+    expected(case)
+        .map(|value| text(value).to_owned())
+        .map_err(str::to_owned)
+}
+
+#[test]
+fn loan_hashes() {
+    for case in cases("compute_loan_hash").as_array().unwrap() {
+        let hash = compute_loan_hash(
+            text(&case["entity_id"]),
+            text(&case["amount"]),
+            text(&case["date"]),
+        );
+        assert_eq!(hash_outcome(hash), expected_text(case), "{case}");
+    }
+}
+
+#[test]
+fn investment_hashes() {
+    for case in cases("compute_investment_hash").as_array().unwrap() {
+        let hash = compute_investment_hash(
+            text(&case["entity_id"]),
+            text(&case["amount"]),
+            text(&case["date"]),
+            text(&case["name"]),
+        );
+        assert_eq!(hash_outcome(hash), expected_text(case), "{case}");
+    }
+}
+
+#[test]
+fn loans() {
+    for case in cases("loan").as_array().unwrap() {
+        let loan = Loan {
+            id: None,
+            r#type: LoanType::Mortgage,
+            currency: "EUR".to_owned(),
+            current_installment: Dezimal::from(500),
+            interest_rate: Dezimal::from_scaled(3, 2),
+            loan_amount: dezimal(&case["loan_amount"]),
+            creation: text(&case["creation"]).parse().unwrap(),
+            maturity: "2040-01-02".parse().unwrap(),
+            principal_outstanding: dezimal(&case["principal_outstanding"]),
+            principal_paid: Some(Dezimal::ONE),
+            interest_type: InterestType::default(),
+            installment_frequency: InstallmentFrequency::default(),
+            installment_interests: None,
+            fixed_interest_rate: None,
+            next_payment_date: None,
+            euribor_rate: None,
+            fixed_years: None,
+            name: None,
+            unpaid: None,
+            hash: text(&case["hash"]).to_owned(),
+            manual_data: None,
+            source: DataSource::default(),
+        };
+        match (loan.post_init(), expected(case)) {
+            (Ok(mut loan), Ok(result)) => {
+                assert_eq!(
+                    loan.principal_paid,
+                    Some(dezimal(&result["principal_paid"]))
+                );
+                assert_eq!(
+                    loan.compute_hash(text(&case["entity_id"])),
+                    text(&result["hash"])
+                );
+            }
+            (Err(error), Err(python)) => assert_eq!(signal(error), python, "{case}"),
+            (outcome, python) => panic!("{case}: {outcome:?} where Python gives {python:?}"),
+        }
+    }
+}
+
+/// The investment figures after `post_init`, or the error, as the fixture writes them.
+fn security_outcome(
+    result: Result<InvestmentFigures, PositionError>,
+) -> Result<InvestmentFigures, NamedError> {
+    result.map_err(|error| position_error(&error))
+}
+
+fn expected_security(case: &Value) -> Result<InvestmentFigures, NamedError> {
+    match python_error(case) {
+        Some(error) => Err(error),
+        None => Ok((
+            optional_dezimal(&case["result"]["initial_investment"]),
+            optional_dezimal(&case["result"]["average_buy_price"]),
+        )),
+    }
+}
+
+#[test]
+fn stock_details() {
+    for case in cases("stock_detail").as_array().unwrap() {
+        let stock = StockDetail {
+            id: None,
+            name: "Stock".to_owned(),
+            ticker: "STK".to_owned(),
+            isin: "XX0000000000".to_owned(),
+            shares: dezimal(&case["shares"]),
+            market_value: Dezimal::from(100),
+            currency: "EUR".to_owned(),
+            r#type: EquityType::Stock,
+            initial_investment: optional_dezimal(&case["initial_investment"]),
+            average_buy_price: optional_dezimal(&case["average_buy_price"]),
+            market: String::new(),
+            subtype: None,
+            info_sheet_url: None,
+            manual_data: None,
+            issuer: None,
+            source: DataSource::default(),
+        };
+        let result = stock
+            .post_init()
+            .map(|stock| (stock.initial_investment, stock.average_buy_price));
+        assert_eq!(security_outcome(result), expected_security(case), "{case}");
+    }
+}
+
+#[test]
+fn fund_details() {
+    for case in cases("fund_detail").as_array().unwrap() {
+        let fund = FundDetail {
+            id: None,
+            name: "Fund".to_owned(),
+            isin: "XX0000000000".to_owned(),
+            market: None,
+            shares: dezimal(&case["shares"]),
+            market_value: Dezimal::from(100),
+            currency: "EUR".to_owned(),
+            r#type: FundType::MutualFund,
+            initial_investment: optional_dezimal(&case["initial_investment"]),
+            average_buy_price: optional_dezimal(&case["average_buy_price"]),
+            asset_type: None,
+            portfolio: None,
+            info_sheet_url: None,
+            manual_data: None,
+            issuer: None,
+            source: DataSource::default(),
+        };
+        let result = fund
+            .post_init()
+            .map(|fund| (fund.initial_investment, fund.average_buy_price));
+        assert_eq!(security_outcome(result), expected_security(case), "{case}");
     }
 }

@@ -23,6 +23,16 @@ impl MissingFieldsError {
     }
 }
 
+/// What the constructors of positions raise in Python's `__post_init__`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum PositionError {
+    #[error(transparent)]
+    MissingFields(#[from] MissingFieldsError),
+    /// Arithmetic that Python would abort with a `decimal` signal.
+    #[error(transparent)]
+    Arithmetic(#[from] ArithmeticError),
+}
+
 /// `CalculationInputError`: the input cannot produce a result.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{details}")]
