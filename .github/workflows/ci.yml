@@ -141,6 +141,9 @@ jobs:
       - name: Check that Python opens the Rust database fixture with every migration
         run: python tests/parity/generate_db_fixture.py --check crates/infra-db/tests/fixtures
 
+      - name: Check the fixtures of the routes that read the database against the Python backend
+        run: python tests/parity/generate_db_route_fixtures.py --check crates/server/tests/fixtures/db_routes
+
   rust:
     name: Rust
     needs: changes
