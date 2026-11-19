@@ -59,6 +59,7 @@ COMPLETE_MODULES = [
     entity,
     entity_account,
     fetch_record,
+    global_position,
     profitability,
     public_key,
 ]
@@ -67,17 +68,6 @@ COMPLETE_MODULES = [
 PARTIAL_MODULES = {
     earnings_expenses: ["FlowFrequency"],
     external_integration: ["ExternalIntegrationId"],
-    global_position: [
-        "ProductType",
-        "AccountType",
-        "CardType",
-        "LoanType",
-        "InterestType",
-        "InstallmentFrequency",
-        "AssetType",
-        "FundType",
-        "EquityType",
-    ],
 }
 
 # The date Python's clock reports while cases that depend on today are recorded.
@@ -869,7 +859,203 @@ def global_position_cases() -> dict:
         "loan": loan_cases(),
         "stock_detail": security_cases(stock),
         "fund_detail": security_cases(fund),
+        "factoring_detail": factoring_cases(),
+        "real_estate_cf_detail": real_estate_cf_cases(),
+        "deposit": deposit_cases(),
+        "crypto_currency_position": crypto_position_cases(),
+        "credit_available_amount": credit_cases(),
     }
+
+
+def sampled(options: dict, count: int, edge: list[dict]) -> list[dict]:
+    """The edge cases and a seeded sample of every combination of the options."""
+    grid = [
+        dict(zip(options, values)) for values in itertools.product(*options.values())
+    ]
+    return edge + random.Random(SEED).sample(grid, min(count, len(grid)))
+
+
+def iso(value) -> str | None:
+    return None if value is None else value.isoformat()
+
+
+def factoring_cases() -> list[dict]:
+    options = {
+        "interest_rate": ["0.1", "0.0725"],
+        "start": ["2025-01-10T09:00:00", "2026-11-30T23:00:00-05:00"],
+        "maturity": ["2026-01-10", "2026-12-15", "2025-01-01"],
+        "late_interest_rate": [None, "0.15"],
+        "gross_interest_rate": [None, "0.12"],
+        "gross_late_interest_rate": [None, "0.2"],
+        "last_invest_date": [None, "2025-02-01T00:00:00"],
+        "profitability": [None, "0.5"],
+    }
+    blank = {name: values[0] for name, values in options.items()}
+    edge = [{**blank, "interest_rate": HUGE, "profitability": None}]
+
+    def run(terms):
+        detail = global_position.FactoringDetail(
+            id=None,
+            name="Invoice",
+            amount=Dezimal("1000"),
+            currency="EUR",
+            interest_rate=Dezimal(terms["interest_rate"]),
+            start=datetime.fromisoformat(terms["start"]),
+            maturity=date.fromisoformat(terms["maturity"]),
+            type="FACTORING",
+            state="ACTIVE",
+            last_invest_date=optional_datetime(terms["last_invest_date"]),
+            profitability=optional_decimal(terms["profitability"]),
+            late_interest_rate=optional_decimal(terms["late_interest_rate"]),
+            gross_interest_rate=optional_decimal(terms["gross_interest_rate"]),
+            gross_late_interest_rate=optional_decimal(
+                terms["gross_late_interest_rate"]
+            ),
+        )
+        return {
+            "gross_interest_rate": decimal_text(detail.gross_interest_rate),
+            "gross_late_interest_rate": decimal_text(detail.gross_late_interest_rate),
+            "last_invest_date": iso(detail.last_invest_date),
+            "profitability": decimal_text(detail.profitability),
+        }
+
+    with fixed_today():
+        return [
+            {**terms, **outcome(lambda terms=terms: run(terms))}
+            for terms in sampled(options, 60, edge)
+        ]
+
+
+def real_estate_cf_cases() -> list[dict]:
+    options = {
+        "interest_rate": ["0.1", "0.0725"],
+        "start": ["2025-01-10T09:00:00", "2026-11-30T23:00:00-05:00"],
+        "maturity": ["2026-01-10", "2026-12-15", "2025-01-01"],
+        "extended_maturity": [None, "2026-12-01", "2027-03-01"],
+        "extended_interest_rate": [None, "0.09"],
+        "last_invest_date": [None, "2025-02-01T00:00:00"],
+        "profitability": [None, "0.5"],
+    }
+    blank = {name: values[0] for name, values in options.items()}
+    edge = [{**blank, "interest_rate": HUGE, "profitability": None}]
+
+    def run(terms):
+        detail = global_position.RealEstateCFDetail(
+            id=None,
+            name="Project",
+            amount=Dezimal("1000"),
+            pending_amount=Dezimal("0"),
+            currency="EUR",
+            interest_rate=Dezimal(terms["interest_rate"]),
+            start=datetime.fromisoformat(terms["start"]),
+            maturity=date.fromisoformat(terms["maturity"]),
+            type="LOAN",
+            state="ACTIVE",
+            last_invest_date=optional_datetime(terms["last_invest_date"]),
+            profitability=optional_decimal(terms["profitability"]),
+            extended_maturity=optional_date(terms["extended_maturity"]),
+            extended_interest_rate=optional_decimal(terms["extended_interest_rate"]),
+        )
+        return {
+            "last_invest_date": iso(detail.last_invest_date),
+            "profitability": decimal_text(detail.profitability),
+        }
+
+    with fixed_today():
+        return [
+            {**terms, **outcome(lambda terms=terms: run(terms))}
+            for terms in sampled(options, 60, edge)
+        ]
+
+
+def deposit_cases() -> list[dict]:
+    options = {
+        "amount": ["1000", "2500.55", "0"],
+        "interest_rate": ["0.0275", "0.031"],
+        "creation": ["2025-03-01T10:00:00", "2026-11-30T23:00:00-05:00"],
+        "maturity": ["2026-03-01", "2027-02-28", "2025-01-01"],
+        "expected_interests": [None, "12.34"],
+    }
+    blank = {name: values[0] for name, values in options.items()}
+    # Interests beyond 28 digits cannot be rounded to cents.
+    edge = [{**blank, "amount": "1E+30", "maturity": "2027-02-28"}]
+
+    def run(terms):
+        deposit = global_position.Deposit(
+            id=None,
+            name="Deposit",
+            amount=Dezimal(terms["amount"]),
+            currency="EUR",
+            interest_rate=Dezimal(terms["interest_rate"]),
+            creation=datetime.fromisoformat(terms["creation"]),
+            maturity=date.fromisoformat(terms["maturity"]),
+            expected_interests=optional_decimal(terms["expected_interests"]),
+        )
+        return decimal_text(deposit.expected_interests)
+
+    with fixed_today():
+        return [
+            {**terms, **outcome(lambda terms=terms: run(terms))}
+            for terms in sampled(options, 100, edge)
+        ]
+
+
+def crypto_position_cases() -> list[dict]:
+    inputs = list(
+        itertools.product(
+            [None, "100", "0"], [None, "2", "0"], ["0", "5", "-1"], [None, "", "EUR"]
+        )
+    ) + [(None, HUGE, "10", "EUR")]
+
+    def run(investment, price, amount, currency):
+        position = global_position.CryptoCurrencyPosition(
+            id=None,
+            symbol="BTC",
+            amount=Dezimal(amount),
+            type=crypto.CryptoCurrencyType.NATIVE,
+            initial_investment=optional_decimal(investment),
+            average_buy_price=optional_decimal(price),
+            investment_currency=currency,
+        )
+        return {
+            "initial_investment": decimal_text(position.initial_investment),
+            "average_buy_price": decimal_text(position.average_buy_price),
+        }
+
+    return [
+        {
+            "initial_investment": investment,
+            "average_buy_price": price,
+            "amount": amount,
+            "investment_currency": currency,
+            **outcome(lambda args=args: run(*args)),
+        }
+        for args in inputs
+        for investment, price, amount, currency in [args]
+    ]
+
+
+def credit_cases() -> list[dict]:
+    inputs = [("1000", "250.5"), ("0", "10"), ("1E+30", "1E-30"), (HUGE, "-" + HUGE)]
+
+    def run(limit, drawn):
+        credit = global_position.CreditDetail(
+            id=None,
+            currency="EUR",
+            credit_limit=Dezimal(limit),
+            drawn_amount=Dezimal(drawn),
+            interest_rate=Dezimal("0.05"),
+        )
+        return decimal_text(credit.available_amount)
+
+    return [
+        {
+            "credit_limit": limit,
+            "drawn_amount": drawn,
+            **outcome(lambda limit=limit, drawn=drawn: run(limit, drawn)),
+        }
+        for limit, drawn in inputs
+    ]
 
 
 def cases() -> dict:

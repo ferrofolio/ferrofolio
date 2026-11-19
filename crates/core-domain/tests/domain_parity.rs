@@ -40,8 +40,10 @@ use core_domain::exception::PositionError;
 use core_domain::external_integration::ExternalIntegrationId;
 use core_domain::fetch_record::DataSource;
 use core_domain::global_position::{
-    AccountType, AssetType, CardType, EquityType, FundDetail, FundType, InstallmentFrequency,
-    InterestType, Loan, LoanType, ProductType, StockDetail, compute_investment_hash,
+    AccountType, AssetType, CardType, CreditDetail, CryptoCurrencyPosition,
+    CryptoInitialInvestmentType, Deposit, DerivativeContractType, EquityType, FactoringDetail,
+    FundDetail, FundType, InstallmentFrequency, InterestType, Loan, LoanType, MarginType,
+    PositionDirection, ProductType, RealEstateCFDetail, StockDetail, compute_investment_hash,
     compute_loan_hash,
 };
 use core_domain::profitability::{ProfitabilityTerms, annualized_profitability};
@@ -189,6 +191,14 @@ fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
         ("global_position.AccountType", values::<AccountType>()),
         ("global_position.AssetType", values::<AssetType>()),
         ("global_position.CardType", values::<CardType>()),
+        (
+            "global_position.CryptoInitialInvestmentType",
+            values::<CryptoInitialInvestmentType>(),
+        ),
+        (
+            "global_position.DerivativeContractType",
+            values::<DerivativeContractType>(),
+        ),
         ("global_position.EquityType", values::<EquityType>()),
         ("global_position.FundType", values::<FundType>()),
         (
@@ -197,6 +207,11 @@ fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
         ),
         ("global_position.InterestType", values::<InterestType>()),
         ("global_position.LoanType", values::<LoanType>()),
+        ("global_position.MarginType", values::<MarginType>()),
+        (
+            "global_position.PositionDirection",
+            values::<PositionDirection>(),
+        ),
         ("global_position.ProductType", values::<ProductType>()),
         ("public_key.CoinType", values::<CoinType>()),
         ("public_key.ScriptType", values::<ScriptType>()),
@@ -591,5 +606,162 @@ fn fund_details() {
             .post_init()
             .map(|fund| (fund.initial_investment, fund.average_buy_price));
         assert_eq!(security_outcome(result), expected_security(case), "{case}");
+    }
+}
+
+fn today() -> Date {
+    text(&cases("today")).parse().unwrap()
+}
+
+fn optional_datetime(value: &Value) -> Option<DateTime> {
+    optional_text(value).map(datetime)
+}
+
+#[test]
+fn factoring_details() {
+    for case in cases("factoring_detail").as_array().unwrap() {
+        let detail = FactoringDetail {
+            id: None,
+            name: "Invoice".to_owned(),
+            amount: Dezimal::from(1000),
+            currency: "EUR".to_owned(),
+            interest_rate: dezimal(&case["interest_rate"]),
+            start: datetime(text(&case["start"])),
+            maturity: text(&case["maturity"]).parse().unwrap(),
+            r#type: "FACTORING".to_owned(),
+            state: "ACTIVE".to_owned(),
+            last_invest_date: optional_datetime(&case["last_invest_date"]),
+            profitability: optional_dezimal(&case["profitability"]),
+            late_interest_rate: optional_dezimal(&case["late_interest_rate"]),
+            gross_interest_rate: optional_dezimal(&case["gross_interest_rate"]),
+            gross_late_interest_rate: optional_dezimal(&case["gross_late_interest_rate"]),
+            manual_data: None,
+            source: DataSource::default(),
+        };
+        let result = detail.post_init(today()).map(|detail| {
+            (
+                detail.gross_interest_rate,
+                detail.gross_late_interest_rate,
+                detail.last_invest_date,
+                detail.profitability,
+            )
+        });
+        let expected = expected(case).map(|result| {
+            (
+                optional_dezimal(&result["gross_interest_rate"]),
+                optional_dezimal(&result["gross_late_interest_rate"]),
+                optional_datetime(&result["last_invest_date"]),
+                optional_dezimal(&result["profitability"]),
+            )
+        });
+        assert_eq!(result.map_err(signal), expected, "{case}");
+    }
+}
+
+#[test]
+fn real_estate_cf_details() {
+    for case in cases("real_estate_cf_detail").as_array().unwrap() {
+        let detail = RealEstateCFDetail {
+            id: None,
+            name: "Project".to_owned(),
+            amount: Dezimal::from(1000),
+            pending_amount: Dezimal::ZERO,
+            currency: "EUR".to_owned(),
+            interest_rate: dezimal(&case["interest_rate"]),
+            start: datetime(text(&case["start"])),
+            maturity: text(&case["maturity"]).parse().unwrap(),
+            r#type: "LOAN".to_owned(),
+            state: "ACTIVE".to_owned(),
+            business_type: String::new(),
+            last_invest_date: optional_datetime(&case["last_invest_date"]),
+            profitability: optional_dezimal(&case["profitability"]),
+            extended_maturity: optional_date(&case["extended_maturity"]),
+            extended_interest_rate: optional_dezimal(&case["extended_interest_rate"]),
+            manual_data: None,
+            source: DataSource::default(),
+        };
+        let result = detail
+            .post_init(today())
+            .map(|detail| (detail.last_invest_date, detail.profitability));
+        let expected = expected(case).map(|result| {
+            (
+                optional_datetime(&result["last_invest_date"]),
+                optional_dezimal(&result["profitability"]),
+            )
+        });
+        assert_eq!(result.map_err(signal), expected, "{case}");
+    }
+}
+
+#[test]
+fn deposits() {
+    for case in cases("deposit").as_array().unwrap() {
+        let deposit = Deposit {
+            id: None,
+            name: "Deposit".to_owned(),
+            amount: dezimal(&case["amount"]),
+            currency: "EUR".to_owned(),
+            interest_rate: dezimal(&case["interest_rate"]),
+            creation: datetime(text(&case["creation"])),
+            maturity: text(&case["maturity"]).parse().unwrap(),
+            expected_interests: optional_dezimal(&case["expected_interests"]),
+            source: DataSource::default(),
+        };
+        let result = deposit
+            .post_init(today())
+            .map(|deposit| deposit.expected_interests);
+        let expected = expected(case).map(optional_dezimal);
+        assert_eq!(result.map_err(signal), expected, "{case}");
+    }
+}
+
+#[test]
+fn crypto_currency_positions() {
+    for case in cases("crypto_currency_position").as_array().unwrap() {
+        let position = CryptoCurrencyPosition {
+            id: None,
+            symbol: "BTC".to_owned(),
+            amount: dezimal(&case["amount"]),
+            r#type: CryptoCurrencyType::Native,
+            name: None,
+            crypto_asset: None,
+            market_value: None,
+            currency: None,
+            contract_address: None,
+            initial_investment: optional_dezimal(&case["initial_investment"]),
+            average_buy_price: optional_dezimal(&case["average_buy_price"]),
+            investment_currency: optional_text(&case["investment_currency"]).map(str::to_owned),
+            chain: None,
+            protocol: None,
+            position_type: CryptoPositionType::default(),
+            icon_url: None,
+            source: DataSource::default(),
+        };
+        let result = position
+            .post_init()
+            .map(|position| (position.initial_investment, position.average_buy_price));
+        assert_eq!(security_outcome(result), expected_security(case), "{case}");
+    }
+}
+
+#[test]
+fn credit_availability() {
+    for case in cases("credit_available_amount").as_array().unwrap() {
+        let credit = CreditDetail {
+            id: None,
+            currency: "EUR".to_owned(),
+            credit_limit: dezimal(&case["credit_limit"]),
+            drawn_amount: dezimal(&case["drawn_amount"]),
+            interest_rate: Dezimal::from_scaled(5, 2),
+            name: None,
+            pledged_amount: None,
+            creation: None,
+            source: DataSource::default(),
+        };
+        assert_eq!(
+            credit.available_amount().map_err(signal),
+            expected(case).map(dezimal),
+            "{case}"
+        );
     }
 }

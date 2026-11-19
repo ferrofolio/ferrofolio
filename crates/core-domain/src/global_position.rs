@@ -10,14 +10,21 @@
 
 use std::fmt;
 
+use indexmap::IndexMap;
 use shake::{ExtendableOutput, Shake128, Update, XofReader};
 use uuid::Uuid;
 
+use crate::commodity::{CommodityType, WeightUnit};
+use crate::crypto::{AddressSource, CryptoAsset, CryptoCurrencyType, CryptoPositionType, HDWallet};
 use crate::dates::Date;
+use crate::datetime::DateTime;
 use crate::dezimal::{ArithmeticError, Dezimal, ParseDezimalError};
 use crate::earnings_expenses::FlowFrequency;
+use crate::entity::Entity;
 use crate::exception::{MissingFieldsError, PositionError};
+use crate::external_integration::ExternalIntegrationId;
 use crate::fetch_record::DataSource;
+use crate::profitability::{ProfitabilityTerms, annualized_profitability};
 use crate::str_enum::str_enum;
 
 /// `ManualEntryData`: how a position the user entered is tracked.
@@ -454,6 +461,514 @@ impl FundDetail {
     }
 }
 
+/// `FactoringDetail`: an invoice financed through a factoring platform.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FactoringDetail {
+    pub id: Option<Uuid>,
+    pub name: String,
+    pub amount: Dezimal,
+    pub currency: String,
+    pub interest_rate: Dezimal,
+    pub start: DateTime,
+    pub maturity: Date,
+    pub r#type: String,
+    pub state: String,
+    pub last_invest_date: Option<DateTime>,
+    pub profitability: Option<Dezimal>,
+    pub late_interest_rate: Option<Dezimal>,
+    pub gross_interest_rate: Option<Dezimal>,
+    pub gross_late_interest_rate: Option<Dezimal>,
+    pub manual_data: Option<ManualEntryData>,
+    pub source: DataSource,
+}
+
+impl FactoringDetail {
+    /// `__post_init__`: the gross rates default to the net ones, the last
+    /// investment to the start, and the profitability to the interest of the term
+    /// and, once overdue, of the late days up to `today`, the local date Python
+    /// reads from the clock.
+    pub fn post_init(mut self, today: Date) -> Result<Self, ArithmeticError> {
+        if self.gross_interest_rate.is_none() {
+            self.gross_interest_rate = Some(self.interest_rate);
+        }
+        if self.gross_late_interest_rate.is_none() && self.late_interest_rate.is_some() {
+            self.gross_late_interest_rate = self.late_interest_rate;
+        }
+        if self.last_invest_date.is_none() {
+            self.last_invest_date = Some(self.start);
+        }
+        if self.profitability.is_none() {
+            let terms = ProfitabilityTerms {
+                interest_rate: Some(self.interest_rate),
+                start_dt: Some(self.start),
+                maturity: Some(self.maturity),
+                late_interest_rate: self.late_interest_rate,
+                ..ProfitabilityTerms::default()
+            };
+            self.profitability = Some(annualized_profitability(&terms, today)?);
+        }
+        Ok(self)
+    }
+}
+
+/// `RealEstateCFDetail`: a real estate crowdfunding investment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RealEstateCFDetail {
+    pub id: Option<Uuid>,
+    pub name: String,
+    pub amount: Dezimal,
+    pub pending_amount: Dezimal,
+    pub currency: String,
+    pub interest_rate: Dezimal,
+    pub start: DateTime,
+    pub maturity: Date,
+    pub r#type: String,
+    pub state: String,
+    /// Empty by default.
+    pub business_type: String,
+    pub last_invest_date: Option<DateTime>,
+    pub profitability: Option<Dezimal>,
+    pub extended_maturity: Option<Date>,
+    pub extended_interest_rate: Option<Dezimal>,
+    pub manual_data: Option<ManualEntryData>,
+    pub source: DataSource,
+}
+
+impl RealEstateCFDetail {
+    /// `__post_init__`: the last investment defaults to the start, and the
+    /// profitability to the interest of the term and, once `today` has reached the
+    /// maturity, of the extension.
+    pub fn post_init(mut self, today: Date) -> Result<Self, ArithmeticError> {
+        if self.last_invest_date.is_none() {
+            self.last_invest_date = Some(self.start);
+        }
+        if self.profitability.is_none() {
+            let terms = ProfitabilityTerms {
+                interest_rate: Some(self.interest_rate),
+                start_dt: Some(self.start),
+                maturity: Some(self.maturity),
+                extended_maturity: self.extended_maturity,
+                extended_interest_rate: self.extended_interest_rate,
+                ..ProfitabilityTerms::default()
+            };
+            self.profitability = Some(annualized_profitability(&terms, today)?);
+        }
+        Ok(self)
+    }
+}
+
+/// `Deposit`: a term deposit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Deposit {
+    pub id: Option<Uuid>,
+    pub name: String,
+    pub amount: Dezimal,
+    pub currency: String,
+    pub interest_rate: Dezimal,
+    pub creation: DateTime,
+    pub maturity: Date,
+    pub expected_interests: Option<Dezimal>,
+    pub source: DataSource,
+}
+
+impl Deposit {
+    /// `__post_init__`: the expected interests default to the amount times the
+    /// profitability of the term, rounded to cents half to even.
+    pub fn post_init(mut self, today: Date) -> Result<Self, ArithmeticError> {
+        if self.expected_interests.is_none() {
+            let terms = ProfitabilityTerms {
+                interest_rate: Some(self.interest_rate),
+                start_dt: Some(self.creation),
+                maturity: Some(self.maturity),
+                ..ProfitabilityTerms::default()
+            };
+            let profitability = annualized_profitability(&terms, today)?;
+            self.expected_interests = Some((self.amount * profitability).value()?.round(2)?);
+        }
+        Ok(self)
+    }
+}
+
+/// `CryptoCurrencyPosition`: an amount of a coin or token.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CryptoCurrencyPosition {
+    pub id: Option<Uuid>,
+    pub symbol: String,
+    pub amount: Dezimal,
+    pub r#type: CryptoCurrencyType,
+    pub name: Option<String>,
+    pub crypto_asset: Option<CryptoAsset>,
+    pub market_value: Option<Dezimal>,
+    pub currency: Option<String>,
+    pub contract_address: Option<String>,
+    pub initial_investment: Option<Dezimal>,
+    pub average_buy_price: Option<Dezimal>,
+    pub investment_currency: Option<String>,
+    pub chain: Option<String>,
+    pub protocol: Option<String>,
+    pub position_type: CryptoPositionType,
+    pub icon_url: Option<String>,
+    pub source: DataSource,
+}
+
+impl CryptoCurrencyPosition {
+    /// `__post_init__`: an initial investment or an average buy price needs the
+    /// currency it is in, and each is derived from the other.
+    pub fn post_init(mut self) -> Result<Self, PositionError> {
+        let has_investment = self.initial_investment.is_some() || self.average_buy_price.is_some();
+        if has_investment
+            && self
+                .investment_currency
+                .as_deref()
+                .is_none_or(str::is_empty)
+        {
+            return Err(MissingFieldsError::new(["investment_currency"]).into());
+        }
+        derive_investment(
+            &mut self.initial_investment,
+            &mut self.average_buy_price,
+            self.amount,
+        )?;
+        Ok(self)
+    }
+}
+
+/// `CryptoCurrencyWallet`: the positions found in one wallet.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CryptoCurrencyWallet {
+    pub id: Option<Uuid>,
+    pub addresses: Vec<String>,
+    pub name: Option<String>,
+    pub assets: Vec<CryptoCurrencyPosition>,
+    pub address_source: Option<AddressSource>,
+    pub hd_wallet: Option<HDWallet>,
+}
+
+str_enum! {
+    /// `CryptoInitialInvestmentType`.
+    pub enum CryptoInitialInvestmentType {
+        Crypto = "CRYPTO",
+        Token = "TOKEN",
+    }
+}
+
+/// `CryptoInitialInvestment`: what the user paid for an asset in a wallet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CryptoInitialInvestment {
+    pub wallet_connection_id: Uuid,
+    pub symbol: String,
+    pub r#type: CryptoInitialInvestmentType,
+    pub initial_investment: Option<Dezimal>,
+    pub average_buy_price: Option<Dezimal>,
+    pub investment_currency: String,
+    pub currency: String,
+}
+
+str_enum! {
+    /// `DerivativeContractType`.
+    pub enum DerivativeContractType {
+        Perpetual = "PERPETUAL",
+        Futures = "FUTURES",
+        KnockOut = "KNOCK_OUT",
+        Factor = "FACTOR",
+        Warrant = "WARRANT",
+        Options = "OPTIONS",
+        Cfd = "CFD",
+        Other = "OTHER",
+    }
+}
+
+str_enum! {
+    /// `PositionDirection`.
+    pub enum PositionDirection {
+        Long = "LONG",
+        Short = "SHORT",
+    }
+}
+
+str_enum! {
+    /// `MarginType`.
+    pub enum MarginType {
+        Cross = "CROSS",
+        Isolated = "ISOLATED",
+    }
+}
+
+/// `DerivativeDetail`: a derivative contract.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DerivativeDetail {
+    pub id: Option<Uuid>,
+    pub symbol: String,
+    pub underlying_asset: ProductType,
+    pub contract_type: DerivativeContractType,
+    pub direction: PositionDirection,
+    pub size: Dezimal,
+    pub entry_price: Dezimal,
+    pub currency: String,
+    pub mark_price: Option<Dezimal>,
+    pub market_value: Option<Dezimal>,
+    pub unrealized_pnl: Option<Dezimal>,
+    pub leverage: Option<Dezimal>,
+    pub margin: Option<Dezimal>,
+    pub margin_type: Option<MarginType>,
+    pub liquidation_price: Option<Dezimal>,
+    pub isin: Option<String>,
+    pub strike_price: Option<Dezimal>,
+    pub knock_out_price: Option<Dezimal>,
+    pub ratio: Option<Dezimal>,
+    pub issuer: Option<String>,
+    pub underlying_symbol: Option<String>,
+    pub underlying_isin: Option<String>,
+    pub expiry: Option<Date>,
+    pub name: Option<String>,
+    pub initial_investment: Option<Dezimal>,
+    pub source: DataSource,
+}
+
+/// `MarketForecastDetail`: a position on the outcome of a prediction market.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MarketForecastDetail {
+    pub id: Option<Uuid>,
+    pub size: Dezimal,
+    pub entry_price: Dezimal,
+    pub currency: String,
+    pub mark_price: Option<Dezimal>,
+    pub market_value: Option<Dezimal>,
+    pub unrealized_pnl: Option<Dezimal>,
+    pub expiry: Option<Date>,
+    pub name: Option<String>,
+    pub initial_investment: Option<Dezimal>,
+    pub market_key: Option<String>,
+    pub event_key: Option<String>,
+    pub outcome_key: Option<String>,
+    pub market_url: Option<String>,
+    pub icon_url: Option<String>,
+    pub outcome: Option<String>,
+    pub source: DataSource,
+}
+
+/// `CreditDetail`: a credit line.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreditDetail {
+    pub id: Option<Uuid>,
+    pub currency: String,
+    pub credit_limit: Dezimal,
+    pub drawn_amount: Dezimal,
+    pub interest_rate: Dezimal,
+    pub name: Option<String>,
+    pub pledged_amount: Option<Dezimal>,
+    pub creation: Option<Date>,
+    pub source: DataSource,
+}
+
+impl CreditDetail {
+    /// `available_amount`: the limit less what is drawn.
+    pub fn available_amount(&self) -> Result<Dezimal, ArithmeticError> {
+        (self.credit_limit - self.drawn_amount).value()
+    }
+}
+
+/// `Commodity`: a [`CommodityRegister`](crate::commodity::CommodityRegister) held
+/// as a position, with its fields and an id.
+///
+/// Python declares the id with the default factory `UUID`, which raises
+/// `TypeError` when called without arguments, so a commodity always needs one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Commodity {
+    pub name: String,
+    pub r#type: CommodityType,
+    pub amount: Dezimal,
+    pub unit: WeightUnit,
+    pub market_value: Option<Dezimal>,
+    pub initial_investment: Option<Dezimal>,
+    pub average_buy_price: Option<Dezimal>,
+    pub currency: Option<String>,
+    pub id: Uuid,
+}
+
+/// A value Python keeps untyped and no domain logic reads, held as its JSON text,
+/// the form in which the database stores it and the API returns it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UntypedJson(pub String);
+
+/// `Crowdlending`: the summary of a crowdlending account.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Crowdlending {
+    pub id: Uuid,
+    pub total: Option<Dezimal>,
+    pub weighted_interest_rate: Option<Dezimal>,
+    pub currency: String,
+    /// A `dict` without types in Python: the amounts by loan state.
+    pub distribution: Option<UntypedJson>,
+    /// A `list` without types in Python, which is always empty.
+    pub entries: Option<Vec<UntypedJson>>,
+}
+
+/// Declares the containers that hold the entries of one product type.
+macro_rules! entries {
+    ($($(#[$attribute:meta])* $name:ident($entry:ty);)+) => {$(
+        $(#[$attribute])*
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct $name {
+            pub entries: Vec<$entry>,
+        }
+    )+};
+}
+
+entries! {
+    /// `Accounts`.
+    Accounts(Account);
+    /// `Cards`.
+    Cards(Card);
+    /// `Loans`.
+    Loans(Loan);
+    /// `StockInvestments`.
+    StockInvestments(StockDetail);
+    /// `FundInvestments`.
+    FundInvestments(FundDetail);
+    /// `FundPortfolios`.
+    FundPortfolios(FundPortfolio);
+    /// `FactoringInvestments`.
+    FactoringInvestments(FactoringDetail);
+    /// `RealEstateCFInvestments`.
+    RealEstateCFInvestments(RealEstateCFDetail);
+    /// `Deposits`.
+    Deposits(Deposit);
+    /// `CryptoCurrencies`: the wallets of an entity.
+    CryptoCurrencies(CryptoCurrencyWallet);
+    /// `Commodities`.
+    Commodities(Commodity);
+    /// `Credits`.
+    Credits(CreditDetail);
+    /// `DerivativePositions`.
+    DerivativePositions(DerivativeDetail);
+    /// `MarketForecastPositions`.
+    MarketForecastPositions(MarketForecastDetail);
+}
+
+/// `ProductPosition`: the positions of one product type, the union of the
+/// containers and `Crowdlending`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProductPosition {
+    Accounts(Accounts),
+    Cards(Cards),
+    Loans(Loans),
+    StockInvestments(StockInvestments),
+    FundInvestments(FundInvestments),
+    FundPortfolios(FundPortfolios),
+    FactoringInvestments(FactoringInvestments),
+    RealEstateCFInvestments(RealEstateCFInvestments),
+    Deposits(Deposits),
+    Crowdlending(Crowdlending),
+    CryptoCurrencies(CryptoCurrencies),
+    Commodities(Commodities),
+    Credits(Credits),
+    DerivativePositions(DerivativePositions),
+    MarketForecastPositions(MarketForecastPositions),
+}
+
+/// `ProductPositions`: the positions by product type, in the order they were added.
+pub type ProductPositions = IndexMap<ProductType, ProductPosition>;
+
+/// `GlobalPosition`: everything an entity reported at one time.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlobalPosition {
+    pub id: Uuid,
+    pub entity: Entity,
+    /// Set by [`post_init`](Self::post_init) when not given.
+    pub date: Option<DateTime>,
+    pub products: ProductPositions,
+    pub source: DataSource,
+    pub entity_account_id: Option<Uuid>,
+}
+
+impl GlobalPosition {
+    /// `GlobalPosition(id, entity)`: a position of `now` without products.
+    pub fn new(id: Uuid, entity: Entity, now: DateTime) -> Self {
+        GlobalPosition {
+            id,
+            entity,
+            date: None,
+            products: ProductPositions::new(),
+            source: DataSource::default(),
+            entity_account_id: None,
+        }
+        .post_init(now)
+    }
+
+    /// `__post_init__`: the date defaults to `now`, the aware local time Python
+    /// reads from the clock.
+    pub fn post_init(mut self, now: DateTime) -> Self {
+        if self.date.is_none() {
+            self.date = Some(now);
+        }
+        self
+    }
+}
+
+/// `HistoricalPosition`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HistoricalPosition {
+    pub positions: ProductPositions,
+}
+
+/// `EntitiesPosition`: the global positions by entity id.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntitiesPosition {
+    pub positions: IndexMap<String, Vec<GlobalPosition>>,
+}
+
+/// `PositionQueryRequest`: which positions to read; `None` does not filter.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PositionQueryRequest {
+    pub entities: Option<Vec<Uuid>>,
+    pub excluded_entities: Option<Vec<Uuid>>,
+    pub real: Option<bool>,
+    pub products: Option<Vec<ProductType>>,
+}
+
+/// `CryptoEntityDetails`: the market data of a crypto asset added by hand.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CryptoEntityDetails {
+    pub provider_asset_id: String,
+    pub provider: ExternalIntegrationId,
+}
+
+/// `UpdatePositionRequest`: positions the user enters for an entity.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpdatePositionRequest {
+    pub products: ProductPositions,
+    pub entity_id: Option<Uuid>,
+    pub new_entity_name: Option<String>,
+    pub new_entity_icon_url: Option<String>,
+    pub net_crypto_entity_details: Option<CryptoEntityDetails>,
+    /// `True` by default.
+    pub create_investment_txs: bool,
+}
+
+impl UpdatePositionRequest {
+    /// `UpdatePositionRequest(products)`: the other fields take their defaults.
+    pub fn new(products: ProductPositions) -> Self {
+        UpdatePositionRequest {
+            products,
+            entity_id: None,
+            new_entity_name: None,
+            new_entity_icon_url: None,
+            net_crypto_entity_details: None,
+            create_investment_txs: true,
+        }
+    }
+}
+
+/// `ManualPositionData`: the tracking data of a position the user entered.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ManualPositionData {
+    pub entry_id: Uuid,
+    pub global_position_id: Uuid,
+    pub product_type: ProductType,
+    pub data: ManualEntryData,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -598,5 +1113,45 @@ mod tests {
         let printed = format!("{account:?}");
         assert!(!printed.contains("ES91"));
         assert!(printed.contains("<redacted>"));
+    }
+
+    #[test]
+    fn global_positions_default_to_now() {
+        let now = DateTime::naive("2026-11-18T12:00:00".parse().unwrap());
+        let entity = Entity {
+            id: None,
+            name: "Bank".to_owned(),
+            natural_id: None,
+            r#type: crate::entity::EntityType::FinancialInstitution,
+            origin: crate::entity::EntityOrigin::Native,
+            icon_url: None,
+        };
+        let position = GlobalPosition::new(Uuid::nil(), entity, now);
+        assert_eq!(position.date, Some(now));
+        assert!(position.products.is_empty());
+        let earlier = DateTime::naive("2026-01-01T00:00:00".parse().unwrap());
+        let kept = GlobalPosition {
+            date: Some(earlier),
+            ..position
+        }
+        .post_init(now);
+        assert_eq!(kept.date, Some(earlier));
+        assert!(UpdatePositionRequest::new(ProductPositions::new()).create_investment_txs);
+    }
+
+    #[test]
+    fn credit_availability() {
+        let credit = CreditDetail {
+            id: None,
+            currency: "EUR".to_owned(),
+            credit_limit: d("1000"),
+            drawn_amount: d("250.5"),
+            interest_rate: d("0.05"),
+            name: None,
+            pledged_amount: None,
+            creation: None,
+            source: DataSource::default(),
+        };
+        assert_eq!(credit.available_amount(), Ok(d("749.5")));
     }
 }
