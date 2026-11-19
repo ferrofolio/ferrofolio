@@ -225,6 +225,39 @@ Each case states what it compares:
 | `status_code` | The status and the `code` field; used where Python's message comes from pydantic |
 | `status` | The status only; available for answers that are not JSON, no case uses it at present |
 | `deviation` | The status and code recorded with the reason for the deviation, or, for a case with an `equivalent_request`, Python's status and body for that request as Rust reads it (stored in `deviation.body`); the fixture keeps a digest of Python's body so that `--check` notices when Python's answer changes |
+| `forwarded` | That Rust passes the request on to Python, which then gives the recorded answer; used by routes that read the database (see below) |
+
+### Routes that read the database
+
+`tests/parity/generate_db_route_fixtures.py` records the routes that read the user's database. A slice of the port
+(`tests/parity/db_routes/<slice>.py`) defines scenarios: databases the Python backend creates with `DBManager` and
+every migration and fills with fixed data through its repositories or their queries. Each is committed as
+`crates/server/tests/fixtures/db_routes/<scenario>.db`, with the user and the password in the generator; the
+scenario `empty`, which holds nothing beyond what the migrations seed, is shared by every slice. A database file takes
+about 800 KB and is rewritten with every migration, so slices share scenarios where they can. `databases.json`
+records the migrations of each database and its contents: the tables its scenario writes row by row, and every other
+table by its number of rows, because the migrations seed rows with random ids and the current time.
+
+Each case of a slice sends a request through the real Quart route and the production session guard against the
+committed database of its scenario, with the data unlocked or locked and with a valid session, an unknown token or
+none, in the time zone `CET-1CEST,M3.5.0,M10.5.0/3`, which Rust reads without a time zone database and which has
+daylight saving time; the answers go to `<slice>.json`. Functions behind a route that one database row per case
+cannot cover, such as parsers, are recorded there too. SQLCipher salts every database, so `--check`, which CI runs,
+creates every scenario anew and requires the same contents as from the committed file, requires the migrations of
+the current version, and records every case again against the committed files.
+
+`crates/server/tests/common/database.rs` copies a fixture database into a data directory laid out as the backend lays
+it out and starts the router with a stand-in for Python that accepts the login, reports the lock state on
+`GET /api/v1/status` and answers every other request with a mark of the request as it arrived. Tests log in through
+the router, so Rust opens the database as at a real login; `database_harness.rs` checks that this opens every fixture
+database, with and without API sessions. A case that Rust must pass on to Python compares `forwarded`: the stand-in
+received it unchanged, and Python then gives the recorded answer.
+
+Regenerate the fixtures after adding a migration or changing a slice:
+
+```sh
+python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/fixtures/db_routes
+```
 
 ### Known deviations
 
