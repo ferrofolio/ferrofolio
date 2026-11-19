@@ -15,7 +15,7 @@ from application.use_cases.manual_position_snapshot import (
 from application.use_cases.update_tracked_loans import UpdateTrackedLoansImpl
 from domain.dezimal import Dezimal
 from domain.entity import Entity, EntityOrigin, EntityType
-from domain.exception.exceptions import ExecutionConflict
+from domain.exception.exceptions import CalculationInputError, ExecutionConflict
 from domain.global_position import (
     DataSource,
     GlobalPosition,
@@ -407,6 +407,40 @@ class TestMultipleLoans:
         await uc.execute()
 
         snapshot_writer.write.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_an_invalid_loan_is_skipped_and_keeps_its_reference(self):
+        uc, position_port, manual_data_port, calculator, snapshot_writer = (
+            _build_use_case()
+        )
+        valid_id, invalid_id = uuid4(), uuid4()
+        gpid = uuid4()
+        valid = _make_loan(id=valid_id)
+        invalid = _make_loan(id=invalid_id, principal_outstanding=Dezimal(81234))
+        invalid.manual_data = ManualEntryData(track=True)
+        position = _make_position(global_position_id=gpid, loans=[valid, invalid])
+        mpds = [
+            _make_mpd(entry_id=valid_id, global_position_id=gpid),
+            _make_mpd(entry_id=invalid_id, global_position_id=gpid),
+        ]
+
+        manual_data_port.get_trackable_loans.return_value = mpds
+        position_port.get_by_id.return_value = position
+        calculator.next_installment_date.return_value = date(2026, 7, 15)
+        result = _make_result(payment=Dezimal(510), outstanding=Dezimal(79500))
+
+        async def calculate(params):
+            if params.principal_outstanding == Dezimal(81234):
+                raise CalculationInputError("end must not be before start")
+            return result
+
+        calculator.calculate.side_effect = calculate
+
+        await uc.execute()
+
+        snapshot_writer.write.assert_awaited_once()
+        assert invalid.manual_data.tracking_ref_outstanding is None
+        assert invalid.manual_data.tracking_ref_date is None
 
 
 # ---------------------------------------------------------------------------
