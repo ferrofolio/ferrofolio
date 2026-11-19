@@ -138,12 +138,23 @@ class UpdateTrackedLoansImpl(UpdateTrackedLoans):
             data = data_by_entry.get(loan.id)
             if data is None:
                 continue
+            manual = loan.manual_data
+            previous_ref = (
+                (manual.tracking_ref_outstanding, manual.tracking_ref_date)
+                if manual is not None
+                else None
+            )
             self._apply_tracking_ref(loan, data)
             try:
                 changed = await self._recalculate_loan(loan, data)
             except CalculationInputError as e:
                 # Invalid loan data, such as a maturity before the creation date,
-                # must not stop the other loans of the position.
+                # must not stop the other loans of the position, and the skipped
+                # loan keeps the tracking reference it had.
+                if manual is not None and previous_ref is not None:
+                    manual.tracking_ref_outstanding, manual.tracking_ref_date = (
+                        previous_ref
+                    )
                 self._log.warning("Skipping loan %s: %s", loan.id, e)
                 continue
             if changed:
