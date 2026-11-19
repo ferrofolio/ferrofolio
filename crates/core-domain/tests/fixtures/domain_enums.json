@@ -1,4 +1,37 @@
 {
+  "commodity.CommodityType": [
+    "GOLD",
+    "SILVER",
+    "PLATINUM",
+    "PALLADIUM"
+  ],
+  "commodity.WeightUnit": [
+    "GRAM",
+    "TROY_OUNCE"
+  ],
+  "crypto.CryptoCurrencyType": [
+    "NATIVE",
+    "TOKEN"
+  ],
+  "crypto.CryptoPositionType": [
+    "HOLDING",
+    "SUPPLIED",
+    "BORROWED",
+    "STAKED",
+    "LP",
+    "REWARD"
+  ],
+  "crypto.AddressSource": [
+    "DERIVED",
+    "MANUAL"
+  ],
+  "crypto.CryptoWalletConnectionFailureCode": [
+    "ADDRESS_ALREADY_EXISTS",
+    "ADDRESS_NOT_FOUND",
+    "XPUB_ALREADY_EXISTS",
+    "TOO_MANY_REQUESTS",
+    "UNEXPECTED_ERROR"
+  ],
   "entity.Feature": [
     "POSITION",
     "AUTO_CONTRIBUTIONS",
