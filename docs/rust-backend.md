@@ -144,14 +144,14 @@ Each case states what it compares:
 | Input | Python | Rust |
 |---|---|---|
 | A period rate of exactly −100 % | Computes with `Decimal` infinities, `0 ** -n` is `Infinity` | `500 UNEXPECTED_ERROR`, division by zero |
-| `NaN` or `Infinity` as an amount | Accepted by `Decimal` and fails later | `400 INVALID_REQUEST` |
+| `NaN` or `Infinity` as an amount | Accepted by `Decimal`; the loan calculator rejects it with `400 INVALID_REQUEST` (L12), the savings calculator fails later | `400 INVALID_REQUEST` when the request is read |
 | An amount with more than 38 significant digits, in any form | Kept exactly as a string or integer, rounded to a float as a number with a fraction or an exponent | `400 INVALID_REQUEST` |
 | A JSON number with a fraction or an exponent whose value a float cannot hold exactly, up to 38 significant digits | Rounded to a float first | Kept exactly |
 | A request body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; a decoded JSON value takes many times the memory of its text |
 | An object whose first key is `$serde_json::private::Number`, serde_json's private token for exact numbers | An unknown field, ignored | `400 INVALID_REQUEST` |
 | A request body that is JSON but neither an object nor empty (for example `[1]`), or a `retirement` that is neither an object nor `null` | `500` | `400 INVALID_REQUEST` |
 | Malformed JSON | `400` with an HTML page | `400 INVALID_REQUEST` as JSON |
-| The literals `NaN`, `Infinity` and `-Infinity`, which are not JSON | Accepted by the `json` module, the calculation fails with `500` | `400 INVALID_REQUEST`, the body is not JSON |
+| The literals `NaN`, `Infinity` and `-Infinity`, which are not JSON | Accepted by the `json` module; the loan calculator rejects them with `400`, as not finite | `400 INVALID_REQUEST`, the body is not JSON |
 | An integer field beyond the float range, such as `"years": 1e400` | Read as infinity, fails with `500` | `400 INVALID_REQUEST` with Python's message |
 | `fixed_years` beyond 64 bits | Accepted; the fixed period never ends | `400 INVALID_REQUEST` |
 | `withdrawal_years` beyond 64 bits | Computed; without a `withdrawal_amount` the withdrawal loop runs for that many periods and does not finish in practice | `400 INVALID_REQUEST` |
@@ -183,7 +183,8 @@ then and due in full, with the last period's interest, also when the loan amount
 | L1 | Loan, outstanding simulated from the start | The simulation applied one installment more than were due, from a schedule that stepped from date to date, so variable and mixed loans reported a lower outstanding than a fixed loan at the same rate. It now applies exactly the installments due before today, each over the installments left, the last one included |
 | L2 | Loan, monthly to yearly schedules | Periods were counted in calendar months while the schedule stepped from date to date, so a start on the 31st drifted to the 28th and could count one installment less. Every due date is now counted from the start (31 January, 28 February, 31 March) |
 | L3 | Loan, fixed rate with a known amount | Which installments counted as paid depended on how the next installment date had been reached. The installments due before today are paid; the one due today is the current one |
-| L4 | Loan, remaining balance | With inconsistent counts the balance could become zero while installments were still unpaid. All paths now count the same installments, so the balance is zero only after the last one |
+| L4 | Loan, remaining balance | With inconsistent counts the balance could become zero while installments were still unpaid. All paths now count the same installments, so inconsistent counts no longer mark a balance repaid early; rounding small installments to cents can still bring it to zero before the last one |
+| L12 | Loan, amounts and rates that are not finite | `NaN` or `Infinity` as an amount or a rate failed later with `500`, or, for a loan past its last installment, answered `200` with zeros. Python now rejects them with `400 INVALID_REQUEST`; Rust never reads them as numbers |
 | L5 | Loan, schedule | The loan had an installment on `start` in one place and none in another, with the annuity spread over one installment fewer than the schedule had. The loan is disbursed on `start`; installment `i` is due `i` periods later, the last one on or before `end` |
 | L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST`, and so is a negative `fixed_years`, whose fixed period would end before the calendar begins |
 | L7 | Loan, end of the calendar | Counting and stepping the schedule went one period past `end`, so a schedule ending at the end of the calendar, or a fixed period of a mixed loan that ends beyond it, failed with `500`; the schedule now takes no step beyond 31 December 9999, and such a fixed period never ends |
