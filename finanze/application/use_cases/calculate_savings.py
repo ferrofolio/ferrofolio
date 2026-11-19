@@ -262,6 +262,9 @@ class CalculateSavingsImpl(CalculateSavings):
                 high = mid
             else:
                 low = mid
+            # The result is rounded to cents, so a narrower bracket changes nothing.
+            if high - low < _CENT / Dezimal(2):
+                break
         return (low + high) / Dezimal(2)
 
     def _simulate_full_cycle(

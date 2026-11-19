@@ -438,6 +438,7 @@ fn refine_contribution_via_simulation(
         high = value(high * Dezimal::TWO)?;
     }
     let tolerance = Dezimal::CENT;
+    let half_cent = value(Dezimal::CENT / Dezimal::TWO)?;
     for _ in 0..100 {
         let mid = value((low + high) / Dezimal::TWO)?;
         let final_balance = funded(mid)?;
@@ -453,6 +454,10 @@ fn refine_contribution_via_simulation(
         // Once the bounds stop moving every further round repeats this one, so the
         // result is the same as after all 100 rounds, as Python computes it.
         if (low, high) == bounds {
+            break;
+        }
+        // The result is rounded to cents, so a narrower bracket changes nothing.
+        if value(high - low)? < half_cent {
             break;
         }
     }
