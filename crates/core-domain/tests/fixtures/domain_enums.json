@@ -99,5 +99,69 @@
     "GITHUB_COPILOT",
     "CLAUDE_AGENT",
     "CHATGPT"
+  ],
+  "global_position.ProductType": [
+    "ACCOUNT",
+    "CARD",
+    "LOAN",
+    "STOCK_ETF",
+    "FUND",
+    "FUND_PORTFOLIO",
+    "DEPOSIT",
+    "FACTORING",
+    "REAL_ESTATE_CF",
+    "CROWDLENDING",
+    "CRYPTO",
+    "COMMODITY",
+    "BOND",
+    "CREDIT",
+    "DERIVATIVE",
+    "MARKET_FORECAST"
+  ],
+  "global_position.AccountType": [
+    "CHECKING",
+    "VIRTUAL_WALLET",
+    "BROKERAGE",
+    "SAVINGS",
+    "FUND_PORTFOLIO"
+  ],
+  "global_position.CardType": [
+    "CREDIT",
+    "DEBIT"
+  ],
+  "global_position.LoanType": [
+    "MORTGAGE",
+    "STANDARD"
+  ],
+  "global_position.InterestType": [
+    "FIXED",
+    "VARIABLE",
+    "MIXED"
+  ],
+  "global_position.InstallmentFrequency": [
+    "WEEKLY",
+    "BIWEEKLY",
+    "SEMIMONTHLY",
+    "MONTHLY",
+    "BIMONTHLY",
+    "QUARTERLY",
+    "SEMIANNUAL",
+    "YEARLY"
+  ],
+  "global_position.AssetType": [
+    "EQUITY",
+    "FIXED_INCOME",
+    "MONEY_MARKET",
+    "MIXED",
+    "OTHER"
+  ],
+  "global_position.FundType": [
+    "MUTUAL_FUND",
+    "PRIVATE_EQUITY",
+    "PENSION_FUND"
+  ],
+  "global_position.EquityType": [
+    "STOCK",
+    "ETF"
   ]
 }

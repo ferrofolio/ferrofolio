@@ -16,6 +16,7 @@ workspace = true
 bnum = "0.14.4"
 indexmap = "2.14.2"
 jiff = "1.0.1"
+shake = { version = "0.1.0", default-features = false }
 thiserror = "2.0.21"
 uuid = "1.29.3"
 
