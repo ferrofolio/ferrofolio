@@ -891,6 +891,18 @@ def savings_cases():
             ),
         ),
         case(
+            # 0.10 at 3 % a year grows past 30 in 200 years, but each return rounds
+            # to no return at all, so the projection needs contributions.
+            "target the base reaches only without rounding",
+            SAVINGS_PATH,
+            savings(
+                base_amount="0.10",
+                years=200,
+                periodicity="YEARLY",
+                scenarios=[scenario("dust", 0.03, target_amount=30)],
+            ),
+        ),
+        case(
             "negative withdrawal",
             SAVINGS_PATH,
             savings(
