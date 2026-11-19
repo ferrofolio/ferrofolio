@@ -3,7 +3,8 @@
 //! Error responses in the shapes the Python backend uses.
 
 use axum::Json;
-use axum::http::StatusCode;
+use axum::http::header::RETRY_AFTER;
+use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
@@ -24,6 +25,8 @@ pub enum ApiError {
     Unexpected(String),
     /// 502 when the Python backend cannot be reached.
     BackendUnavailable,
+    /// 503 when no calculation permit became free in time.
+    Busy,
     /// 504 when the Python backend did not answer in time.
     BackendTimeout,
 }
@@ -62,6 +65,15 @@ impl IntoResponse for ApiError {
                 StatusCode::GATEWAY_TIMEOUT,
                 json!({"code": "BACKEND_TIMEOUT", "message": "The backend did not answer in time"}),
             ),
+            ApiError::Busy => {
+                let body =
+                    json!({"code": "SERVER_BUSY", "message": "Too many calculations are running"});
+                let mut response = (StatusCode::SERVICE_UNAVAILABLE, Json(body)).into_response();
+                response
+                    .headers_mut()
+                    .insert(RETRY_AFTER, HeaderValue::from_static("5"));
+                return response;
+            }
         };
         (status, Json(body)).into_response()
     }

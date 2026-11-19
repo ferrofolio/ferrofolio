@@ -520,6 +520,31 @@ impl futures_core::Stream for PendingBody {
 }
 
 #[tokio::test]
+async fn a_calculation_that_waits_too_long_for_a_permit_is_refused() {
+    let (url, _) = fake_backend().await;
+    let today = Date::new(2026, 11, 18).unwrap();
+    let mut state = AppState::new(Backend::new(&url).unwrap(), Arc::new(FixedClock(today)));
+    state.calculation_wait = Duration::from_millis(50);
+    let app = router(state.clone());
+    // Every permit is taken by calculations that are still running.
+    let permits = state.calculations.available_permits();
+    let running = Arc::clone(&state.calculations)
+        .acquire_many_owned(u32::try_from(permits).unwrap())
+        .await
+        .unwrap();
+
+    let (status, headers, body) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(headers[header::RETRY_AFTER], "5");
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["code"], "SERVER_BUSY");
+
+    drop(running);
+    let (status, _, _) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
 async fn a_slow_body_on_a_ported_route_is_cut_off() {
     let (url, _) = fake_backend().await;
     let app = gateway(&url);
