@@ -131,6 +131,11 @@ struct Recorded {
     /// Without API sessions, the backend's data is already unlocked, so a login
     /// is refused with 409.
     already_unlocked: AtomicBool,
+    /// The handlers that replace the database report with `replacement_started`
+    /// and wait for `release_replacement` before they answer.
+    replacement_waits: AtomicBool,
+    replacement_started: Arc<tokio::sync::Notify>,
+    release_replacement: Arc<tokio::sync::Notify>,
     /// Logins so far, and the tokens the backend accepts.
     logins: AtomicUsize,
     accepted: Mutex<HashSet<String>>,
@@ -250,6 +255,13 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 } else {
                     StatusCode::NO_CONTENT.into_response()
                 }
+            }
+            (Method::POST, "/api/v1/cloud/backup/import" | "/api/v1/change-password") => {
+                if recorded.replacement_waits.load(Ordering::SeqCst) {
+                    recorded.replacement_started.notify_one();
+                    recorded.release_replacement.notified().await;
+                }
+                axum::Json(json!({})).into_response()
             }
             (Method::OPTIONS, LOAN) => {
                 (StatusCode::OK, [("x-answered-by", "backend")]).into_response()
@@ -633,6 +645,56 @@ async fn the_automatic_login_at_startup_unlocks_the_database() {
 }
 
 #[tokio::test]
+async fn requests_that_replace_the_database_close_rusts_connection_until_python_answers() {
+    let (url, recorded) = fake_backend().await;
+    recorded.replacement_waits.store(true, Ordering::SeqCst);
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+    let database = state.sessions.database().unwrap();
+    assert!(database.lock().unwrap().current().is_ok());
+
+    for (path, client_goes_away) in [
+        ("/api/v1/cloud/backup/import", false),
+        ("/api/v1/change-password", true),
+    ] {
+        let client = tokio::spawn({
+            let app = app.clone();
+            let request = login_request(path, "{}");
+            async move { app.oneshot(request).await }
+        });
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            recorded.replacement_started.notified(),
+        )
+        .await
+        .expect("the request never reached the backend");
+        assert!(database.lock().unwrap().current().is_err(), "{path}");
+        if client_goes_away {
+            client.abort();
+            assert!(client.await.unwrap_err().is_cancelled());
+            assert!(database.lock().unwrap().current().is_err(), "{path}");
+            recorded.release_replacement.notify_one();
+        } else {
+            recorded.release_replacement.notify_one();
+            let response = client.await.unwrap().unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+        let reopened = async {
+            while database.lock().unwrap().current().is_err() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(10), reopened)
+            .await
+            .expect("the database stayed closed after Python answered");
+    }
+}
+
+#[tokio::test]
 async fn a_replaced_database_file_is_opened_again() {
     let data = TempDataDir::new();
     let mut database =
@@ -702,6 +764,22 @@ async fn a_login_rust_cannot_unlock_with_still_starts_a_session() {
         let (status, _, _) = send(&app, loan_request(Some(&token))).await;
         assert_eq!(status, StatusCode::OK);
     }
+
+    // pydantic reads "false" as false, so this signup is no guest's and unlocks.
+    let body = json!({
+        "username": FIXTURE_USER,
+        "password": FIXTURE_PASSWORD,
+        "guest": "false",
+    });
+    let (status, _, answer) = send(&app, login_request("/api/v1/signup", &body.to_string())).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(state.sessions.is_unlocked());
+    let token = serde_json::from_slice::<Value>(&answer).unwrap()["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    send(&app, logout(Some(&token))).await;
+    assert!(!state.sessions.is_unlocked());
 
     // A guest's signup leaves the data locked, even with the right password.
     let body = json!({

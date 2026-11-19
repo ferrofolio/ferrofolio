@@ -30,7 +30,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::pycompat;
-use crate::user_data::UserDatabase;
+use crate::user_data::{ReplacementGate, ReplacementGuard, UserDatabase};
 
 /// Whether clients need a session (`finanze/args.py`).
 pub const ENABLED_VARIABLE: &str = "FINANZE_API_SESSION";
@@ -167,6 +167,7 @@ pub struct Sessions {
     settings: SessionSettings,
     clock: Arc<dyn SessionClock>,
     state: Arc<Mutex<State>>,
+    replacement: ReplacementGate,
 }
 
 impl fmt::Debug for Sessions {
@@ -184,6 +185,7 @@ impl Sessions {
             settings,
             clock,
             state: Arc::default(),
+            replacement: ReplacementGate::default(),
         }
     }
 
@@ -269,8 +271,9 @@ impl Sessions {
     pub fn unlock(
         &self,
         attempt: LoginAttempt,
-        database: UserDatabase,
+        mut database: UserDatabase,
     ) -> Result<(), SessionError> {
+        database.follow(&self.replacement);
         let mut state = self.lock();
         if state.logouts != attempt.logouts {
             return Err(SessionError::LoggedOut);
@@ -288,6 +291,14 @@ impl Sessions {
     /// on the blocking pool, through `UserDatabase::current`.
     pub fn database(&self) -> Option<OpenDatabase> {
         self.lock().database.clone()
+    }
+
+    /// Closes Rust's connection to the database until the guard is dropped, for a
+    /// request that replaces or rekeys the database. Waits for a reader that holds
+    /// the database, so it runs on the blocking pool.
+    pub fn close_for_replacement(&self) -> ReplacementGuard {
+        let database = self.database();
+        self.replacement.close(database.as_deref())
     }
 
     /// Ends every session, forgets their backend tokens and closes the database, as
@@ -395,7 +406,12 @@ impl LoginBody {
         let credentials = text("username")
             .zip(text("password"))
             .map(|(username, password)| Credentials { username, password });
-        let guest = fields.get("guest").is_some_and(pycompat::truthy);
+        // `LoginRequest.guest` is a pydantic `bool`; a value it rejects fails the
+        // signup.
+        let guest = fields
+            .get("guest")
+            .and_then(pycompat::lax_bool)
+            .unwrap_or(false);
         // serde_json allows only whitespace after the object.
         let end = body.iter().rposition(|byte| *byte == b'}');
         let Some(end) = end.filter(|_| ask_lasting) else {
@@ -704,6 +720,11 @@ mod tests {
         assert!(!login.guest);
         // The password never shows in debug output.
         assert!(!format!("{credentials:?}").contains("p'w"));
+
+        // pydantic reads "false" as false, although the string is truthy.
+        assert!(!body(r#"{"username":"u","password":"p","guest":"false"}"#, true).guest);
+        assert!(body(r#"{"username":"u","guest":"yes"}"#, true).guest);
+        assert!(!body(r#"{"username":"u","guest":2}"#, true).guest);
 
         let raw = r#"{"username":"g","guest":true}"#;
         let login = body(raw, false);
