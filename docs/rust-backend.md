@@ -219,7 +219,8 @@ with the same password.
 `tests/parity/generate_db_fixture.py` creates `crates/infra-db/tests/fixtures/data.db` with the Python backend's
 `DBManager`, every migration applied, and records the migrations in `migrations.json`; the Rust test opens the same
 file with the same password. SQLCipher salts every database, so the file differs on each run: `--check`, which CI runs,
-opens it with Python and compares the migrations with `migrations.json` and with the migrations of the current version.
+opens it with Python and compares its migrations, version and name, with `migrations.json`, and their names with the
+migrations of the current version; it does not compare the SQL of the migrations.
 After adding a migration, regenerate it:
 
 ```sh
