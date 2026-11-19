@@ -20,10 +20,11 @@ from domain.exception.exceptions import CalculationInputError, MissingFieldsErro
 from domain.use_cases.calculate_savings import CalculateSavings
 
 
-# A solved contribution is rounded to cents and then raised a cent at a time until the
-# projection, which rounds every return to cents, reaches what it was solved for.
-# The formulas are exact apart from that rounding, so a few cents always suffice.
-_MAX_CENT_STEPS = 10
+# A solved contribution is rounded to cents and then raised to the smallest number of
+# cents with which the projection, which rounds every return to cents, reaches what
+# it was solved for: the step is doubled until it does, then halved back. More
+# doublings than this mean the goal cannot be reached.
+_MAX_STEP_DOUBLINGS = 64
 # How often the search for a retirement contribution doubles its upper bound until
 # that bound funds every withdrawal.
 _MAX_BOUND_DOUBLINGS = 64
@@ -300,8 +301,10 @@ class CalculateSavingsImpl(CalculateSavings):
         growth = (Dezimal(1) + rate) ** periods
         target_remaining = target - (base * growth)
         if target_remaining <= Dezimal(0):
-            return Dezimal(0)
-        if self._negligible_rate(rate):
+            # The base alone reaches the target, unless rounding its returns to cents
+            # holds it back; the search below starts from zero then.
+            contribution = Dezimal(0)
+        elif self._negligible_rate(rate):
             contribution = target_remaining / Dezimal(periods)
         else:
             # Each contribution earns the return of its own period (an annuity due),
@@ -332,13 +335,28 @@ class CalculateSavingsImpl(CalculateSavings):
         return balance
 
     def _raise_until(self, contribution: Dezimal, reaches) -> Dezimal:
-        """Raises a contribution rounded to cents a cent at a time until it reaches its
-        goal under the projection's rounding of returns."""
-        for _ in range(_MAX_CENT_STEPS):
-            if reaches(contribution):
+        """The smallest contribution in whole cents, from the given one up, that reaches
+        its goal under the projection's rounding of returns."""
+        start = max(Dezimal(0), contribution)
+        if reaches(start):
+            return start
+        # In cents above the start: `failing` does not reach the goal, `reaching` does.
+        failing, reaching = 0, 1
+        for _ in range(_MAX_STEP_DOUBLINGS):
+            if reaches(start + _CENT * Dezimal(reaching)):
                 break
-            contribution = contribution + _CENT
-        return contribution
+            failing, reaching = reaching, reaching * 2
+        else:
+            raise CalculationInputError(
+                "no contribution reaches the goal with this market performance"
+            )
+        while reaching - failing > 1:
+            middle = (failing + reaching) // 2
+            if reaches(start + _CENT * Dezimal(middle)):
+                reaching = middle
+            else:
+                failing = middle
+        return start + _CENT * Dezimal(reaching)
 
     def _negligible_rate(self, rate: Dezimal) -> bool:
         """True when the rate does not change `1 + rate`, so it acts as zero."""

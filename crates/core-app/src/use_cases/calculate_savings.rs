@@ -17,10 +17,11 @@ use core_domain::dezimal::Checked;
 use core_domain::exception::{CalculationError, CalculationInputError, MissingFieldsError};
 
 const NON_FINITE: &str = "calculation produced non-finite amount";
-/// A solved contribution is rounded to cents and then raised a cent at a time until
-/// the projection, which rounds every return to cents, reaches what it was solved
-/// for. The formulas are exact apart from that rounding, so a few cents suffice.
-const MAX_CENT_STEPS: usize = 10;
+/// A solved contribution is rounded to cents and then raised to the smallest number
+/// of cents with which the projection, which rounds every return to cents, reaches
+/// what it was solved for: the step is doubled until it does, then halved back. More
+/// doublings than this mean the goal cannot be reached.
+const MAX_STEP_DOUBLINGS: usize = 64;
 /// How often the search for a retirement contribution doubles its upper bound until
 /// that bound funds every withdrawal.
 const MAX_BOUND_DOUBLINGS: usize = 64;
@@ -491,19 +492,43 @@ fn accumulate(
     Ok(balance)
 }
 
-/// Raises a contribution rounded to cents a cent at a time until it reaches its goal
-/// under the projection's rounding of returns.
+/// The smallest contribution in whole cents, from the given one up, that reaches its
+/// goal under the projection's rounding of returns.
 fn raise_until(
-    mut contribution: Dezimal,
+    contribution: Dezimal,
     reaches: impl Fn(Dezimal) -> Result<bool, CalculationError>,
 ) -> Result<Dezimal, CalculationError> {
-    for _ in 0..MAX_CENT_STEPS {
-        if reaches(contribution)? {
+    let start = Dezimal::ZERO.max(contribution);
+    if reaches(start)? {
+        return Ok(start);
+    }
+    let at = |cents: i64| value(start + Dezimal::CENT * Dezimal::from(cents));
+    // In cents above the start: `failing` does not reach the goal, `reaching` does.
+    let (mut failing, mut reaching) = (0_i64, 1_i64);
+    let mut found = false;
+    for _ in 0..MAX_STEP_DOUBLINGS {
+        if reaches(at(reaching)?)? {
+            found = true;
             break;
         }
-        contribution = value(contribution + Dezimal::CENT)?;
+        failing = reaching;
+        reaching = reaching.checked_mul(2).ok_or_else(non_finite)?;
     }
-    Ok(contribution)
+    if !found {
+        return Err(CalculationInputError::new(
+            "no contribution reaches the goal with this market performance",
+        )
+        .into());
+    }
+    while reaching - failing > 1 {
+        let middle = failing + (reaching - failing) / 2;
+        if reaches(at(middle)?)? {
+            reaching = middle;
+        } else {
+            failing = middle;
+        }
+    }
+    at(reaching)
 }
 
 fn solve_required_contribution_periods(
@@ -520,10 +545,11 @@ fn solve_required_contribution_periods(
     let rate = period_rate(annual_market_performance, data.periodicity())?;
     let growth = value((one + rate).powi(periods))?;
     let target_remaining = value(target - base * growth)?;
-    if target_remaining <= Dezimal::ZERO {
-        return Ok(Dezimal::ZERO);
-    }
-    let contribution = if negligible_rate(rate)? {
+    let contribution = if target_remaining <= Dezimal::ZERO {
+        // The base alone reaches the target, unless rounding its returns to cents
+        // holds it back; the search below starts from zero then.
+        Dezimal::ZERO
+    } else if negligible_rate(rate)? {
         value(target_remaining / Dezimal::from(periods))?
     } else {
         // Each contribution earns the return of its own period (an annuity due), as

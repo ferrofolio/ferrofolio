@@ -446,6 +446,46 @@ class TestSolvedValuesHold:
         assert all(period.withdrawal == withdrawal for period in periods[:60])
 
     @pytest.mark.asyncio
+    async def test_a_contribution_far_above_the_estimate_funds_every_withdrawal(self):
+        # Losing half of the balance every year needs far more than the estimate.
+        withdrawal = Dezimal(1000)
+        req = _request(
+            base_amount=Dezimal(0),
+            years=1,
+            periodicity=SavingsPeriodicity.YEARLY,
+            scenarios=[_scenario(annual_market_performance=Dezimal("-0.5"))],
+            retirement=SavingsRetirementRequest(
+                withdrawal_amount=withdrawal, withdrawal_years=10
+            ),
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        periods = scenario.retirement.periods
+        assert len(periods) >= 10
+        assert all(period.withdrawal == withdrawal for period in periods[:10])
+
+    @pytest.mark.asyncio
+    async def test_a_base_held_back_by_rounding_still_gets_a_contribution(self):
+        # Without rounding, 0.10 grows past the target in 200 years; rounded to
+        # cents its returns stay zero, so contributions are needed.
+        target = Dezimal(10000)
+        req = _request(
+            base_amount=Dezimal("0.10"),
+            years=200,
+            scenarios=[
+                _scenario(
+                    annual_market_performance=Dezimal("0.06"), target_amount=target
+                )
+            ],
+        )
+
+        scenario = (await _use_case().execute(req)).scenarios[0]
+
+        assert scenario.periodic_contribution > Dezimal(0)
+        assert scenario.final_balance >= target
+
+    @pytest.mark.asyncio
     async def test_a_base_that_funds_retirement_needs_no_contribution(self):
         req = _request(
             base_amount=Dezimal(1_000_000),
