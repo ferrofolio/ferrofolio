@@ -25,7 +25,7 @@ use crate::app::AppState;
 use crate::error::ApiError;
 use crate::routes::{apply_cors, budgeted_body, is_json};
 use crate::sessions::{Credentials, LoginAttempt, LoginBody, SessionError};
-use infra_db::{Database, OpenError};
+use crate::user_data::UserDatabase;
 
 /// Largest login response Rust reads; Python's carries a token of 43 characters.
 const TOKEN_RESPONSE_LIMIT: usize = 64 * 1024;
@@ -95,6 +95,14 @@ async fn login(
         StatusCode::OK if state.sessions.enabled() => {}
         // Without a token: the backend runs without API sessions, a login running
         // at the same time has unlocked the data already, or a guest signed up.
+        // Without API sessions Python refuses a login while the data is unlocked
+        // with 409; it may have been unlocked without a login Rust saw, by the
+        // automatic login at startup or a guest's backup import. The password is
+        // checked by opening the database.
+        StatusCode::CONFLICT if !state.sessions.enabled() && !signup => {
+            unlock(state, attempt, login.credentials).await;
+            return response;
+        }
         StatusCode::OK | StatusCode::NO_CONTENT => {
             if unlocks {
                 unlock(state, attempt, login.credentials).await;
@@ -161,15 +169,6 @@ async fn login(
     Response::from_parts(parts, Body::from(body))
 }
 
-/// Why a login did not unlock the database for Rust.
-#[derive(Debug, thiserror::Error)]
-enum UnlockError {
-    #[error("the data directory has no profile with the login's username")]
-    NoProfile,
-    #[error(transparent)]
-    Open(#[from] OpenError),
-}
-
 /// Opens the database of a login the backend has accepted and keeps it.
 async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Credentials>) {
     if let Some(database) = open_database(state, credentials).await {
@@ -177,21 +176,23 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
     }
 }
 
+/// Unlocks the database for Rust with the credentials of Python's automatic login
+/// at startup (`USERNAME` and `PASSWORD`), once Python has logged in with them.
+pub async fn unlock_at_startup(state: &AppState, credentials: Credentials) {
+    let attempt = state.sessions.login_attempt();
+    unlock(state, attempt, Some(credentials)).await;
+}
+
 /// Opens the database of the user a login names, read-only and with the login's
 /// password, as the backend has just done; the backend owns the schema and has
 /// migrated it before it answered. Without it, the login still succeeds, and Rust
 /// counts the data as locked.
-async fn open_database(state: &AppState, credentials: Option<Credentials>) -> Option<Database> {
+async fn open_database(state: &AppState, credentials: Option<Credentials>) -> Option<UserDatabase> {
     let data_dir = state.data_dir.clone()?;
     let credentials = credentials?;
     // Deriving the key takes a while, so it runs on the blocking pool.
-    let opened = tokio::task::spawn_blocking(move || {
-        let path = data_dir
-            .database_path(&credentials.username)
-            .ok_or(UnlockError::NoProfile)?;
-        Ok::<_, UnlockError>(Database::open_read_only(&path, &credentials.password)?)
-    })
-    .await;
+    let opened =
+        tokio::task::spawn_blocking(move || UserDatabase::open(&data_dir, credentials)).await;
     match opened {
         Ok(Ok(database)) => Some(database),
         Ok(Err(error)) => {
@@ -205,7 +206,7 @@ async fn open_database(state: &AppState, credentials: Option<Credentials>) -> Op
     }
 }
 
-fn keep_database(state: &AppState, attempt: LoginAttempt, database: Database) {
+fn keep_database(state: &AppState, attempt: LoginAttempt, database: UserDatabase) {
     match state.sessions.unlock(attempt, database) {
         Ok(()) => tracing::info!("unlocked the database read-only"),
         Err(error) => tracing::warn!(%error, "a login did not unlock the database for Rust"),

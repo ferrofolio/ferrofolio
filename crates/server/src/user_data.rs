@@ -6,10 +6,15 @@
 //! database at `profiles/<id>/data.db`.
 
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
+use infra_db::{Database, OpenError};
 use serde::Deserialize;
+
+use crate::sessions::Credentials;
 
 /// The name of the application directory Python uses.
 const APP_NAME: &str = "Finanze";
@@ -83,6 +88,85 @@ impl DataDir {
             .find(|profile| profile.get("name").and_then(|name| name.as_str()) == Some(username))?;
         let id = canonical_uuid(profile.get("id")?.as_str()?)?;
         Some(self.0.join("profiles").join(id).join("data.db"))
+    }
+}
+
+/// Why a user's database could not be opened.
+#[derive(Debug, thiserror::Error)]
+pub enum UnlockError {
+    #[error("the data directory has no profile with the login's username")]
+    NoProfile,
+    #[error("the database file cannot be read: {0}")]
+    File(std::io::Error),
+    #[error(transparent)]
+    Open(#[from] OpenError),
+}
+
+/// The file a database was opened from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FileId {
+    device: u64,
+    inode: u64,
+}
+
+fn file_id(path: &Path) -> Result<FileId, UnlockError> {
+    let metadata = std::fs::metadata(path).map_err(UnlockError::File)?;
+    Ok(FileId {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+    })
+}
+
+/// A user's database, opened read-only with the password of a login.
+///
+/// It keeps the credentials, as Python's `DBManager` keeps the password while the
+/// data is unlocked: a backup import replaces `data.db` with a new file, and the
+/// open connection would go on reading the old one, so `current` opens the new
+/// one first. Opening derives the key, so both run on the blocking pool.
+pub struct UserDatabase {
+    database: Database,
+    path: PathBuf,
+    file: FileId,
+    credentials: Credentials,
+}
+
+impl fmt::Debug for UserDatabase {
+    // The credentials stay out of logs.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UserDatabase")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
+}
+
+impl UserDatabase {
+    /// Opens the database of the user the credentials name.
+    pub fn open(data_dir: &DataDir, credentials: Credentials) -> Result<Self, UnlockError> {
+        let path = data_dir
+            .database_path(&credentials.username)
+            .ok_or(UnlockError::NoProfile)?;
+        Self::open_at(path, credentials)
+    }
+
+    fn open_at(path: PathBuf, credentials: Credentials) -> Result<Self, UnlockError> {
+        // Taken before opening: a file replaced in between is opened again by the
+        // next `current`.
+        let file = file_id(&path)?;
+        let database = Database::open_read_only(&path, &credentials.password)?;
+        Ok(UserDatabase {
+            database,
+            path,
+            file,
+            credentials,
+        })
+    }
+
+    /// The database, opened again first if its file has been replaced since.
+    pub fn current(&mut self) -> Result<&Database, UnlockError> {
+        if file_id(&self.path)? != self.file {
+            *self = Self::open_at(self.path.clone(), self.credentials.clone())?;
+        }
+        Ok(&self.database)
     }
 }
 

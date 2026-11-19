@@ -45,17 +45,28 @@ pub struct Backend {
     authority: Authority,
 }
 
-/// The backend could not be reached or did not answer.
+/// The backend could not be reached or did not answer properly.
 #[derive(Debug, thiserror::Error)]
 pub enum BackendError {
     #[error("backend request failed: {0}")]
     Connection(#[from] hyper_util::client::legacy::Error),
+    #[error("could not build the backend request")]
+    Request,
+    #[error("could not read the backend response")]
+    Response,
+    #[error("the backend answered with status {0}")]
+    Status(axum::http::StatusCode),
+    #[error("the backend did not answer in time")]
+    Timeout,
 }
 
 impl IntoResponse for BackendError {
     fn into_response(self) -> axum::response::Response {
         tracing::error!("{self}");
-        ApiError::BackendUnavailable.into_response()
+        match self {
+            BackendError::Timeout => ApiError::BackendTimeout.into_response(),
+            _ => ApiError::BackendUnavailable.into_response(),
+        }
     }
 }
 

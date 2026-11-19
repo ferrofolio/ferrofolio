@@ -157,18 +157,26 @@ sequenceDiagram
 - **Unlocking.** Once Python has accepted a login or signup, with or without a token, and unless it is a guest's
   signup, Rust opens the user's database itself, read-only, with the password from the request: it finds the user's
   id in `profiles.json` in the data directory, as Python's `get_user` does, and opens `profiles/<id>/data.db` with
-  `infra-db` (see [Database](#database)). Python has migrated the database before it answered. The logout that ends
-  the sessions closes it again, and a login that a logout overtakes keeps it closed. If Rust cannot open it, for
-  example because the profile is missing, the login still succeeds, and Rust counts the data as locked.
-- **Ported routes** need the data unlocked: with API sessions they check the session in Rust, which exists only
-  between a login and the logout, and without them whether a login has unlocked the database for Rust. Otherwise
-  they answer `401 NOT_LOGGED`; they no longer ask Python.
+  `infra-db` (see [Database](#database)). Python has migrated the database before it answered. Rust also opens it
+  with the credentials of Python's automatic login at startup (`USERNAME` and `PASSWORD`), and, without API sessions,
+  at a login Python refuses with `409` because the data is already unlocked, when the password opens the database.
+  The logout that ends the sessions closes it, and a login that a logout overtakes keeps it closed. If Rust cannot
+  open it, for example because the profile is missing, the login still succeeds. Rust keeps the credentials while the
+  database is open, as Python's `DBManager` keeps the password: a backup import replaces `data.db` with a new file,
+  and a reader then opens the new one (`UserDatabase::current`) instead of reading the old one.
+- **Ported routes** need the data unlocked. With API sessions they check the session in Rust, which exists only
+  between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a
+  login Rust sees (the automatic login, a guest's backup import, a failed restore): they send `GET /api/v1/status` and
+  proceed only on `UNLOCKED`, answer `502` when Python cannot be reached or its answer is not a readable status, and
+  `504` when it does not answer within 30 seconds.
 
-Rust learns of an unlock and a lock only through the login, signup and logout it passes on. Python can also lock the
-data on its own, when a backup import fails after it has closed the database, and unlock it, when a guest imports a
-backup from the cloud. In the first case the sessions stay valid in both processes, as they did in Python, and
-ported routes keep accepting them; in the second the client has no session in either, logs in, and so unlocks the
-database for Rust too. Without API sessions, Rust counts the data as locked in the second case until the next login.
+Rust learns of an unlock and a lock only through the login, signup and logout it passes on, and the automatic login.
+Python can also lock the data on its own, when a backup import fails after it has closed the database, and unlock it,
+when a guest imports a backup from the cloud. In the first case the sessions stay valid in both processes, as they
+did in Python, and ported routes keep accepting them; in the second the client has no session in either, and logs in.
+Without API sessions such a login is refused with `409`, and Rust opens the database with its password. The
+database Rust holds matters only to routes that read data, none of which is ported yet; a route that needs it answers
+as for locked data while Rust has none open.
 
 ## Parity tests
 
@@ -229,7 +237,6 @@ Each case states what it compares:
 | A logout without a session that Python, having locked the data on its own, lets through and answers late | Its sessions have ended | Until the answer, Rust's sessions still pass the ported routes, which read no data; forwarded requests carry their own, ended backend tokens and are refused by Python |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
-| A ported route without API sessions while Python has unlocked the data without a login Rust passed on (a guest's cloud backup import) | Allowed | `401 NOT_LOGGED` until a login unlocks the database for Rust |
 
 ### Weaknesses of the Python reference
 
@@ -302,6 +309,6 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1, continued: Rust holds the sessions and opens the database at a login. Next it serves the status,
-   whose lock state it now knows, and then the settings, which it reads from the database.
+1. Phase 4, slice 1, continued: Rust holds the sessions and opens the database at a login. Next it serves the status
+   and then the settings, which it reads from the database.
 2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.

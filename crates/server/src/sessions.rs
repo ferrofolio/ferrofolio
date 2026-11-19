@@ -26,11 +26,11 @@ use std::time::{Duration, SystemTime};
 use axum::body::Bytes;
 use axum::http::header::AUTHORIZATION;
 use axum::http::{HeaderMap, HeaderValue};
-use infra_db::Database;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::pycompat;
+use crate::user_data::UserDatabase;
 
 /// Whether clients need a session (`finanze/args.py`).
 pub const ENABLED_VARIABLE: &str = "FINANZE_API_SESSION";
@@ -150,7 +150,7 @@ struct Session {
 }
 
 /// A user's database, open read-only while the data is unlocked.
-pub type OpenDatabase = Arc<Mutex<Database>>;
+pub type OpenDatabase = Arc<Mutex<UserDatabase>>;
 
 #[derive(Default)]
 struct State {
@@ -266,7 +266,11 @@ impl Sessions {
 
     /// Keeps the database a login opened, unless a logout has ended the sessions
     /// since the login reached Rust, which may have locked the data again.
-    pub fn unlock(&self, attempt: LoginAttempt, database: Database) -> Result<(), SessionError> {
+    pub fn unlock(
+        &self,
+        attempt: LoginAttempt,
+        database: UserDatabase,
+    ) -> Result<(), SessionError> {
         let mut state = self.lock();
         if state.logouts != attempt.logouts {
             return Err(SessionError::LoggedOut);
@@ -278,6 +282,12 @@ impl Sessions {
     /// Whether a login has unlocked the data for Rust since the last logout.
     pub fn is_unlocked(&self) -> bool {
         self.lock().database.is_some()
+    }
+
+    /// The database a login unlocked, while the data is unlocked. Reading it runs
+    /// on the blocking pool, through `UserDatabase::current`.
+    pub fn database(&self) -> Option<OpenDatabase> {
+        self.lock().database.clone()
     }
 
     /// Ends every session, forgets their backend tokens and closes the database, as
