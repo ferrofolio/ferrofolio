@@ -205,8 +205,11 @@ The Python backend keeps each user's data in one SQLCipher database (`data.db` i
 with the user's password, and owns its schema and migrations until the cutover (roadmap, section 5). `infra-db` opens
 it read-only and unlocks it as Python does, with SQLCipher's `PRAGMA key` and the password as passphrase; a wrong
 password is reported as a decryption error without the password in the message. It reads the applied migrations from
-the `migrations` table. SQLCipher comes from `sqlcipher-src` with libtomcrypt instead of OpenSSL, so the build needs no
-system libraries; the file format is the same, which the fixture test proves.
+the `migrations` table. SQLCipher is compiled from the sources in `sqlcipher-src` and, on Linux, uses the system's
+OpenSSL `libcrypto` for its ciphers, hashes and random numbers: building needs the OpenSSL headers (`libssl-dev` on
+Debian and Ubuntu, which GitHub's runner has), and the binary loads `libcrypto.so.3` at run time, which the server
+image's Python base already contains. Once the server links `infra-db`, the image's Rust build stage installs
+`libssl-dev`. The file format does not depend on the crypto library, which the fixture test proves.
 
 `tests/parity/generate_db_fixture.py` creates `crates/infra-db/tests/fixtures/data.db` with the Python backend's
 `DBManager`, every migration applied, and records the migrations in `migrations.json`; the Rust test opens the same

@@ -37,10 +37,11 @@ allow = [
     "Zlib",
 ]
 
-# Allowed for one crate only. sqlcipher-src carries the sources SQLCipher is built
-# from: SQLite, which its authors dedicate to the public domain with a blessing
-# instead of a licence, and libtomcrypt, which is public domain or, where that is not
-# recognised, WTFPL. Both are permissive and compatible with AGPL-3.0.
+# Allowed for one crate only. sqlcipher-src carries the sources of SQLCipher, built
+# on SQLite, which its authors dedicate to the public domain with a blessing instead
+# of a licence, and of libtomcrypt, which is public domain or, where that is not
+# recognised, WTFPL; the build uses OpenSSL instead of libtomcrypt. Both are
+# permissive and compatible with AGPL-3.0.
 exceptions = [
     { crate = "sqlcipher-src", allow = ["blessing", "WTFPL"] },
 ]
