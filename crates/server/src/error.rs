@@ -27,8 +27,6 @@ pub enum ApiError {
     BackendUnavailable,
     /// 503 when no calculation permit became free in time.
     Busy,
-    /// 504 when the Python backend did not answer in time.
-    BackendTimeout,
 }
 
 impl IntoResponse for ApiError {
@@ -60,10 +58,6 @@ impl IntoResponse for ApiError {
             ApiError::BackendUnavailable => (
                 StatusCode::BAD_GATEWAY,
                 json!({"code": "BACKEND_UNAVAILABLE", "message": "The backend is not reachable"}),
-            ),
-            ApiError::BackendTimeout => (
-                StatusCode::GATEWAY_TIMEOUT,
-                json!({"code": "BACKEND_TIMEOUT", "message": "The backend did not answer in time"}),
             ),
             ApiError::Busy => {
                 let body =

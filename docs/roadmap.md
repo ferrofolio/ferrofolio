@@ -431,7 +431,7 @@ Still on Python. Delivers the goal "the container is the backend, the web app ru
 
 Status: started. The Rust server is the entry point of the server image and forwards to Python; the calculators are
 the first ported routes, ahead of their slice because they need no database. `infra-db` opens existing databases
-read-only. Rust holds the API sessions (phase 4, slice 1, started early). Details and the list of ported routes:
+read-only. Rust holds the API sessions and opens the database at a login (phase 4, slice 1, started early). Details and the list of ported routes:
 [rust-backend.md](rust-backend.md).
 
 - Workspace, CI, `cargo deny`

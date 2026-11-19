@@ -33,7 +33,10 @@ in Python's place.
   `0`: Python builds redirect URLs with that port. `--log-level NONE` silences the server's console output entirely.
   Python is started with
   the inherited socket, `--host 127.0.0.1`, its port and `--public-port <public port>`, which keeps the redirect URLs it builds for
-  GoCardless and the ChatGPT sign-in on the public port. Additional settings:
+  GoCardless and the ChatGPT sign-in on the public port. Without `--data-dir`, the server takes Python's default,
+  `appdirs.user_data_dir("Finanze")` (`$XDG_DATA_HOME/Finanze`, else `~/.local/share/Finanze`, on macOS
+  `~/Library/Application Support/Finanze`), and passes it on, so that both use the same directory. Additional
+  settings:
 
 | Variable / option | Default | Meaning |
 |---|---|---|
@@ -48,7 +51,7 @@ in Python's place.
 | `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, domain types and errors as they are needed |
 | `core-app` | `finanze/application` | Ports such as `Clock` and `LoanCalculatorPort`, use cases, the loan calculator |
 | `infra-db` | `finanze/infrastructure/repository/db` | Opens the encrypted database read-only and reads its migration state |
-| `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session` | Forwarding, process management, API sessions, ported routes |
+| `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session`, `infrastructure/user_files` | Forwarding, process management, API sessions, unlocking the database at a login, ported routes |
 
 `Dezimal` reproduces Python's `decimal` arithmetic in its default context: every result of `+ - * /` is the exact
 result rounded to 28 significant digits with `ROUND_HALF_EVEN`, and integer powers follow libmpdec. Values below
@@ -151,15 +154,21 @@ sequenceDiagram
   error and when the connection fails. Such a logout runs to its end even when the client goes away. Python only lets
   it through while the data is locked; until it answers, Rust's sessions still pass the ported routes, while their
   backend tokens, which Python has ended, are refused on every forwarded route.
-- **Ported routes** check the session in Rust and answer `401 NOT_LOGGED` without a valid one. Without API sessions
-  they still ask Python whether the data is unlocked: they send `GET /api/v1/status` and proceed only on `UNLOCKED`,
-  answer `502` when Python cannot be reached or its answer is not a readable status, and `504` when it does not
-  answer within 30 seconds.
+- **Unlocking.** Once Python has accepted a login or signup, with or without a token, and unless it is a guest's
+  signup, Rust opens the user's database itself, read-only, with the password from the request: it finds the user's
+  id in `profiles.json` in the data directory, as Python's `get_user` does, and opens `profiles/<id>/data.db` with
+  `infra-db` (see [Database](#database)). Python has migrated the database before it answered. The logout that ends
+  the sessions closes it again, and a login that a logout overtakes keeps it closed. If Rust cannot open it, for
+  example because the profile is missing, the login still succeeds, and Rust counts the data as locked.
+- **Ported routes** need the data unlocked: with API sessions they check the session in Rust, which exists only
+  between a login and the logout, and without them whether a login has unlocked the database for Rust. Otherwise
+  they answer `401 NOT_LOGGED`; they no longer ask Python.
 
 Rust learns of an unlock and a lock only through the login, signup and logout it passes on. Python can also lock the
 data on its own, when a backup import fails after it has closed the database, and unlock it, when a guest imports a
 backup from the cloud. In the first case the sessions stay valid in both processes, as they did in Python, and
-ported routes keep accepting them; in the second the client has no session in either, and logs in.
+ported routes keep accepting them; in the second the client has no session in either, logs in, and so unlocks the
+database for Rust too. Without API sessions, Rust counts the data as locked in the second case until the next login.
 
 ## Parity tests
 
@@ -220,6 +229,7 @@ Each case states what it compares:
 | A logout without a session that Python, having locked the data on its own, lets through and answers late | Its sessions have ended | Until the answer, Rust's sessions still pass the ported routes, which read no data; forwarded requests carry their own, ended backend tokens and are refused by Python |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
+| A ported route without API sessions while Python has unlocked the data without a login Rust passed on (a guest's cloud backup import) | Allowed | `401 NOT_LOGGED` until a login unlocks the database for Rust |
 
 ### Weaknesses of the Python reference
 
@@ -265,8 +275,9 @@ password is reported as a decryption error without the password in the message. 
 the `migrations` table. SQLCipher is compiled from the sources in `sqlcipher-src` and, on Linux, uses the system's
 OpenSSL `libcrypto` for its ciphers, hashes and random numbers: building needs the OpenSSL headers (`libssl-dev` on
 Debian and Ubuntu, which GitHub's runner has), and the binary loads `libcrypto.so.3` at run time, which the server
-image's Python base already contains. Once the server links `infra-db`, the image's Rust build stage installs
-`libssl-dev`. The fixture test checks that this build opens a database written by the Python backend's `sqlcipher3`
+image's Python base already contains; the image's Rust build stage installs `libssl-dev` and `pkg-config`. The
+server opens a user's database with it at a login (see [Sessions](#sessions)) while Python keeps its own connection
+open; Python runs the database in WAL mode, so the read-only connection reads alongside it. The fixture test checks that this build opens a database written by the Python backend's `sqlcipher3`
 with the same password.
 
 `tests/parity/generate_db_fixture.py` creates `crates/infra-db/tests/fixtures/data.db` with the Python backend's
@@ -291,6 +302,6 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1, continued: Rust holds the sessions. Next it opens the database with `infra-db` at the login and
-   checks the password itself, then serves the status and the settings.
+1. Phase 4, slice 1, continued: Rust holds the sessions and opens the database at a login. Next it serves the status,
+   whose lock state it now knows, and then the settings, which it reads from the database.
 2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.

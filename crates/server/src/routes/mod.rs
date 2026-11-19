@@ -24,7 +24,6 @@ use serde_json::{Map, Value};
 use tokio::sync::OwnedSemaphorePermit;
 
 use crate::app::AppState;
-use crate::auth::backend_authorizes;
 use crate::error::ApiError;
 use crate::pycompat::truthy;
 
@@ -64,19 +63,12 @@ async fn native(
     handler: fn(&AppState, &Map<String, Value>) -> Response,
 ) -> Response {
     let has_origin = request.headers().contains_key(ORIGIN);
-    // Without API sessions only the backend knows whether the data is unlocked.
-    let authorization = if state.sessions.enabled() {
-        Ok(state.sessions.is_valid(request.headers()))
+    // Ported routes need the data unlocked and, with API sessions, a session; a
+    // session exists only while the data is unlocked.
+    let authorized = if state.sessions.enabled() {
+        state.sessions.is_valid(request.headers())
     } else {
-        backend_authorizes(&state.backend, request.headers()).await
-    };
-    let authorized = match authorization {
-        Ok(authorized) => authorized,
-        Err(error) => {
-            let mut response = error.into_response();
-            apply_cors(response.headers_mut(), has_origin);
-            return response;
-        }
+        state.sessions.is_unlocked()
     };
     let mut response = if authorized {
         match json_body(state, request).await {

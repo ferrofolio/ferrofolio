@@ -249,16 +249,49 @@ jobs:
           auth=(--header "Authorization: Bearer $token")
           test "$(status_of "${auth[@]}")" = UNLOCKED
           test "$(code "${auth[@]}" "$base/settings")" = 200
+          # Each accepted login also opened the user's database in Rust.
+          test "$(docker logs ferrofolio-ci 2>&1 | grep --count 'unlocked the database read-only')" = 2
 
-      - name: Show the container log
+      - name: Unlock the data in Rust without API sessions
+        run: |
+          docker run --detach --name ferrofolio-ci-open --publish 127.0.0.1:7593:7592 \
+            --env FINANZE_API_SESSION=false ferrofolio-server:ci \
+            --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail --max-time 10 --output /dev/null http://127.0.0.1:7593/api/v1/status; then
+              break
+            fi
+            sleep 2
+          done
+          base=http://127.0.0.1:7593/api/v1
+          code() {
+            curl --silent --max-time 120 --output /dev/null --write-out '%{http_code}' "$@"
+          }
+          json=(--request POST --header 'Content-Type: application/json')
+          credentials='{"username":"ci-user","password":"ci-password-1"}'
+          # Without sessions a ported route needs the data unlocked, which Rust knows
+          # only once it has opened the user's database itself; the route then
+          # rejects the empty body.
+          loan=("${json[@]}" --data '{}' "$base/calculation/loan")
+          test "$(code "${loan[@]}")" = 401
+          test "$(code "${json[@]}" --data "$credentials" "$base/signup")" = 204
+          test "$(code "${loan[@]}")" = 400
+          test "$(code --request POST "$base/logout")" = 204
+          test "$(code "${loan[@]}")" = 401
+          test "$(code "${json[@]}" --data "$credentials" "$base/login")" = 204
+          test "$(code "${loan[@]}")" = 400
+
+      - name: Show the container logs
         if: ${{ always() }}
-        run: docker logs ferrofolio-ci || true
+        run: |
+          docker logs ferrofolio-ci || true
+          docker logs ferrofolio-ci-open || true
 
       # A GitHub runner is discarded after the job; a local run with
       # scripts/ci-local.sh shares the container engine with the next run.
-      - name: Remove the container
+      - name: Remove the containers
         if: ${{ always() }}
-        run: docker rm --force ferrofolio-ci || true
+        run: docker rm --force ferrofolio-ci ferrofolio-ci-open || true
 
   format-check:
     name: Format Check

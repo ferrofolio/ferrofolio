@@ -4,7 +4,8 @@
 //!
 //! A request with a valid session reaches the backend with the backend token in
 //! place of the client's (`sessions`). Login, signup and logout pass through the
-//! session handling here on their way to the backend.
+//! session handling here on their way to the backend; a login the backend accepts
+//! also unlocks the user's database for Rust.
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -23,7 +24,8 @@ use tokio::sync::OwnedSemaphorePermit;
 use crate::app::AppState;
 use crate::error::ApiError;
 use crate::routes::{apply_cors, budgeted_body, is_json};
-use crate::sessions::{LoginBody, SessionError};
+use crate::sessions::{Credentials, LoginAttempt, LoginBody, SessionError};
+use infra_db::{Database, OpenError};
 
 /// Largest login response Rust reads; Python's carries a token of 43 characters.
 const TOKEN_RESPONSE_LIMIT: usize = 64 * 1024;
@@ -41,27 +43,22 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
     }
 
     match session_route(request.method(), request.uri().path()) {
-        Some(SessionRoute::Login) if state.sessions.enabled() => {
-            login(&state, request, client_addr).await
-        }
-        Some(SessionRoute::Login) => {
-            let mut response = state.backend.forward_or_error(request, client_addr).await;
-            if response.status() == StatusCode::OK {
-                // The response may carry a session token, which no cache may store.
-                response
-                    .headers_mut()
-                    .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
-            }
-            response
-        }
+        Some(SessionRoute::Login) => login(&state, request, false, client_addr).await,
+        Some(SessionRoute::Signup) => login(&state, request, true, client_addr).await,
         Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
         None => state.backend.forward_or_error(request, client_addr).await,
     }
 }
 
 /// Passes a login or signup on and, when the backend accepts it with a token,
-/// answers with a token of a new session instead of the backend's.
-async fn login(state: &AppState, request: Request, client_addr: Option<SocketAddr>) -> Response {
+/// answers with a token of a new session instead of the backend's. Once the
+/// backend has accepted it, Rust opens the user's database too.
+async fn login(
+    state: &AppState,
+    request: Request,
+    signup: bool,
+    client_addr: Option<SocketAddr>,
+) -> Response {
     let has_origin = request.headers().contains_key(ORIGIN);
     let refuse = |mut response: Response| {
         apply_cors(response.headers_mut(), has_origin);
@@ -74,7 +71,7 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         Ok(read) => read,
         Err(error) => return refuse(error.into_response()),
     };
-    let login = LoginBody::new(body, is_json(&parts.headers));
+    let login = LoginBody::new(body, is_json(&parts.headers), state.sessions.enabled());
     parts
         .headers
         .insert(CONTENT_LENGTH, HeaderValue::from(login.forwarded.len()));
@@ -91,11 +88,27 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         Ok(response) => response,
         Err(error) => return refuse(error.into_response()),
     };
-    // Every other answer carries no token: an error, or 204 when the backend is
-    // already unlocked by a login running at the same time or the signup is a
-    // guest's, which stays locked.
-    if response.status() != StatusCode::OK {
-        return response;
+    // A guest's signup leaves the data locked; every other login or signup the
+    // backend accepts has unlocked it.
+    let unlocks = !(signup && login.guest);
+    match response.status() {
+        StatusCode::OK if state.sessions.enabled() => {}
+        // Without a token: the backend runs without API sessions, a login running
+        // at the same time has unlocked the data already, or a guest signed up.
+        StatusCode::OK | StatusCode::NO_CONTENT => {
+            if unlocks {
+                unlock(state, attempt, login.credentials).await;
+            }
+            let mut response = response;
+            if response.status() == StatusCode::OK {
+                // The response may carry a session token, which no cache may store.
+                response
+                    .headers_mut()
+                    .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+            }
+            return response;
+        }
+        _ => return response,
     }
 
     let (mut parts, body) = response.into_parts();
@@ -115,6 +128,11 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         let message = "Failed to decode JSON object";
         return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
     };
+    let database = if unlocks {
+        open_database(state, login.credentials).await
+    } else {
+        None
+    };
     let token = match state.sessions.start(attempt, remember, &backend_token) {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
@@ -128,6 +146,9 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
             return refuse(ApiError::Unexpected(message.to_owned()).into_response());
         }
     };
+    if let Some(database) = database {
+        keep_database(state, attempt, database);
+    }
     // `jsonify` in Quart: compact JSON and a newline.
     let body = format!("{}\n", json!({ "token": token }));
     parts
@@ -138,6 +159,57 @@ async fn login(state: &AppState, request: Request, client_addr: Option<SocketAdd
         .headers
         .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     Response::from_parts(parts, Body::from(body))
+}
+
+/// Why a login did not unlock the database for Rust.
+#[derive(Debug, thiserror::Error)]
+enum UnlockError {
+    #[error("the data directory has no profile with the login's username")]
+    NoProfile,
+    #[error(transparent)]
+    Open(#[from] OpenError),
+}
+
+/// Opens the database of a login the backend has accepted and keeps it.
+async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Credentials>) {
+    if let Some(database) = open_database(state, credentials).await {
+        keep_database(state, attempt, database);
+    }
+}
+
+/// Opens the database of the user a login names, read-only and with the login's
+/// password, as the backend has just done; the backend owns the schema and has
+/// migrated it before it answered. Without it, the login still succeeds, and Rust
+/// counts the data as locked.
+async fn open_database(state: &AppState, credentials: Option<Credentials>) -> Option<Database> {
+    let data_dir = state.data_dir.clone()?;
+    let credentials = credentials?;
+    // Deriving the key takes a while, so it runs on the blocking pool.
+    let opened = tokio::task::spawn_blocking(move || {
+        let path = data_dir
+            .database_path(&credentials.username)
+            .ok_or(UnlockError::NoProfile)?;
+        Ok::<_, UnlockError>(Database::open_read_only(&path, &credentials.password)?)
+    })
+    .await;
+    match opened {
+        Ok(Ok(database)) => Some(database),
+        Ok(Err(error)) => {
+            tracing::warn!(%error, "a login did not unlock the database for Rust");
+            None
+        }
+        Err(error) => {
+            tracing::error!(%error, "opening the database did not complete");
+            None
+        }
+    }
+}
+
+fn keep_database(state: &AppState, attempt: LoginAttempt, database: Database) {
+    match state.sessions.unlock(attempt, database) {
+        Ok(()) => tracing::info!("unlocked the database read-only"),
+        Err(error) => tracing::warn!(%error, "a login did not unlock the database for Rust"),
+    }
 }
 
 /// The `token` of `{"token": "..."}`, the answer of a login.
@@ -229,8 +301,10 @@ async fn logout(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SessionRoute {
-    /// `POST /api/v1/login` and `POST /api/v1/signup`, which answer with a token.
+    /// `POST /api/v1/login`, which answers with a token.
     Login,
+    /// `POST /api/v1/signup`, which answers with a token unless it is a guest's.
+    Signup,
     /// `POST /api/v1/logout`.
     Logout,
 }
@@ -244,7 +318,8 @@ fn session_route(method: &Method, raw_path: &str) -> Option<SessionRoute> {
         return None;
     }
     match percent_decode(raw_path).trim_start_matches('/') {
-        "api/v1/login" | "api/v1/signup" => Some(SessionRoute::Login),
+        "api/v1/login" => Some(SessionRoute::Login),
+        "api/v1/signup" => Some(SessionRoute::Signup),
         "api/v1/logout" => Some(SessionRoute::Logout),
         _ => None,
     }
@@ -297,9 +372,9 @@ mod tests {
 
     #[test]
     fn recognises_the_session_routes_only_for_post() {
-        use SessionRoute::{Login, Logout};
+        use SessionRoute::{Login, Logout, Signup};
         assert_eq!(session_route(&Method::POST, "/api/v1/login"), Some(Login));
-        assert_eq!(session_route(&Method::POST, "/api/v1/signup"), Some(Login));
+        assert_eq!(session_route(&Method::POST, "/api/v1/signup"), Some(Signup));
         assert_eq!(session_route(&Method::POST, "/api/v1/logout"), Some(Logout));
         assert_eq!(session_route(&Method::POST, "/api/v1/%6Cogin"), Some(Login));
         // Other spellings that may still reach the backend's handler.
@@ -308,7 +383,7 @@ mod tests {
         assert_eq!(session_route(&Method::POST, "//api/v1/login"), Some(Login));
         assert_eq!(
             session_route(&Method::POST, "/%2Fapi/v1/signup"),
-            Some(Login)
+            Some(Signup)
         );
         assert_eq!(session_route(&lowercase, "/api/v1/logou%74"), Some(Logout));
         assert_eq!(session_route(&Method::GET, "/api/v1/login"), None);

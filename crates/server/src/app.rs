@@ -22,6 +22,7 @@ use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
 use crate::routes::{self, calculations};
 use crate::sessions::Sessions;
+use crate::user_data::DataDir;
 
 /// A route served by Rust: its method and path, and how its handler is mounted.
 #[derive(Debug, Clone)]
@@ -55,6 +56,9 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
 pub struct AppState {
     pub backend: Backend,
     pub sessions: Sessions,
+    /// The data directory, where a login finds the user's database. Without it,
+    /// logins unlock no database for Rust.
+    pub data_dir: Option<DataDir>,
     pub calculate_loan: CalculateLoan,
     pub calculate_savings: CalculateSavings,
     /// Admission of the CPU-bound work of ported routes: one permit per core, so
@@ -74,6 +78,7 @@ impl AppState {
         AppState {
             backend,
             sessions,
+            data_dir: None,
             calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
             calculate_savings: CalculateSavings,
             calculations: Arc::new(Semaphore::new(cores)),

@@ -7,7 +7,6 @@
 //! child process on the loopback interface (docs/roadmap.md, section 5).
 
 pub mod app;
-pub mod auth;
 pub mod backend;
 pub mod clock;
 pub mod config;
@@ -18,6 +17,7 @@ pub mod pycompat;
 pub mod python_printable;
 pub mod routes;
 pub mod sessions;
+pub mod user_data;
 
 use std::net::SocketAddr;
 use std::process::ExitCode;
@@ -35,6 +35,7 @@ use crate::clock::SystemClock;
 use crate::config::{Cli, LogLevel};
 use crate::proxy::Backend;
 use crate::sessions::{SessionSettings, Sessions, SystemSessionClock};
+use crate::user_data::{DataDir, default_data_dir};
 
 /// Time the server gets to finish open requests on shutdown. Together with
 /// `BACKEND_SHUTDOWN_GRACE` and `RUNTIME_SHUTDOWN_GRACE` it stays below Docker's
@@ -118,7 +119,9 @@ fn bind_without_listening(address: SocketAddr) -> std::io::Result<TcpSocket> {
 }
 
 /// Runs the server until it receives SIGTERM or SIGINT, or until the backend exits.
-pub async fn run(cli: Cli) -> ExitCode {
+pub async fn run(mut cli: Cli) -> ExitCode {
+    // Python's default, resolved here and passed on, so that both use the same.
+    let data_dir = cli.data_dir.get_or_insert_with(default_data_dir).clone();
     let mut signals = match ShutdownSignals::register() {
         Ok(signals) => signals,
         Err(error) => {
@@ -193,7 +196,8 @@ pub async fn run(cli: Cli) -> ExitCode {
         }
     };
     let sessions = Sessions::new(SessionSettings::from_env(), Arc::new(SystemSessionClock));
-    let state = AppState::new(backend, Arc::new(SystemClock), sessions);
+    let mut state = AppState::new(backend, Arc::new(SystemClock), sessions);
+    state.data_dir = Some(DataDir::new(data_dir));
     let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
 
     let (stop_server, server_stopped) = oneshot::channel::<()>();
