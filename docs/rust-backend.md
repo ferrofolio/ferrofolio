@@ -142,10 +142,12 @@ sequenceDiagram
   status, and a guarded route answers `401 NOT_LOGGED` while the data is unlocked. The token of the MCP endpoint,
   which Python checks itself, passes through untouched.
 - **Logout.** Rust passes it on, with the backend token for a valid session. Python's logout handler ends its sessions
-  before anything else, so they may be gone whenever the request reached it. Rust therefore ends every session and
-  forgets the backend token unless Python refused the logout with a `3xx` or `4xx`, such as the `401` of its guard: on
-  success, on a server error and when the answer is lost. Otherwise a session Rust kept would come back with the
-  backend token of the next login. The logout runs to its end even when the client goes away.
+  before anything else, so they may be gone whenever the request reached it, and a session Rust kept would come back
+  with the backend token of the next login. A logout with a valid session carries the backend token, which Python's
+  guard accepts, so Rust ends every session and forgets the backend token before it passes the logout on; a login
+  still with Python then starts no session either. Any other logout ends them once Python has answered, unless it
+  refused with a `3xx` or `4xx`, such as the `401` of its guard while the data is unlocked: on success, on a server
+  error and when the connection fails. Such a logout runs to its end even when the client goes away.
 - **Ported routes** check the session in Rust and answer `401 NOT_LOGGED` without a valid one. Without API sessions
   they still ask Python whether the data is unlocked: they send `GET /api/v1/status` and proceed only on `UNLOCKED`,
   answer `502` when Python cannot be reached or its answer is not a readable status, and `504` when it does not
@@ -211,7 +213,7 @@ Each case states what it compares:
 | The end of a remembered session | The remember period is added to the local wall-clock time, so a change to or from daylight saving time in between moves the end by the size of the change | Exactly that many days of 24 hours after the login |
 | A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | Logged in | `400 INVALID_REQUEST` and no session, as Rust cannot ask for a lasting backend token; Python has unlocked the data |
 | A `remember` that is an object whose first key is serde_json's private number token | True, a non-empty dict | Read as the number, so `{"$serde_json::private::Number": "0"}` is false and the session lasts until the logout, as with `false` |
-| A logout whose answer does not arrive, for example because the connection to Python broke | Its sessions end if the handler ran | Rust ends its sessions in any case; if the request never reached the handler, Python's data stays unlocked until the next logout |
+| A logout whose answer does not arrive, for example because the connection to Python broke | Its sessions end if the handler ran | A logout with a valid session has ended Rust's sessions before it was passed on; any other ends them when the connection fails, or when a late answer arrives. If the request never reached the handler, Python's data stays unlocked until the next logout |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
 

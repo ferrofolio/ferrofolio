@@ -58,6 +58,9 @@ struct Recorded {
     logout_waits: AtomicBool,
     logout_started: Arc<tokio::sync::Notify>,
     release_logout: Arc<tokio::sync::Notify>,
+    /// The backend's data is locked, so its session guard lets every logout
+    /// through, as Python's does.
+    guard_open: AtomicBool,
     /// Logins so far, and the tokens the backend accepts.
     logins: AtomicUsize,
     accepted: Mutex<HashSet<String>>,
@@ -144,7 +147,8 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 }
             }
             (Method::POST, "/api/v1/logout") => {
-                if !recorded.accepts(&parts.headers) {
+                if !recorded.accepts(&parts.headers) && !recorded.guard_open.load(Ordering::SeqCst)
+                {
                     let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
                     return (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
                 }
@@ -744,7 +748,7 @@ async fn a_logout_whose_answer_is_lost_ends_the_sessions() {
 }
 
 #[tokio::test]
-async fn a_logout_ends_the_sessions_also_when_its_client_goes_away() {
+async fn a_logout_with_a_session_ends_the_sessions_before_the_backend_answers() {
     let (url, recorded) = fake_backend().await;
     recorded.logout_waits.store(true, Ordering::SeqCst);
     let app = gateway(&url);
@@ -755,7 +759,46 @@ async fn a_logout_ends_the_sessions_also_when_its_client_goes_away() {
         let request = logout(Some(&token));
         async move { app.oneshot(request).await }
     });
-    recorded.logout_started.notified().await;
+    tokio::time::timeout(Duration::from_secs(10), recorded.logout_started.notified())
+        .await
+        .expect("the logout never reached the backend");
+    // Python has revoked its sessions, or is about to: the backend token of a
+    // login during the logout must not reach the ended session.
+    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    recorded.release_logout.notify_one();
+    let response = tokio::time::timeout(Duration::from_secs(10), client)
+        .await
+        .expect("the logout did not end")
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    login(&app).await;
+    assert_ended(&app, &recorded, &[&token]).await;
+}
+
+#[tokio::test]
+async fn a_logout_ends_the_sessions_also_when_its_client_goes_away() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let token = login(&app).await;
+    // Python has locked the data on its own, so its guard lets a logout without a
+    // session through, and the handler ends Python's sessions.
+    recorded.guard_open.store(true, Ordering::SeqCst);
+    recorded.logout_waits.store(true, Ordering::SeqCst);
+
+    let client = tokio::spawn({
+        let app = app.clone();
+        let request = logout(None);
+        async move { app.oneshot(request).await }
+    });
+    tokio::time::timeout(Duration::from_secs(10), recorded.logout_started.notified())
+        .await
+        .expect("the logout never reached the backend");
+    // The session lasts until Python has answered.
+    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+    assert_eq!(status, StatusCode::OK);
     client.abort();
     assert!(client.await.unwrap_err().is_cancelled());
     recorded.release_logout.notify_one();
