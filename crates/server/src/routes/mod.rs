@@ -39,6 +39,12 @@ pub const MAX_BODY_BYTES: usize = 1024 * 1024;
 pub const BODY_BUDGET_KIB: u32 = 64 * 1024;
 /// Time a client has to send the body of a ported route.
 const BODY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+/// Longest wait for a free calculation permit before a request is refused with
+/// `503`. Within the input limits the slowest calculation, 50 savings scenarios
+/// solved over 200 years, holds its permit for a few seconds, so this lets a queue
+/// of such requests drain while a flood of them cannot make requests wait without
+/// end.
+pub const CALCULATION_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// `POST /api/v1/calculation/loan`.
 pub async fn calculate_loan(State(state): State<AppState>, request: Request) -> Response {
@@ -88,9 +94,12 @@ async fn compute(
     handler: fn(&AppState, &Map<String, Value>) -> Response,
 ) -> Response {
     let failed = || ApiError::Unexpected("Calculation failed".to_owned()).into_response();
-    // The semaphore is never closed, so acquiring only waits.
-    let Ok(permit) = Arc::clone(&state.calculations).acquire_owned().await else {
-        return failed();
+    let wait = Arc::clone(&state.calculations).acquire_owned();
+    let permit = match tokio::time::timeout(state.calculation_wait, wait).await {
+        Ok(Ok(permit)) => permit,
+        // The semaphore is never closed, so acquiring only waits.
+        Ok(Err(_)) => return failed(),
+        Err(_) => return ApiError::Busy.into_response(),
     };
     let state = state.clone();
     tokio::task::spawn_blocking(move || {

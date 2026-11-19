@@ -4,6 +4,7 @@
 
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::extract::{Request, State};
@@ -57,6 +58,9 @@ pub struct AppState {
     /// Admission of the CPU-bound work of ported routes: one permit per core, so
     /// that a burst of requests queues instead of filling the blocking thread pool.
     pub calculations: Arc<Semaphore>,
+    /// How long a request waits for a calculation permit
+    /// (`routes::CALCULATION_WAIT`).
+    pub calculation_wait: Duration,
     /// The request bodies ported routes hold in memory at once, one permit per KiB
     /// (`routes::BODY_BUDGET_KIB`).
     pub body_budget: Arc<Semaphore>,
@@ -70,6 +74,7 @@ impl AppState {
             calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
             calculate_savings: CalculateSavings,
             calculations: Arc::new(Semaphore::new(cores)),
+            calculation_wait: routes::CALCULATION_WAIT,
             body_budget: Arc::new(Semaphore::new(routes::BODY_BUDGET_KIB as usize)),
         }
     }

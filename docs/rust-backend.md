@@ -86,7 +86,10 @@ requests, still go to Python, which keeps the routes until the cutover. Python d
 before routing, so Rust serves a ported route also when its path is spelled with escapes; requests it forwards keep
 the path as the client sent it. Responses of ported routes carry the CORS headers quart-cors would add.
 
-Calculations run on the blocking thread pool, at most one per core; further requests wait. A request body of a
+Calculations run on the blocking thread pool, at most one per core; further requests wait up to 30 seconds and are
+then refused with `503 SERVER_BUSY` and `Retry-After: 5`. Within the input limits the slowest request found, 50
+savings scenarios solving a 200-year retirement at a negative performance, holds its core for about four seconds. A
+request body of a
 ported route may have at most 1 MiB (a deviation: Python accepts 50 MB). Bodies count against a budget of 64 MiB
 while they are read and decoded, so that waiting requests cannot hold an unbounded amount of memory; a body without
 `Content-Length` counts with the largest size. One deadline of 60 seconds covers the wait for the budget and the
@@ -156,6 +159,7 @@ Each case states what it compares:
 | A number in the response beyond the float range, such as a rate of `1e400` echoed back when no amount has to be rounded | `200` with `Infinity`, which is not JSON | `500 UNEXPECTED_ERROR` |
 | Messages of pydantic validation errors | Full pydantic text | The first lines of it |
 | More than 200 years of accumulation or retirement, or more than 50 scenarios (savings) | Computed, however long it takes and however much memory it needs | `400 INVALID_REQUEST` |
+| A calculation that finds every core busy for 30 seconds (no fixture case, which would need concurrent requests; `tests/gateway.rs` covers it) | Waits; a calculation blocks Python's event loop and every other request with it | `503 SERVER_BUSY` with `Retry-After: 5` |
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked") |
 
 ### Known issues of the Python reference
