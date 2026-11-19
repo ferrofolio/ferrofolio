@@ -39,6 +39,9 @@ struct Recorded {
     requests: Mutex<Vec<(Method, String, HeaderMap, Bytes)>>,
     /// Releases the second chunk of `/stream`.
     release_second_chunk: Arc<tokio::sync::Notify>,
+    /// The backend runs without API sessions and is unlocked: its status is
+    /// `UNLOCKED` for every request, with or without a token.
+    sessions_disabled: std::sync::atomic::AtomicBool,
 }
 
 impl Recorded {
@@ -69,6 +72,13 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
 
         match (parts.method, parts.uri.path()) {
             (Method::GET, "/api/v1/status") => {
+                if recorded
+                    .sessions_disabled
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    return axum::Json(json!({"status": "UNLOCKED", "apiSession": false}))
+                        .into_response();
+                }
                 let authorized = parts.headers.get(header::AUTHORIZATION)
                     == Some(&format!("Bearer {VALID_TOKEN}").parse().unwrap());
                 let status = if authorized { "UNLOCKED" } else { "LOCKED" };
@@ -337,6 +347,25 @@ async fn ported_routes_ask_the_backend_whether_the_session_is_valid() {
         requests[2].2[header::AUTHORIZATION],
         format!("Bearer {VALID_TOKEN}")
     );
+}
+
+#[tokio::test]
+async fn ported_routes_need_no_token_while_api_sessions_are_disabled() {
+    let (url, recorded) = fake_backend().await;
+    recorded
+        .sessions_disabled
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let app = gateway(&url);
+
+    let (status, _, body) = send(&app, loan_request(None)).await;
+    assert_eq!(status, StatusCode::OK);
+    let result: Value = serde_json::from_slice(&body).unwrap();
+    assert!(result["current_installment_payment"].is_number());
+    // The backend was asked for its status, without a token.
+    let requests = recorded.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].1, "/api/v1/status");
+    assert!(!requests[0].2.contains_key(header::AUTHORIZATION));
 }
 
 #[tokio::test]
