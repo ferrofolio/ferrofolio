@@ -254,24 +254,36 @@ jobs:
 
       - name: Unlock the data in Rust without API sessions
         run: |
-          docker run --detach --name ferrofolio-ci-open --publish 127.0.0.1:7593:7592 \
-            --env FINANZE_API_SESSION=false ferrofolio-server:ci \
-            --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
-          for attempt in $(seq 1 90); do
-            if curl --silent --fail --max-time 10 --output /dev/null http://127.0.0.1:7593/api/v1/status; then
-              break
-            fi
-            sleep 2
-          done
-          base=http://127.0.0.1:7593/api/v1
+          # Prints the status code of a request; the remaining arguments go to curl.
           code() {
             curl --silent --max-time 120 --output /dev/null --write-out '%{http_code}' "$@"
           }
+          # Starts the image without API sessions on the given port, with a data
+          # directory that outlives the container, and waits until it answers.
+          start() {
+            local name="$1" port="$2"
+            shift 2
+            docker run --detach --name "$name" --publish "127.0.0.1:$port:7592" \
+              --env FINANZE_API_SESSION=false --volume ferrofolio-ci-data:/data "$@" \
+              ferrofolio-server:ci --port 7592 --data-dir /data --log-dir /data/logs
+            for attempt in $(seq 1 90); do
+              if curl --silent --fail --max-time 10 --output /dev/null "http://127.0.0.1:$port/api/v1/status"; then
+                return
+              fi
+              sleep 2
+            done
+          }
+          unlocks() {
+            docker logs "$1" 2>&1 | grep --count 'unlocked the database read-only' || true
+          }
           json=(--request POST --header 'Content-Type: application/json')
           credentials='{"username":"ci-user","password":"ci-password-1"}'
-          # Without sessions a ported route needs the data unlocked, which Rust knows
-          # only once it has opened the user's database itself; the route then
-          # rejects the empty body.
+
+          # A local run may have left the volume of an aborted run behind.
+          docker volume rm --force ferrofolio-ci-data || true
+          # Rust opens the user's database at every login Python accepts.
+          start ferrofolio-ci-open 7593
+          base=http://127.0.0.1:7593/api/v1
           loan=("${json[@]}" --data '{}' "$base/calculation/loan")
           test "$(code "${loan[@]}")" = 401
           test "$(code "${json[@]}" --data "$credentials" "$base/signup")" = 204
@@ -279,19 +291,31 @@ jobs:
           test "$(code --request POST "$base/logout")" = 204
           test "$(code "${loan[@]}")" = 401
           test "$(code "${json[@]}" --data "$credentials" "$base/login")" = 204
-          test "$(code "${loan[@]}")" = 400
+          test "$(unlocks ferrofolio-ci-open)" = 2
+          docker stop ferrofolio-ci-open
+
+          # Python's automatic login at startup unlocks it for Rust too; a login
+          # with the right password is then refused with 409 by Python.
+          start ferrofolio-ci-auto 7594 --env USERNAME=ci-user --env PASSWORD=ci-password-1
+          base=http://127.0.0.1:7594/api/v1
+          test "$(code "${json[@]}" --data '{}' "$base/calculation/loan")" = 400
+          test "$(unlocks ferrofolio-ci-auto)" = 1
+          test "$(code "${json[@]}" --data "$credentials" "$base/login")" = 409
 
       - name: Show the container logs
         if: ${{ always() }}
         run: |
-          docker logs ferrofolio-ci || true
-          docker logs ferrofolio-ci-open || true
+          for name in ferrofolio-ci ferrofolio-ci-open ferrofolio-ci-auto; do
+            docker logs "$name" || true
+          done
 
       # A GitHub runner is discarded after the job; a local run with
       # scripts/ci-local.sh shares the container engine with the next run.
       - name: Remove the containers
         if: ${{ always() }}
-        run: docker rm --force ferrofolio-ci ferrofolio-ci-open || true
+        run: |
+          docker rm --force ferrofolio-ci ferrofolio-ci-open ferrofolio-ci-auto || true
+          docker volume rm --force ferrofolio-ci-data || true
 
   format-check:
     name: Format Check
