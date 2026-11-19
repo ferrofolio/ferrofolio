@@ -303,9 +303,14 @@ async fn replace_database(
     rekeys: bool,
 ) -> Response {
     let (parts, body) = request.into_parts();
+    let has_origin = parts.headers.contains_key(ORIGIN);
     let (body, budget) = match budgeted_body(state, &parts.headers, body).await {
         Ok(read) => read,
-        Err(error) => return error.into_response(),
+        Err(error) => {
+            let mut response = error.into_response();
+            apply_cors(response.headers_mut(), has_origin);
+            return response;
+        }
     };
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
