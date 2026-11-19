@@ -48,9 +48,9 @@ in Python's place.
 
 | Crate | Python counterpart | Content |
 |---|---|---|
-| `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, domain types and errors as they are needed |
-| `core-app` | `finanze/application` | Ports such as `Clock` and `LoanCalculatorPort`, use cases, the loan calculator |
-| `infra-db` | `finanze/infrastructure/repository/db` | Opens the encrypted database read-only and reads its migration state |
+| `core-domain` | `finanze/domain` | `Dezimal`, calendar arithmetic with `dateutil.relativedelta` semantics, Python's `datetime` as the backend stores it, the settings, domain types and errors as they are needed |
+| `core-app` | `finanze/application` | Ports such as `Clock`, `LoanCalculatorPort` and `ConfigPort`, use cases, the loan calculator |
+| `infra-db` | `finanze/infrastructure/repository` | Opens the encrypted database read-only, reads its migration state; repositories that read it (settings) |
 | `server` | `finanze/infrastructure/controller`, `server.py`, `infrastructure/api_session`, `infrastructure/user_files` | Forwarding, process management, API sessions, unlocking the database at a login, ported routes |
 
 `Dezimal` reproduces Python's `decimal` arithmetic in its default context: every result of `+ - * /` is the exact
@@ -83,6 +83,7 @@ target in both. The amount of a target that is kept is parsed exactly.
 |---|---|---|
 | `POST /api/v1/calculation/loan` | `routes/calculate_loan.py`, `calculations/loan_calculator.py` | Calculators (phase 4, slice 8, pulled forward) |
 | `POST /api/v1/calculations/savings` | `routes/calculate_savings.py`, `use_cases/calculate_savings.py` | Calculators |
+| `GET /api/v1/settings` | `routes/get_settings.py`, `use_cases/get_settings.py`, `repository/settings` | Status, login, settings (phase 4, slice 1); reads the database |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -92,8 +93,8 @@ collapses leading slashes and ignores the case of the method before routing, so 
 it is spelled `/api/v1/calculation/%6Coan`, `//api/v1/calculation/loan`, `/%2Fapi/v1/calculation/loan` or with a
 lowercase `post`, with the same limits; requests it forwards keep the method and path as the client sent them. Responses of ported routes carry the CORS headers quart-cors would add.
 
-Calculations run on the blocking thread pool, at most one per core; further requests wait up to 30 seconds and are
-then refused with `503 SERVER_BUSY` and `Retry-After: 5`. Within the input limits the slowest request found, 50
+Calculations and reads of the database run on the blocking thread pool, at most one per core; further requests wait
+up to 30 seconds and are then refused with `503 SERVER_BUSY` and `Retry-After: 5`. Within the input limits the slowest request found, 50
 savings scenarios solving a 200-year retirement at a negative performance, holds its core for about four seconds. A
 request body of a
 ported route may have at most 1 MiB (a deviation: Python accepts 50 MB). Bodies count against a budget of 64 MiB
@@ -105,6 +106,45 @@ Startup keeps Python's behaviour of refusing connections until the backend is re
 first but listens only then. Two servers started at the same time on the same address can therefore both start
 their backend before the second fails to listen, as two Python servers could before; separate containers do not
 share addresses.
+
+## Routes that read the database
+
+A route that reads the user's database follows the layers of the Python backend: the repository in `infra-db`
+borrows the `Database` for one request and implements a port of `core-app` (the settings: `SettingsRepository`
+implements `ConfigPort`), the use case borrows the port (`GetSettings`), and the route in `server` hands both to
+`routes::database::serve`. The route first reads its parameters, as the Python route does before it touches the
+database, and may answer from them alone, for example `400` for an unknown settings section. The work on the database
+then runs on the blocking pool once a permit is free, through `Sessions::with_database`, which fails at once while a
+request that replaces or rekeys the database is with Python (`Replacing`) and while Rust has no database open
+(`Locked`), and opens the database again when its file was replaced.
+
+Until the cutover Python stays the authority on whether the data is unlocked. It locks and unlocks the data without a
+request Rust sees, when a restore fails or a guest imports a backup, and Rust can have no database open while Python
+has, after a logout that raced a login, while a request replaces the database, or when Rust could not open it. Such a
+route therefore asks Python before it reads, with API sessions too: `GET /api/v1/status` with the `Authorization` the
+request would reach Python with, the backend token of a valid session or, without API sessions, the client's own
+header. Python reports `UNLOCKED` exactly when its data is unlocked and the request authorised.
+
+| Rust's sessions | Python's status for the request | Rust's database | Answer |
+|---|---|---|---|
+| A valid session, or API sessions off | `UNLOCKED` | Readable | Rust answers from its database |
+| A valid session, or API sessions off | `UNLOCKED` | `Locked`, `Replacing` or failing to open | Passed on to Python |
+| A valid session, or API sessions off | Anything else: locked, also on its own after a failed restore, or the request not authorised | Not read | Passed on to Python |
+| API sessions on, no valid session | Not asked | Not read | Passed on to Python |
+| | No answer, or no readable status | Not read | `502 BACKEND_UNAVAILABLE`, `504 BACKEND_TIMEOUT` after 30 seconds |
+
+A request passed on reaches Python as every forwarded request does, with the backend token of a valid session, so
+Python answers as it always has: with its data, with `401 NOT_LOGGED` while its data is locked (also `400` first for
+an invalid parameter, as its route reads the parameters before the database), or with `401` from its session guard.
+Rust thus never answers with data Python would not give, nor as locked where Python would answer with data. The
+check costs one request to Python on the loopback interface per request. A logout that races a read is ordered after
+it, as in Python, where a read that has started finishes too.
+
+Python reads the settings from the database on every request and keeps no copy, and Rust's read-only connection reads
+what Python has committed with every new statement (WAL mode), so a change Python writes with `POST
+/api/v1/settings`, which stays in Python, is read by the next `GET` in either. Times stored without an offset are
+taken as local time in the server's time zone, which Rust reads from `TZ` and `/etc/localtime` as Python's C library
+does; `lastUpdate`, when no section asked for has a stored time, is the time the server started, as in Python.
 
 ## Sessions
 
@@ -190,16 +230,17 @@ sequenceDiagram
   between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a
   login Rust sees (the automatic login, a guest's backup import, a failed restore): they send `GET /api/v1/status` and
   proceed only on `UNLOCKED`, answer `502` when Python cannot be reached or its answer is not a readable status, and
-  `504` when it does not answer within 30 seconds.
+  `504` when it does not answer within 30 seconds. Routes that read the database ask Python with API sessions too
+  (see [Routes that read the database](#routes-that-read-the-database)).
 
 Rust learns of an unlock and a lock only through the login, signup and logout it passes on, and the automatic login.
 Python can also lock the data on its own, when a backup import fails after it has closed the database, and unlock it,
 when a guest imports a backup from the cloud. In the first case the sessions stay valid in both processes, as they
 did in Python, and ported routes keep accepting them; in the second the client has no session in either, and logs in.
 Without API sessions such a login is refused with `409`, and Rust opens the database with its password if Python's
-status names its user. The
-database Rust holds matters only to routes that read data, none of which is ported yet; a route that needs it answers
-as for locked data while Rust has none open.
+status names its user. A route that reads the database answers from Rust's database only while Python reports the
+data unlocked for the request, and passes it on to Python otherwise, so it neither reads a database Python has closed
+nor answers as locked while Rust has none open.
 
 ## Parity tests
 
@@ -286,7 +327,7 @@ python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/f
 | More than 200 years of accumulation or retirement, or more than 50 scenarios (savings) | Computed, however long it takes and however much memory it needs | `400 INVALID_REQUEST` |
 | A calculation that finds every core busy for 30 seconds (no fixture case, which would need concurrent requests; `tests/gateway.rs` covers it) | Waits; a calculation blocks Python's event loop and every other request with it | `503 SERVER_BUSY` with `Retry-After: 5` |
 | A request body nested deeper than 128 levels, also in a field the route ignores | Accepted | `400 INVALID_REQUEST`; serde_json's recursion limit keeps a crafted body from exhausting the stack |
-| A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
+| A calculator route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
 | A login or signup body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body to ask for a lasting backend token |
 | A backup-import or change-password body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body before it closes its connection for the replacement |
 | More than four backup imports or changes of the password at once, running or waiting | Run one after another | `503 SERVER_BUSY` with `Retry-After: 5` for the fifth and later, before their body is read; waiting ones would otherwise hold the body budget that logins and calculations need |
@@ -294,9 +335,13 @@ python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/f
 | A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | Logged in | `400 INVALID_REQUEST` and no session, as Rust cannot ask for a lasting backend token; Python has unlocked the data |
 | A `remember` that is an object whose first key is serde_json's private number token | True, a non-empty dict | Read as the number, so `{"$serde_json::private::Number": "0"}` is false and the session lasts until the logout, as with `false` |
 | A logout whose answer does not arrive, for example because the connection to Python broke | Its sessions end if the handler ran | A logout with a valid session has ended Rust's sessions before it was passed on; any other ends them when the connection fails, or when a late answer arrives that is not a `3xx` or `4xx` refusal. If the request never reached the handler, Python's data stays unlocked until the next logout |
-| A logout without a session that Python, having locked the data on its own, lets through and answers late | Its sessions have ended | Until the answer, Rust's sessions still pass the ported routes, which read no data; forwarded requests carry their own, ended backend tokens and are refused by Python |
+| A logout without a session that Python, having locked the data on its own, lets through and answers late | Its sessions have ended | Until the answer, Rust's sessions still pass the calculators, which read no data; routes that read the database ask Python, which has locked the data, and pass the request on; forwarded requests carry their own, ended backend tokens and are refused by Python |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
+| `lastUpdate` of the settings when no section asked for has a stored time | The time Python started | The time the Rust server started, after Python is ready, so a few seconds later |
+| A stored settings section that Python's `json` module reads but serde_json does not: `NaN`, `Infinity`, a lone surrogate escape, nesting deeper than 128 levels, bytes in UTF-16 or UTF-32 (fixture deviation cases) | Read; a value its validation rejects leaves the section's defaults as in Rust, but one in a field it ignores does not | The section's defaults |
+| An integer in a settings section beyond 64 bits (fixture deviation case) | Kept | The section's defaults |
+| A number in the `params` of a sheet template that a float cannot hold exactly | Read as a float, so its digits are rounded and `1e400` is answered as `Infinity`, which is not JSON | Answered as stored; Python itself only stores numbers it wrote from floats, which read back the same |
 
 ### Weaknesses of the Python reference
 
@@ -369,6 +414,7 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1, continued: Rust holds the sessions and opens the database at a login. Next it serves the status
-   and then the settings, which it reads from the database.
-2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database.
+1. Phase 4, slice 1, continued: Rust holds the sessions, opens the database at a login and serves the settings from
+   it. Next it serves the status; writing the settings follows with Rust's first write access to the database.
+2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database, following the
+   pattern of the settings (see [Routes that read the database](#routes-that-read-the-database)).

@@ -25,7 +25,7 @@ pub enum ApiError {
     Unexpected(String),
     /// 502 when the Python backend cannot be reached.
     BackendUnavailable,
-    /// 503 when no calculation permit became free in time.
+    /// 503 when no permit for blocking work became free in time.
     Busy,
     /// 503 when too many requests that replace the database wait already.
     ReplacementsBusy,
@@ -69,7 +69,7 @@ impl IntoResponse for ApiError {
             ),
             ApiError::Busy | ApiError::ReplacementsBusy => {
                 let message = if self == ApiError::Busy {
-                    "Too many calculations are running"
+                    "Too many requests are running"
                 } else {
                     "Too many requests replace the database"
                 };
