@@ -146,17 +146,18 @@ impl Dezimal {
     /// Rounds to `places` decimal places with Python's `ROUND_HALF_UP`, which rounds
     /// ties away from zero. A value with fewer places is returned unchanged.
     pub fn round_half_up(self, places: u32) -> Self {
+        self.round_places(places, Rounding::HalfUp)
+    }
+
+    /// Rounds to `places` decimal places; a value with fewer places is returned
+    /// unchanged.
+    fn round_places(self, places: u32, rounding: Rounding) -> Self {
         let target = -i64::from(places);
         if i64::from(self.exponent) >= target {
             return self;
         }
         let drop = u32::try_from(target - i64::from(self.exponent)).unwrap_or(u32::MAX);
-        let (quotient, _) = round_off(
-            self.coefficient.as_::<U256>(),
-            drop,
-            false,
-            Rounding::HalfUp,
-        );
+        let (quotient, _) = round_off(self.coefficient.as_::<U256>(), drop, false, rounding);
         Dezimal {
             negative: self.negative,
             coefficient: quotient.try_into().unwrap_or(0),
@@ -168,27 +169,60 @@ impl Dezimal {
     ///
     /// Fails like Python does when the result has more than 28 digits.
     pub fn round_cents(self) -> Result<Self, ArithmeticError> {
-        let rounded = self.round_half_up(2);
-        // The quantized coefficient counts every digit down to the cents, also
-        // those a large value only has as trailing zeros (1E+26 has 29).
+        self.quantize(2, Rounding::HalfUp)
+    }
+
+    /// `round(value, places)` in Python: the value quantized to `places` decimal
+    /// places with the context's `ROUND_HALF_EVEN`, which rounds ties to the even
+    /// digit, so `round(0.125, 2)` is 0.12. The result has exactly `places` places.
+    ///
+    /// Fails like Python does when the result has more than 28 digits.
+    pub fn round(self, places: u32) -> Result<Self, ArithmeticError> {
+        self.quantize(places, Rounding::HalfEven)
+    }
+
+    /// `value.quantize(Decimal(10) ** -places, rounding)`.
+    fn quantize(self, places: u32, rounding: Rounding) -> Result<Self, ArithmeticError> {
+        let rounded = self.round_places(places, rounding);
+        let places = i64::from(places);
+        // The quantized coefficient counts every digit down to the last place, also
+        // those a large value only has as trailing zeros (1E+26 has 29 to the cents).
         if !rounded.is_zero() {
             let length = i64::from(digits(rounded.coefficient.as_::<U256>()));
-            if i64::from(rounded.exponent) + 2 + length > i64::from(PRECISION) {
+            if i64::from(rounded.exponent) + places + length > i64::from(PRECISION) {
                 return Err(ArithmeticError::InvalidOperation);
             }
         }
-        // The result has exactly two places, as in Python: 1.5 becomes 1.50. The
-        // check above keeps the scaled coefficient within 28 digits.
-        let shift = u32::try_from(i64::from(rounded.exponent) + 2).unwrap_or(0);
+        // The result has exactly `places` places, as in Python: 1.5 becomes 1.50
+        // in cents. The check above keeps the scaled coefficient within 28 digits.
+        let shift = u32::try_from(i64::from(rounded.exponent) + places).unwrap_or(0);
         let coefficient = 10_u128
             .checked_pow(shift)
             .and_then(|scale| rounded.coefficient.checked_mul(scale))
             .ok_or(ArithmeticError::InvalidOperation)?;
         Ok(Dezimal {
             coefficient,
-            exponent: -2,
+            exponent: i32::try_from(-places).map_err(|_| ArithmeticError::InvalidOperation)?,
             ..rounded
         })
+    }
+
+    /// `f"{value:.{places}f}"` in Python: the value in plain notation with exactly
+    /// `places` decimal places, rounded with `ROUND_HALF_EVEN` and, unlike
+    /// [`round`](Self::round), without a limit on the digits. The sign of a negative
+    /// value that rounds to zero is kept: -0.001 gives `-0.00`.
+    pub fn to_fixed(self, places: u32) -> String {
+        let rounded = self.round_places(places, Rounding::HalfEven);
+        let mut text = rounded.to_string();
+        // Rounding left at most `places` places; pad to exactly that many.
+        let written = u32::try_from(-i64::from(rounded.exponent)).unwrap_or(0);
+        if places > 0 && written == 0 {
+            text.push('.');
+        }
+        for _ in written..places {
+            text.push('0');
+        }
+        text
     }
 
     /// The nearest binary float, like Python's `float(Dezimal)`.
@@ -1250,6 +1284,33 @@ mod tests {
             Dezimal::from_scaled(311_034_768, 7).to_string(),
             "31.1034768"
         );
+    }
+
+    #[test]
+    fn rounds_half_even_like_python_round() {
+        assert_eq!(d("0.125").round(2).unwrap().to_string(), "0.12");
+        assert_eq!(d("0.135").round(2).unwrap().to_string(), "0.14");
+        assert_eq!(d("1.5").round(2).unwrap().to_string(), "1.50");
+        assert_eq!(d("-0.00005").round(4).unwrap().to_string(), "-0.0000");
+        assert_eq!(d("2.5").round(0).unwrap().to_string(), "2");
+        assert_eq!(
+            d("1e24").round(4),
+            Err(ArithmeticError::InvalidOperation),
+            "29 digits"
+        );
+        assert!(d("1e23").round(4).is_ok());
+    }
+
+    #[test]
+    fn formats_fixed_places_like_python() {
+        assert_eq!(d("0.125").to_fixed(2), "0.12");
+        assert_eq!(d("0.135").to_fixed(2), "0.14");
+        assert_eq!(d("100").to_fixed(2), "100.00");
+        assert_eq!(d("1.5").to_fixed(2), "1.50");
+        assert_eq!(d("-0.001").to_fixed(2), "-0.00");
+        assert_eq!(d("1e30").to_fixed(2), "1000000000000000000000000000000.00");
+        assert_eq!(d("12.5").to_fixed(0), "12");
+        assert_eq!(d("0").to_fixed(3), "0.000");
     }
 
     #[test]

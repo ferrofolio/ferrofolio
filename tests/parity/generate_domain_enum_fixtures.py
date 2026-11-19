@@ -20,8 +20,12 @@ to compute the same outputs.
 import argparse
 import decimal
 import inspect
+import itertools
 import json
+import random
 import sys
+from contextlib import contextmanager
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from uuid import UUID
@@ -39,6 +43,7 @@ import domain.entity as entity  # noqa: E402
 import domain.entity_account as entity_account  # noqa: E402
 import domain.external_integration as external_integration  # noqa: E402
 import domain.fetch_record as fetch_record  # noqa: E402
+import domain.profitability as profitability  # noqa: E402
 import domain.public_key as public_key  # noqa: E402
 from domain.dezimal import Dezimal  # noqa: E402
 
@@ -52,6 +57,7 @@ COMPLETE_MODULES = [
     entity,
     entity_account,
     fetch_record,
+    profitability,
     public_key,
 ]
 
@@ -60,6 +66,10 @@ PARTIAL_MODULES = {
     earnings_expenses: ["FlowFrequency"],
     external_integration: ["ExternalIntegrationId"],
 }
+
+# The date Python's clock reports while cases that depend on today are recorded.
+TODAY = date(2026, 11, 18)
+SEED = 20261118
 
 
 def module_name(module) -> str:
@@ -115,6 +125,35 @@ def outcome(compute) -> dict:
         return {"result": compute()}
     except decimal.DecimalException as error:
         return {"error": signal_name(error)}
+
+
+def optional_decimal(value: str | None) -> Dezimal | None:
+    return None if value is None else Dezimal(value)
+
+
+def optional_date(value: str | None) -> date | None:
+    return None if value is None else date.fromisoformat(value)
+
+
+def optional_datetime(value: str | None) -> datetime | None:
+    return None if value is None else datetime.fromisoformat(value)
+
+
+class FixedDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(TODAY.year, TODAY.month, TODAY.day, 12, tzinfo=tz)
+
+
+@contextmanager
+def fixed_today():
+    """Lets domain.profitability read TODAY from the clock."""
+    original = profitability.datetime
+    profitability.datetime = FixedDateTime
+    try:
+        yield
+    finally:
+        profitability.datetime = original
 
 
 # Larger than half of the largest decimal, so that adding it to itself overflows.
@@ -499,9 +538,148 @@ def crypto_cases() -> dict:
     }
 
 
+def dezimal_cases() -> dict:
+    values = [
+        "0",
+        "-0",
+        "0.125",
+        "0.135",
+        "-0.125",
+        "2.5",
+        "3.5",
+        "1.5",
+        "-0.001",
+        "-0.00005",
+        "123.456789",
+        "0.00049999",
+        "99.995",
+        "1E+23",
+        "1E+24",
+        "1E+30",
+        "12345678901234567890.123456789",
+        "1E-30",
+    ]
+    places = [0, 2, 4]
+    return {
+        "dezimal_round": [
+            {
+                "value": value,
+                "places": count,
+                **outcome(
+                    lambda value=value, count=count: format(
+                        round(Dezimal(value), count).val, "f"
+                    )
+                ),
+            }
+            for value in values
+            for count in places
+        ],
+        "dezimal_to_fixed": [
+            {
+                "value": value,
+                "places": count,
+                "result": format(Dezimal(value).val, f".{count}f"),
+            }
+            for value in values
+            for count in places
+        ],
+    }
+
+
+def profitability_case(terms: dict) -> dict:
+    with fixed_today():
+        return {
+            **terms,
+            **outcome(
+                lambda: decimal_text(
+                    profitability.annualized_profitability(
+                        interest_rate=optional_decimal(terms["interest_rate"]),
+                        start_dt=optional_datetime(terms["start_dt"]),
+                        maturity=optional_date(terms["maturity"]),
+                        extended_maturity=optional_date(terms["extended_maturity"]),
+                        extended_interest_rate=optional_decimal(
+                            terms["extended_interest_rate"]
+                        ),
+                        late_interest_rate=optional_decimal(
+                            terms["late_interest_rate"]
+                        ),
+                    )
+                )
+            ),
+        }
+
+
+def profitability_cases() -> dict:
+    options = {
+        "interest_rate": [None, "0", "0.05", "0.1234", "-0.02"],
+        # Naive and aware; the aware ones fall on another day in UTC.
+        "start_dt": [
+            None,
+            "2024-01-15T10:00:00",
+            "2026-11-30T23:30:00-05:00",
+            "2027-01-01T00:30:00+14:00",
+        ],
+        "maturity": [None, "2025-01-15", TODAY.isoformat(), "2026-12-31", "2027-06-30"],
+        "extended_maturity": [None, "2026-11-01", TODAY.isoformat(), "2027-01-31"],
+        "extended_interest_rate": [None, "0.08"],
+        "late_interest_rate": [None, "0", "0.2"],
+    }
+    grid = [
+        dict(zip(options, values)) for values in itertools.product(*options.values())
+    ]
+    rng = random.Random(SEED)
+    chosen = rng.sample(grid, 300)
+    blank = dict.fromkeys(options)
+    edge = [
+        # Every part at once, past every maturity.
+        {
+            "interest_rate": "0.05",
+            "start_dt": "2024-01-15T10:00:00",
+            "maturity": "2025-01-15",
+            "extended_maturity": "2026-01-15",
+            "extended_interest_rate": "0.08",
+            "late_interest_rate": "0.2",
+        },
+        # A maturity before the start earns nothing for the term.
+        {
+            **blank,
+            "interest_rate": "0.05",
+            "start_dt": "2025-01-15T00:00:00",
+            "maturity": "2024-01-15",
+        },
+        # A result beyond 28 digits cannot be rounded to four places.
+        {
+            **blank,
+            "interest_rate": "1E+30",
+            "start_dt": "2024-01-15T00:00:00",
+            "maturity": "2025-01-15",
+        },
+        # A rate that overflows when multiplied by the days.
+        {
+            **blank,
+            "interest_rate": HUGE,
+            "start_dt": "2024-01-15T00:00:00",
+            "maturity": "2025-01-15",
+        },
+    ]
+    return {
+        "today": TODAY.isoformat(),
+        "annualized_profitability": [
+            profitability_case(terms) for terms in edge + chosen
+        ],
+    }
+
+
 def cases() -> dict:
     groups = {}
-    for build in (entity_cases, constant_cases, commodity_cases, crypto_cases):
+    for build in (
+        entity_cases,
+        constant_cases,
+        commodity_cases,
+        crypto_cases,
+        dezimal_cases,
+        profitability_cases,
+    ):
         for name, group in build().items():
             if name in groups:
                 raise SystemExit(f"case group {name} is defined twice")

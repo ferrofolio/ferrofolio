@@ -22,6 +22,7 @@ pub mod fetch_record;
 pub mod global_position;
 pub mod labeling;
 pub mod loan_calculator;
+pub mod profitability;
 pub mod pyrepr;
 pub mod python_printable;
 pub mod pyuuid;
