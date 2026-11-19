@@ -64,7 +64,8 @@ meant for a pull request, run them on your machine:
 scripts/ci-local.sh
 ```
 
-The script runs the workflow with [act](https://github.com/nektos/act) in containers and needs Docker or Podman.
+The script runs the workflow with [act](https://github.com/nektos/act) in containers and needs Docker or Podman and
+`flock` (part of util-linux; on macOS `brew install flock`).
 With Podman, its API socket must be running; the script does not start it (`systemctl --user start podman.socket`
 on Linux with systemd, `podman machine start` on macOS).
 It runs the jobs that CI would run for a pull request to `develop`, or every job when the working tree has
