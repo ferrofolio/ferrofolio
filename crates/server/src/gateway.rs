@@ -46,8 +46,9 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
         Some(SessionRoute::Login) => login(&state, request, false, client_addr).await,
         Some(SessionRoute::Signup) => login(&state, request, true, client_addr).await,
         Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
-        Some(SessionRoute::ReplacesDatabase) => {
-            replace_database(&state, request, client_addr).await
+        Some(SessionRoute::Import) => replace_database(&state, request, client_addr, false).await,
+        Some(SessionRoute::ChangePassword) => {
+            replace_database(&state, request, client_addr, true).await
         }
         None => state.backend.forward_or_error(request, client_addr).await,
     }
@@ -139,6 +140,12 @@ async fn login(
         let message = "Failed to decode JSON object";
         return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
     };
+    // Best effort, and before the session starts: a logout that overtakes the
+    // login ends the sessions, and `start` then refuses the login instead of
+    // answering with a token the logout has revoked already.
+    if unlocks {
+        unlock(state, attempt, login.credentials).await;
+    }
     let token = match state.sessions.start(attempt, remember, &backend_token) {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
@@ -152,9 +159,6 @@ async fn login(
             return refuse(ApiError::Unexpected(message.to_owned()).into_response());
         }
     };
-    if unlocks {
-        unlock(state, attempt, login.credentials).await;
-    }
     // `jsonify` in Quart: compact JSON and a newline.
     let body = format!("{}\n", json!({ "token": token }));
     parts
@@ -284,20 +288,45 @@ async fn logout(
 
 /// Passes on a request with which Python replaces or rekeys the database (a backup
 /// import, a change of the password), with Rust's connection to the database
-/// closed until Python has answered (`user_data::UserDatabase`). It runs to its end
-/// in a task of its own, so that a client that goes away cannot reopen the
-/// connection while Python is still at work.
+/// closed until Python has answered (`user_data::UserDatabase`). The body is read
+/// first, so that a client that stalls while sending it holds no lock and Rust
+/// keeps reading its database meanwhile. It runs to its end in a task of its own,
+/// so that a client that goes away cannot reopen the connection while Python is
+/// still at work. When the connection to Python fails, or after a change of the
+/// password has succeeded, Rust keeps no connection at all: Python may still write
+/// the file, and the credentials of a password change open it no more. The next
+/// login opens it again.
 async fn replace_database(
     state: &AppState,
     request: Request,
     client_addr: Option<SocketAddr>,
+    rekeys: bool,
 ) -> Response {
+    let (parts, body) = request.into_parts();
+    let (body, budget) = match budgeted_body(state, &parts.headers, body).await {
+        Ok(read) => read,
+        Err(error) => return error.into_response(),
+    };
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
     let replacement = tokio::spawn(async move {
         let guard = sessions.close_for_replacement().await;
-        let response = backend.forward_or_error(request, client_addr).await;
+        let response = match backend
+            .forward(Request::from_parts(parts, Body::from(body)), client_addr)
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                sessions.forget_database();
+                drop(budget);
+                return error.into_response();
+            }
+        };
+        if rekeys && response.status().is_success() {
+            sessions.forget_database();
+        }
         drop(guard);
+        drop(budget);
         response
     });
     replacement.await.unwrap_or_else(|error| {
@@ -314,9 +343,12 @@ enum SessionRoute {
     Signup,
     /// `POST /api/v1/logout`.
     Logout,
-    /// `POST /api/v1/cloud/backup/import` and `POST /api/v1/change-password`, with
-    /// which Python replaces or rekeys the database.
-    ReplacesDatabase,
+    /// `POST /api/v1/cloud/backup/import`, with which Python replaces the
+    /// database and keeps its password.
+    Import,
+    /// `POST /api/v1/change-password`, with which Python rekeys the database and
+    /// locks it.
+    ChangePassword,
 }
 
 /// The session route a request goes to. The backend decodes percent-escapes before
@@ -331,9 +363,8 @@ fn session_route(method: &Method, raw_path: &str) -> Option<SessionRoute> {
         "api/v1/login" => Some(SessionRoute::Login),
         "api/v1/signup" => Some(SessionRoute::Signup),
         "api/v1/logout" => Some(SessionRoute::Logout),
-        "api/v1/cloud/backup/import" | "api/v1/change-password" => {
-            Some(SessionRoute::ReplacesDatabase)
-        }
+        "api/v1/cloud/backup/import" => Some(SessionRoute::Import),
+        "api/v1/change-password" => Some(SessionRoute::ChangePassword),
         _ => None,
     }
 }
@@ -385,7 +416,7 @@ mod tests {
 
     #[test]
     fn recognises_the_session_routes_only_for_post() {
-        use SessionRoute::{Login, Logout, ReplacesDatabase, Signup};
+        use SessionRoute::{ChangePassword, Import, Login, Logout, Signup};
         assert_eq!(session_route(&Method::POST, "/api/v1/login"), Some(Login));
         assert_eq!(session_route(&Method::POST, "/api/v1/signup"), Some(Signup));
         assert_eq!(session_route(&Method::POST, "/api/v1/logout"), Some(Logout));
@@ -403,11 +434,11 @@ mod tests {
         assert_eq!(session_route(&Method::GET, "/api/v1/logout"), None);
         assert_eq!(
             session_route(&Method::POST, "/api/v1/cloud/backup/import"),
-            Some(ReplacesDatabase)
+            Some(Import)
         );
         assert_eq!(
             session_route(&lowercase, "//api/v1/change-%70assword"),
-            Some(ReplacesDatabase)
+            Some(ChangePassword)
         );
         assert_eq!(
             session_route(&Method::GET, "/api/v1/cloud/backup/import"),

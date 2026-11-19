@@ -256,12 +256,18 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                     StatusCode::NO_CONTENT.into_response()
                 }
             }
-            (Method::POST, "/api/v1/cloud/backup/import" | "/api/v1/change-password") => {
+            (Method::POST, path @ ("/api/v1/cloud/backup/import" | "/api/v1/change-password")) => {
                 if recorded.replacement_waits.load(Ordering::SeqCst) {
                     recorded.replacement_started.notify_one();
                     recorded.release_replacement.notified().await;
                 }
-                axum::Json(json!({})).into_response()
+                if path == "/api/v1/change-password" {
+                    // Python rekeys the database, locks it and answers without a
+                    // body.
+                    StatusCode::NO_CONTENT.into_response()
+                } else {
+                    axum::Json(json!({})).into_response()
+                }
             }
             (Method::OPTIONS, LOAN) => {
                 (StatusCode::OK, [("x-answered-by", "backend")]).into_response()
@@ -695,31 +701,102 @@ async fn assert_reopens(state: &AppState) {
         .expect("the database stayed closed after Python answered");
 }
 
+/// Waits until `condition` holds, or fails the test after ten seconds.
+async fn wait_until(mut condition: impl FnMut() -> bool, what: &str) {
+    let waiting = async {
+        while !condition() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(10), waiting)
+        .await
+        .unwrap_or_else(|_| panic!("{what}"));
+}
+
+/// Whether this process holds a connection to the database of `data`, judged by
+/// the file descriptors that point at it or at a SQLite side file named after it
+/// (`-wal`, `-shm`, `-journal`). `None` where the process cannot be asked, as
+/// outside Linux: the test then checks only what Rust reports.
+fn holds_connection(data: &TempDataDir) -> Option<bool> {
+    #[cfg(target_os = "linux")]
+    {
+        let path = data.database();
+        let path = path.to_string_lossy();
+        let side = format!("{path}-");
+        let handles = std::fs::read_dir("/proc/self/fd")
+            .ok()?
+            .filter_map(Result::ok)
+            .filter_map(|entry| std::fs::read_link(entry.path()).ok())
+            .filter(|target| {
+                let target = target.to_string_lossy();
+                target == path || target.starts_with(&side)
+            })
+            .count();
+        Some(handles > 0)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = data;
+        None
+    }
+}
+
+fn assert_holds_connection(data: &TempDataDir, expected: bool) {
+    if let Some(holds) = holds_connection(data) {
+        assert_eq!(holds, expected, "Rust's connection to data.db");
+    }
+}
+
 #[tokio::test]
 async fn requests_that_replace_the_database_close_rusts_connection_until_python_answers() {
     let (url, recorded) = fake_backend().await;
     recorded.replacement_waits.store(true, Ordering::SeqCst);
     let data = TempDataDir::new();
     let (state, app) = unlocked_gateway(&url, &data).await;
+    assert_holds_connection(&data, true);
 
-    for (path, client_goes_away) in [
-        ("/api/v1/cloud/backup/import", false),
-        ("/api/v1/change-password", true),
-    ] {
-        let client = start_replacement(&app, &recorded, path).await;
-        assert!(!reads(&state), "{path}");
-        if client_goes_away {
-            client.abort();
-            assert!(client.await.unwrap_err().is_cancelled());
-            assert!(!reads(&state), "{path}");
-            recorded.release_replacement.notify_one();
-        } else {
-            recorded.release_replacement.notify_one();
-            let response = client.await.unwrap().unwrap();
-            assert_eq!(response.status(), StatusCode::OK);
-        }
-        assert_reopens(&state).await;
-    }
+    // A backup import keeps the password, so Rust opens the file again.
+    let client = start_replacement(&app, &recorded, "/api/v1/cloud/backup/import").await;
+    assert!(!reads(&state), "the import");
+    assert_holds_connection(&data, false);
+    recorded.release_replacement.notify_one();
+    assert_eq!(client.await.unwrap().unwrap().status(), StatusCode::OK);
+    assert_reopens(&state).await;
+    assert_holds_connection(&data, true);
+
+    // A change of the password rekeys and locks the database: Rust keeps no
+    // connection, and the next login opens the file again.
+    let client = start_replacement(&app, &recorded, "/api/v1/change-password").await;
+    assert!(!reads(&state), "the change of the password");
+    assert_holds_connection(&data, false);
+    recorded.release_replacement.notify_one();
+    assert_eq!(
+        client.await.unwrap().unwrap().status(),
+        StatusCode::NO_CONTENT
+    );
+    assert!(!state.sessions.is_unlocked());
+    assert!(!reads(&state), "after the change of the password");
+    assert_holds_connection(&data, false);
+
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+    assert!(reads(&state));
+}
+
+#[tokio::test]
+async fn a_client_that_goes_away_does_not_reopen_the_database() {
+    let (url, recorded) = fake_backend().await;
+    recorded.replacement_waits.store(true, Ordering::SeqCst);
+    let data = TempDataDir::new();
+    let (state, app) = unlocked_gateway(&url, &data).await;
+
+    let client = start_replacement(&app, &recorded, "/api/v1/cloud/backup/import").await;
+    client.abort();
+    assert!(client.await.unwrap_err().is_cancelled());
+    assert!(!reads(&state));
+    assert_holds_connection(&data, false);
+    recorded.release_replacement.notify_one();
+    assert_reopens(&state).await;
 }
 
 #[tokio::test]
@@ -738,7 +815,11 @@ async fn a_login_during_a_replacement_opens_the_database_only_after_python_answe
         async move { app.oneshot(request).await }
     });
     // Python has accepted the login, but Rust opens nothing while the import runs.
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    wait_until(
+        || state.sessions.waiting_openings() == 1,
+        "the login never reached the replacement lock",
+    )
+    .await;
     assert!(!login.is_finished());
     assert!(!state.sessions.is_unlocked());
 
@@ -778,7 +859,11 @@ async fn a_replacement_waits_for_a_reader_of_the_database() {
         let request = login_request("/api/v1/cloud/backup/import", "{}");
         async move { app.oneshot(request).await }
     });
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    wait_until(
+        || state.sessions.waiting_replacements() == 1,
+        "the replacement never reached the lock",
+    )
+    .await;
     assert!(
         !recorded
             .paths()

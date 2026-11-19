@@ -167,12 +167,15 @@ sequenceDiagram
   (`POST /api/v1/change-password`) rewrites it with a new key. SQLite names the WAL and shared-memory files after the
   path, so a connection Rust kept open meanwhile would leave the old ones for Python's new connection, which can
   corrupt the new database. Rust therefore opens, installs and reads its connection only under a readers-writer lock
-  (`Sessions::open_and_unlock`, `Sessions::with_database`). Before it passes such a request on, Rust takes the lock
-  for writing, which waits for readers and for logins that are opening the database, closes the connection, and holds
-  the lock until Python has answered, also when the client goes away. Meanwhile a reader fails at once as for locked
-  data, and a login waits before it opens the database. Afterwards a reader opens the database again
-  (`UserDatabase::current`), as it does when the file has been replaced in any other way. Ported routes read the
-  database only through `Sessions::with_database`, on the blocking pool.
+  (`Sessions::open_and_unlock`, `Sessions::with_database`). It reads the body of such a request first, so that a
+  client that stalls while sending it holds no lock, then takes the lock for writing, which waits for readers and for
+  logins that are opening the database, closes the connection, and holds the lock until Python has answered, also
+  when the client goes away. Meanwhile a reader fails at once as for locked data, and a login waits before it opens
+  the database. Afterwards a reader opens the database again (`UserDatabase::current`), as it does when the file has
+  been replaced in any other way. After a successful change of the password, and when the connection to Python fails,
+  Rust drops the connection together with the credentials, which no longer open the file: a change of the password
+  rekeys the file and locks it, and a failed replacement may still be writing it, so nothing opens it until the next
+  login. Ported routes read the database only through `Sessions::with_database`, on the blocking pool.
   The `guest` flag of a signup is read with pydantic's rules for a `bool`, as Python's `LoginRequest` does.
 - **Ported routes** need the data unlocked. With API sessions they check the session in Rust, which exists only
   between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a
@@ -240,6 +243,7 @@ Each case states what it compares:
 | A request body nested deeper than 128 levels, also in a field the route ignores | Accepted | `400 INVALID_REQUEST`; serde_json's recursion limit keeps a crafted body from exhausting the stack |
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
 | A login or signup body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body to ask for a lasting backend token |
+| A backup-import or change-password body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body before it closes its connection for the replacement |
 | The end of a remembered session | The remember period is added to the local wall-clock time, so a change to or from daylight saving time in between moves the end by the size of the change | Exactly that many days of 24 hours after the login |
 | A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | Logged in | `400 INVALID_REQUEST` and no session, as Rust cannot ask for a lasting backend token; Python has unlocked the data |
 | A `remember` that is an object whose first key is serde_json's private number token | True, a non-empty dict | Read as the number, so `{"$serde_json::private::Number": "0"}` is false and the session lasts until the logout, as with `false` |
