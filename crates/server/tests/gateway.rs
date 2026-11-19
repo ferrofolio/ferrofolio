@@ -11,8 +11,9 @@
     clippy::indexing_slicing
 )]
 
+use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -32,8 +33,11 @@ use server::sessions::{SessionClock, SessionSettings, Sessions};
 use tower::ServiceExt;
 
 const LOAN: &str = "/api/v1/calculation/loan";
-/// The token the fake backend issues at a login, and the only one it accepts.
-const VALID_TOKEN: &str = "valid-session-token";
+
+/// The token the fake backend issues at its `n`th login, counted from 1.
+fn backend_token(n: usize) -> String {
+    format!("backend-token-{n}")
+}
 
 /// What the fake backend received.
 #[derive(Debug, Default)]
@@ -46,6 +50,17 @@ struct Recorded {
     sessions_disabled: AtomicBool,
     /// The logout handler fails after it has ended the backend's sessions.
     logout_fails: AtomicBool,
+    /// The logout handler drops the connection without an answer after it has
+    /// ended the backend's sessions.
+    logout_answer_lost: AtomicBool,
+    /// The logout handler waits for `release_logout` before it ends the sessions,
+    /// and reports that it has started with `logout_started`.
+    logout_waits: AtomicBool,
+    logout_started: Arc<tokio::sync::Notify>,
+    release_logout: Arc<tokio::sync::Notify>,
+    /// Logins so far, and the tokens the backend accepts.
+    logins: AtomicUsize,
+    accepted: Mutex<HashSet<String>>,
 }
 
 impl Recorded {
@@ -58,6 +73,15 @@ impl Recorded {
             .collect()
     }
 
+    fn accepts(&self, headers: &HeaderMap) -> bool {
+        let accepted = self.accepted.lock().unwrap();
+        headers
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .is_some_and(|token| accepted.contains(token))
+    }
+
     /// The `Authorization` header of the last request, if it had one.
     fn last_authorization(&self) -> Option<String> {
         let requests = self.requests.lock().unwrap();
@@ -68,9 +92,10 @@ impl Recorded {
     }
 }
 
-/// A backend whose `/api/v1/status` answers `UNLOCKED` only for `VALID_TOKEN`, as
-/// its logout does, and whose login answers with `VALID_TOKEN`: with `204` for a
-/// guest and without a token for the username `no-token`.
+/// A backend that issues a new token at every login, `backend_token(n)`, with
+/// `204` for a guest and without a token for the username `no-token`. Its status
+/// is `UNLOCKED` and its logout accepted only with a token it issued; a logout
+/// ends every token, as Python's does.
 async fn fake_backend() -> (String, Arc<Recorded>) {
     let recorded = Arc::new(Recorded::default());
 
@@ -91,9 +116,11 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                     return axum::Json(json!({"status": "UNLOCKED", "apiSession": false}))
                         .into_response();
                 }
-                let authorized = parts.headers.get(header::AUTHORIZATION)
-                    == Some(&format!("Bearer {VALID_TOKEN}").parse().unwrap());
-                let status = if authorized { "UNLOCKED" } else { "LOCKED" };
+                let status = if recorded.accepts(&parts.headers) {
+                    "UNLOCKED"
+                } else {
+                    "LOCKED"
+                };
                 axum::Json(json!({"status": status, "apiSession": true})).into_response()
             }
             // Spellings that reach Python's login and signup handlers: uvicorn
@@ -108,16 +135,29 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 match login["username"].as_str() {
                     Some("guest") => StatusCode::NO_CONTENT.into_response(),
                     Some("no-token") => axum::Json(json!({"message": "welcome"})).into_response(),
-                    _ => axum::Json(json!({"token": VALID_TOKEN})).into_response(),
+                    _ => {
+                        let token =
+                            backend_token(recorded.logins.fetch_add(1, Ordering::SeqCst) + 1);
+                        recorded.accepted.lock().unwrap().insert(token.clone());
+                        axum::Json(json!({"token": token})).into_response()
+                    }
                 }
             }
             (Method::POST, "/api/v1/logout") => {
-                let authorized = parts.headers.get(header::AUTHORIZATION)
-                    == Some(&format!("Bearer {VALID_TOKEN}").parse().unwrap());
-                if !authorized {
+                if !recorded.accepts(&parts.headers) {
                     let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
-                    (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response()
-                } else if recorded.logout_fails.load(Ordering::SeqCst) {
+                    return (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
+                }
+                if recorded.logout_waits.load(Ordering::SeqCst) {
+                    recorded.logout_started.notify_one();
+                    recorded.release_logout.notified().await;
+                }
+                recorded.accepted.lock().unwrap().clear();
+                if recorded.logout_answer_lost.load(Ordering::SeqCst) {
+                    // Ends the connection without an answer.
+                    panic!("the fake backend drops the logout answer");
+                }
+                if recorded.logout_fails.load(Ordering::SeqCst) {
                     StatusCode::INTERNAL_SERVER_ERROR.into_response()
                 } else {
                     StatusCode::NO_CONTENT.into_response()
@@ -413,7 +453,7 @@ async fn ported_routes_check_the_session_in_rust() {
     let app = gateway(&url);
 
     // The backend's own token is no session of Rust's.
-    for token in [None, Some("made-up"), Some(VALID_TOKEN)] {
+    for token in [None, Some("made-up"), Some("backend-token-1")] {
         let (status, _, body) = send(&app, loan_request(token)).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(
@@ -568,7 +608,7 @@ async fn logins_answer_with_a_token_of_rust_that_is_not_cached() {
         );
         // The backend's token never reaches the client.
         let body = std::str::from_utf8(&body).unwrap();
-        assert!(!body.contains(VALID_TOKEN), "{method} {path}");
+        assert!(!body.contains("backend-token"), "{method} {path}");
         let token = serde_json::from_str::<Value>(body).unwrap()["token"]
             .as_str()
             .unwrap()
@@ -611,7 +651,7 @@ async fn a_session_reaches_the_backend_with_the_backend_token() {
     send(&app, get("/api/v1/positions", Some(&token))).await;
     assert_eq!(
         recorded.last_authorization(),
-        Some(format!("Bearer {VALID_TOKEN}"))
+        Some(format!("Bearer {}", backend_token(1)))
     );
     let (status, _, body) = send(&app, get("/api/v1/status", Some(&token))).await;
     assert_eq!(status, StatusCode::OK);
@@ -648,19 +688,90 @@ async fn a_logout_ends_every_session() {
 
     let (status, _, _) = send(&app, logout(Some(&first))).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
+    // The newest backend token serves every session.
     assert_eq!(
         recorded.last_authorization(),
-        Some(format!("Bearer {VALID_TOKEN}"))
+        Some(format!("Bearer {}", backend_token(2)))
     );
-    for token in [&first, &second] {
-        let (status, _, _) = send(&app, loan_request(Some(token))).await;
+    assert_ended(&app, &recorded, &[&first, &second]).await;
+
+    // A new login starts a session with a new backend token; the ended ones stay
+    // ended.
+    let third = login(&app).await;
+    let (status, _, body) = send(&app, get("/api/v1/status", Some(&third))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["status"],
+        "UNLOCKED"
+    );
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {}", backend_token(3)))
+    );
+    assert_ended(&app, &recorded, &[&first, &second]).await;
+}
+
+/// Checks that each token is no session: ported routes refuse it, and the backend
+/// gets it as the client sent it.
+async fn assert_ended(app: &Router, recorded: &Recorded, tokens: &[&str]) {
+    for token in tokens {
+        let (status, _, _) = send(app, loan_request(Some(token))).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
-        send(&app, get("/api/v1/positions", Some(token))).await;
+        let (_, _, body) = send(app, get("/api/v1/status", Some(token))).await;
         assert_eq!(
             recorded.last_authorization(),
             Some(format!("Bearer {token}"))
         );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&body).unwrap()["status"],
+            "LOCKED"
+        );
     }
+}
+
+#[tokio::test]
+async fn a_logout_whose_answer_is_lost_ends_the_sessions() {
+    let (url, recorded) = fake_backend().await;
+    recorded.logout_answer_lost.store(true, Ordering::SeqCst);
+    let app = gateway(&url);
+    let token = login(&app).await;
+
+    let (status, _, _) = send(&app, logout(Some(&token))).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    // Otherwise the next login's backend token would bring the session back.
+    login(&app).await;
+    assert_ended(&app, &recorded, &[&token]).await;
+}
+
+#[tokio::test]
+async fn a_logout_ends_the_sessions_also_when_its_client_goes_away() {
+    let (url, recorded) = fake_backend().await;
+    recorded.logout_waits.store(true, Ordering::SeqCst);
+    let app = gateway(&url);
+    let token = login(&app).await;
+
+    let client = tokio::spawn({
+        let app = app.clone();
+        let request = logout(Some(&token));
+        async move { app.oneshot(request).await }
+    });
+    recorded.logout_started.notified().await;
+    client.abort();
+    assert!(client.await.unwrap_err().is_cancelled());
+    recorded.release_logout.notify_one();
+
+    let ended = async {
+        loop {
+            let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+            if status == StatusCode::UNAUTHORIZED {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(10), ended)
+        .await
+        .expect("the session outlived the logout");
 }
 
 #[tokio::test]
@@ -686,8 +797,8 @@ async fn a_logout_that_fails_in_the_backend_ends_the_sessions() {
 
     let (status, _, _) = send(&app, logout(Some(&token))).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    let (status, _, _) = send(&app, loan_request(Some(&token))).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    login(&app).await;
+    assert_ended(&app, &recorded, &[&token]).await;
 }
 
 #[tokio::test]
@@ -754,6 +865,24 @@ async fn logins_without_a_token_start_no_session() {
 }
 
 #[tokio::test]
+async fn a_login_body_rust_cannot_read_starts_no_session() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    // Python's json module reads NaN and accepts the login; serde_json does not, so
+    // Rust cannot ask for a token that lasts until the logout.
+    let body = r#"{"username":"u","password":"p","remember":NaN}"#;
+    let (status, _, answer) = send(&app, login_request("/api/v1/login", body)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        !std::str::from_utf8(&answer)
+            .unwrap()
+            .contains("backend-token")
+    );
+    let requests = recorded.requests.lock().unwrap();
+    assert_eq!(requests.last().unwrap().3, body);
+}
+
+#[tokio::test]
 async fn a_login_body_above_the_limit_is_refused() {
     let (url, recorded) = fake_backend().await;
     let app = gateway(&url);
@@ -776,7 +905,7 @@ async fn without_sessions_logins_and_tokens_pass_through_unchanged() {
     assert_eq!(headers[header::CACHE_CONTROL], "no-store");
     assert_eq!(
         serde_json::from_slice::<Value>(&answer).unwrap()["token"],
-        VALID_TOKEN
+        backend_token(1)
     );
     {
         let requests = recorded.requests.lock().unwrap();
@@ -856,7 +985,7 @@ async fn an_unreachable_backend_answers_502() {
     }
 
     // With sessions, ported routes check the session without the backend.
-    let (status, _, _) = send(&app, loan_request(Some(VALID_TOKEN))).await;
+    let (status, _, _) = send(&app, loan_request(Some("made-up"))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     // Without them, they cannot tell whether the data is unlocked.
     let app = gateway_without_sessions(&url);

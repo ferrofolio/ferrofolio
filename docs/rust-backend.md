@@ -133,16 +133,19 @@ sequenceDiagram
   that login starts no session and is answered with `500 UNEXPECTED_ERROR`; the client logs in again.
 - **The backend token lasts until the logout.** Rust appends `"remember": false` to the JSON object of a login, and
   Python's `json` module keeps the last of repeated keys; the rest of the body reaches Python unchanged. Rust applies
-  the client's `remember` to its own session, so the backend token outlives every session. A body Rust cannot read as
-  a JSON object goes on unchanged, and its session counts as remembered.
+  the client's `remember` to its own session, so the backend token outlives every session, and the token of the newest
+  login serves all of them. A body Rust cannot read as a JSON object goes on unchanged, so that Python answers it as
+  before; should Python accept it, Rust starts no session and answers `400 INVALID_REQUEST`.
 - **Requests.** A request with the token of a valid session reaches Python with `Authorization: Bearer` and the
   backend token instead. Every other request reaches Python as the client sent it, so Python's session guard and its
   status route decide about it as before: with a token Python does not know, the data counts as locked for the
   status, and a guarded route answers `401 NOT_LOGGED` while the data is unlocked. The token of the MCP endpoint,
   which Python checks itself, passes through untouched.
 - **Logout.** Rust passes it on, with the backend token for a valid session. Python's logout handler ends its sessions
-  before anything else, so Rust ends every session and forgets the backend token whenever the handler ran: on
-  success, and on a server error that happened later in the handler. A `401` from Python's guard leaves them.
+  before anything else, so they may be gone whenever the request reached it. Rust therefore ends every session and
+  forgets the backend token unless Python refused the logout with a `3xx` or `4xx`, such as the `401` of its guard: on
+  success, on a server error and when the answer is lost. Otherwise a session Rust kept would come back with the
+  backend token of the next login. The logout runs to its end even when the client goes away.
 - **Ported routes** check the session in Rust and answer `401 NOT_LOGGED` without a valid one. Without API sessions
   they still ask Python whether the data is unlocked: they send `GET /api/v1/status` and proceed only on `UNLOCKED`,
   answer `502` when Python cannot be reached or its answer is not a readable status, and `504` when it does not
@@ -206,7 +209,9 @@ Each case states what it compares:
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
 | A login or signup body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body to ask for a lasting backend token |
 | The end of a remembered session | The remember period is added to the local wall-clock time, so a change to or from daylight saving time in between moves the end by the size of the change | Exactly that many days of 24 hours after the login |
-| A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | `remember` as the body says | The session counts as remembered |
+| A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | Logged in | `400 INVALID_REQUEST` and no session, as Rust cannot ask for a lasting backend token; Python has unlocked the data |
+| A `remember` that is an object whose first key is serde_json's private number token | True, a non-empty dict | Read as the number, so `{"$serde_json::private::Number": "0"}` is false and the session lasts until the logout, as with `false` |
+| A logout whose answer does not arrive, for example because the connection to Python broke | Its sessions end if the handler ran | Rust ends its sessions in any case; if the request never reached the handler, Python's data stays unlocked until the next logout |
 | A login that Python answers with `200` but without a token | Passed on | `502 BACKEND_UNAVAILABLE`; the answer is not passed on |
 | A login that is still with Python when a logout ends the sessions | Whichever Python handles last decides | `500 UNEXPECTED_ERROR`, no session |
 
