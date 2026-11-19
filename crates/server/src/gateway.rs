@@ -46,6 +46,9 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
         Some(SessionRoute::Login) => login(&state, request, false, client_addr).await,
         Some(SessionRoute::Signup) => login(&state, request, true, client_addr).await,
         Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
+        Some(SessionRoute::ReplacesDatabase) => {
+            replace_database(&state, request, client_addr).await
+        }
         None => state.backend.forward_or_error(request, client_addr).await,
     }
 }
@@ -300,6 +303,34 @@ async fn logout(
     }
 }
 
+/// Passes on a request with which Python replaces or rekeys the database (a backup
+/// import, a change of the password), with Rust's connection to the database
+/// closed until Python has answered (`user_data::UserDatabase`). It runs to its end
+/// in a task of its own, so that a client that goes away cannot reopen the
+/// connection while Python is still at work.
+async fn replace_database(
+    state: &AppState,
+    request: Request,
+    client_addr: Option<SocketAddr>,
+) -> Response {
+    let backend = state.backend.clone();
+    let sessions = state.sessions.clone();
+    let replacement = tokio::spawn(async move {
+        let closed = tokio::task::spawn_blocking(move || sessions.close_for_replacement()).await;
+        let Ok(guard) = closed else {
+            tracing::error!("could not close the database before a request that replaces it");
+            return ApiError::Unexpected("Could not close the database".to_owned()).into_response();
+        };
+        let response = backend.forward_or_error(request, client_addr).await;
+        drop(guard);
+        response
+    });
+    replacement.await.unwrap_or_else(|error| {
+        tracing::error!(%error, "a request that replaces the database did not complete");
+        ApiError::Unexpected("Request failed".to_owned()).into_response()
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SessionRoute {
     /// `POST /api/v1/login`, which answers with a token.
@@ -308,6 +339,9 @@ enum SessionRoute {
     Signup,
     /// `POST /api/v1/logout`.
     Logout,
+    /// `POST /api/v1/cloud/backup/import` and `POST /api/v1/change-password`, with
+    /// which Python replaces or rekeys the database.
+    ReplacesDatabase,
 }
 
 /// The session route a request goes to. The backend decodes percent-escapes before
@@ -322,6 +356,9 @@ fn session_route(method: &Method, raw_path: &str) -> Option<SessionRoute> {
         "api/v1/login" => Some(SessionRoute::Login),
         "api/v1/signup" => Some(SessionRoute::Signup),
         "api/v1/logout" => Some(SessionRoute::Logout),
+        "api/v1/cloud/backup/import" | "api/v1/change-password" => {
+            Some(SessionRoute::ReplacesDatabase)
+        }
         _ => None,
     }
 }
@@ -373,7 +410,7 @@ mod tests {
 
     #[test]
     fn recognises_the_session_routes_only_for_post() {
-        use SessionRoute::{Login, Logout, Signup};
+        use SessionRoute::{Login, Logout, ReplacesDatabase, Signup};
         assert_eq!(session_route(&Method::POST, "/api/v1/login"), Some(Login));
         assert_eq!(session_route(&Method::POST, "/api/v1/signup"), Some(Signup));
         assert_eq!(session_route(&Method::POST, "/api/v1/logout"), Some(Logout));
@@ -389,6 +426,18 @@ mod tests {
         assert_eq!(session_route(&lowercase, "/api/v1/logou%74"), Some(Logout));
         assert_eq!(session_route(&Method::GET, "/api/v1/login"), None);
         assert_eq!(session_route(&Method::GET, "/api/v1/logout"), None);
+        assert_eq!(
+            session_route(&Method::POST, "/api/v1/cloud/backup/import"),
+            Some(ReplacesDatabase)
+        );
+        assert_eq!(
+            session_route(&lowercase, "//api/v1/change-%70assword"),
+            Some(ReplacesDatabase)
+        );
+        assert_eq!(
+            session_route(&Method::GET, "/api/v1/cloud/backup/import"),
+            None
+        );
         assert_eq!(session_route(&Method::POST, "/api/v1/login/"), None);
         assert_eq!(session_route(&Method::POST, "/api/v1/status"), None);
     }

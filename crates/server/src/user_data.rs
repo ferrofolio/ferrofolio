@@ -10,6 +10,8 @@ use std::fmt;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use infra_db::{Database, OpenError};
 use serde::Deserialize;
@@ -98,6 +100,8 @@ pub enum UnlockError {
     NoProfile,
     #[error("the database file cannot be read: {0}")]
     File(std::io::Error),
+    #[error("a request is replacing or rekeying the database")]
+    Replacing,
     #[error(transparent)]
     Open(#[from] OpenError),
 }
@@ -120,14 +124,20 @@ fn file_id(path: &Path) -> Result<FileId, UnlockError> {
 /// A user's database, opened read-only with the password of a login.
 ///
 /// It keeps the credentials, as Python's `DBManager` keeps the password while the
-/// data is unlocked: a backup import replaces `data.db` with a new file, and the
-/// open connection would go on reading the old one, so `current` opens the new
-/// one first. Opening derives the key, so both run on the blocking pool.
+/// data is unlocked, so that it can open the database again. A backup import closes
+/// Python's connection, deletes `data.db` and writes a new one; a change of the
+/// password rewrites it with a new key. SQLite names the WAL and shared-memory
+/// files after the path, so a connection Rust kept open meanwhile would leave the
+/// old ones for Python's new connection to read, which can corrupt the new
+/// database. Requests that do this therefore close Rust's connection first
+/// (`ReplacementGate`), and `current` opens the database again only once they are
+/// done, and also when the file has been replaced some other way. Opening derives
+/// the key, so it runs on the blocking pool.
 pub struct UserDatabase {
-    database: Database,
+    connection: Option<(Database, FileId)>,
     path: PathBuf,
-    file: FileId,
     credentials: Credentials,
+    replacing: Arc<AtomicU32>,
 }
 
 impl fmt::Debug for UserDatabase {
@@ -145,28 +155,88 @@ impl UserDatabase {
         let path = data_dir
             .database_path(&credentials.username)
             .ok_or(UnlockError::NoProfile)?;
-        Self::open_at(path, credentials)
-    }
-
-    fn open_at(path: PathBuf, credentials: Credentials) -> Result<Self, UnlockError> {
-        // Taken before opening: a file replaced in between is opened again by the
-        // next `current`.
-        let file = file_id(&path)?;
-        let database = Database::open_read_only(&path, &credentials.password)?;
+        let connection = connect(&path, &credentials.password)?;
         Ok(UserDatabase {
-            database,
+            connection: Some(connection),
             path,
-            file,
             credentials,
+            replacing: Arc::default(),
         })
     }
 
-    /// The database, opened again first if its file has been replaced since.
-    pub fn current(&mut self) -> Result<&Database, UnlockError> {
-        if file_id(&self.path)? != self.file {
-            *self = Self::open_at(self.path.clone(), self.credentials.clone())?;
+    /// Makes the database follow `gate`: closed while a request holds it.
+    pub(crate) fn follow(&mut self, gate: &ReplacementGate) {
+        self.replacing = Arc::clone(&gate.replacing);
+        if self.replacing.load(Ordering::SeqCst) > 0 {
+            self.connection = None;
         }
-        Ok(&self.database)
+    }
+
+    /// The database, opened again first if it was closed for a request that
+    /// replaced it or if its file has been replaced since.
+    pub fn current(&mut self) -> Result<&Database, UnlockError> {
+        if self.replacing.load(Ordering::SeqCst) > 0 {
+            return Err(UnlockError::Replacing);
+        }
+        let file = file_id(&self.path)?;
+        if self
+            .connection
+            .as_ref()
+            .is_none_or(|(_, opened)| *opened != file)
+        {
+            // Dropped first: the old connection must not outlive the new file's.
+            self.connection = None;
+            self.connection = Some(connect(&self.path, &self.credentials.password)?);
+        }
+        match &self.connection {
+            Some((database, _)) => Ok(database),
+            None => Err(UnlockError::Replacing),
+        }
+    }
+}
+
+/// Opens the database at `path` and returns it with the file it was opened from.
+fn connect(path: &Path, password: &str) -> Result<(Database, FileId), UnlockError> {
+    // Taken before opening: a file replaced in between is opened again by the next
+    // `current`.
+    let file = file_id(path)?;
+    let database = Database::open_read_only(path, password)?;
+    Ok((database, file))
+}
+
+/// Keeps Rust's connection to the user's database closed while requests that
+/// replace or rekey the database are with Python. Clones share it.
+#[derive(Debug, Clone, Default)]
+pub struct ReplacementGate {
+    replacing: Arc<AtomicU32>,
+}
+
+impl ReplacementGate {
+    /// Closes the connection of `database`, if any, and keeps it closed until the
+    /// returned guard is dropped. Waits for a reader that holds the database, so it
+    /// runs on the blocking pool.
+    pub fn close(&self, database: Option<&Mutex<UserDatabase>>) -> ReplacementGuard {
+        // Counted first, so that no reader opens the database once it is closed.
+        self.replacing.fetch_add(1, Ordering::SeqCst);
+        if let Some(database) = database {
+            let mut database = database.lock().unwrap_or_else(PoisonError::into_inner);
+            database.connection = None;
+        }
+        ReplacementGuard {
+            replacing: Arc::clone(&self.replacing),
+        }
+    }
+}
+
+/// Keeps the database closed while it lives.
+#[derive(Debug)]
+pub struct ReplacementGuard {
+    replacing: Arc<AtomicU32>,
+}
+
+impl Drop for ReplacementGuard {
+    fn drop(&mut self) {
+        self.replacing.fetch_sub(1, Ordering::SeqCst);
     }
 }
 

@@ -162,8 +162,14 @@ sequenceDiagram
   at a login Python refuses with `409` because the data is already unlocked, when the password opens the database.
   The logout that ends the sessions closes it, and a login that a logout overtakes keeps it closed. If Rust cannot
   open it, for example because the profile is missing, the login still succeeds. Rust keeps the credentials while the
-  database is open, as Python's `DBManager` keeps the password: a backup import replaces `data.db` with a new file,
-  and a reader then opens the new one (`UserDatabase::current`) instead of reading the old one.
+  database is open, as Python's `DBManager` keeps the password, so that it can open it again: a backup import
+  (`POST /api/v1/cloud/backup/import`) deletes `data.db` and writes a new one, and a change of the password
+  (`POST /api/v1/change-password`) rewrites it with a new key. SQLite names the WAL and shared-memory files after the
+  path, so a connection Rust kept open meanwhile would leave the old ones for Python's new connection, which can
+  corrupt the new database. Rust therefore closes its connection before it passes such a request on, waiting for a
+  reader to finish, keeps it closed until Python has answered, also when the client goes away, and a reader then
+  opens the database again (`UserDatabase::current`), as it does when the file has been replaced in any other way.
+  The `guest` flag of a signup is read with pydantic's rules for a `bool`, as Python's `LoginRequest` does.
 - **Ported routes** need the data unlocked. With API sessions they check the session in Rust, which exists only
   between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a
   login Rust sees (the automatic login, a guest's backup import, a failed restore): they send `GET /api/v1/status` and

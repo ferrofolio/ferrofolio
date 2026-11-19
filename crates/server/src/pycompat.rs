@@ -245,6 +245,26 @@ pub fn int(value: &Value) -> Result<i64, String> {
     }
 }
 
+/// Validation of a pydantic `bool` field in lax mode: booleans, the numbers 0 and 1,
+/// and the strings `0 off f false n no` and `1 on t true y yes` in any case, without
+/// surrounding whitespace. `None` for every other value, which pydantic rejects.
+pub fn lax_bool(value: &Value) -> Option<bool> {
+    match value {
+        Value::Bool(flag) => Some(*flag),
+        Value::Number(number) => match number.as_f64() {
+            Some(1.0) => Some(true),
+            Some(0.0) => Some(false),
+            _ => None,
+        },
+        Value::String(text) => match text.to_ascii_lowercase().as_str() {
+            "1" | "on" | "t" | "true" | "y" | "yes" => Some(true),
+            "0" | "off" | "f" | "false" | "n" | "no" => Some(false),
+            _ => None,
+        },
+        Value::Null | Value::Array(_) | Value::Object(_) => None,
+    }
+}
+
 /// The first line of pydantic's error for a value `lax_int` rejects.
 pub fn lax_int_error(value: &Value) -> &'static str {
     match value {
@@ -432,6 +452,39 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn validates_bools_like_pydantic() {
+        // Recorded from pydantic with a `bool` field of a pydantic dataclass.
+        let cases = [
+            ("true", Some(true)),
+            ("false", Some(false)),
+            ("\"false\"", Some(false)),
+            ("\"FALSE\"", Some(false)),
+            ("\"yes\"", Some(true)),
+            ("\"Off\"", Some(false)),
+            ("\"t\"", Some(true)),
+            ("\"n\"", Some(false)),
+            ("\"1\"", Some(true)),
+            ("\"0\"", Some(false)),
+            ("\"on\"", Some(true)),
+            ("1", Some(true)),
+            ("0", Some(false)),
+            ("1.0", Some(true)),
+            ("0.0", Some(false)),
+            ("2", None),
+            ("0.5", None),
+            ("null", None),
+            ("\"\"", None),
+            ("\" true\"", None),
+            ("[]", None),
+            ("{}", None),
+        ];
+        for (json, expected) in cases {
+            let value: Value = serde_json::from_str(json).unwrap();
+            assert_eq!(lax_bool(&value), expected, "{json}");
+        }
+    }
 
     #[test]
     fn truthiness_follows_python() {
