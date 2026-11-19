@@ -16,7 +16,7 @@
 # Uncommitted changes are included: act copies the working tree into the containers.
 # The jobs can use the container engine (the "docker" job builds the image with it),
 # so run this only on code you trust, as you would run its build.
-# Needs Docker or Podman; act itself is downloaded once, checked against a pinned
+# Needs Docker or Podman and flock; act itself is downloaded once, checked against a pinned
 # SHA-256 digest and kept in ${XDG_CACHE_HOME:-~/.cache}/ferrofolio, and the runner
 # image is built locally from scripts/ci-local.Containerfile.
 
@@ -147,46 +147,25 @@ fi
 
 event=""
 artifacts=""
-lock_dir=""
 cleanup() {
   rm -rf "$event" "$artifacts"
-  if [[ -n "$lock_dir" ]]; then
-    rm -rf "$lock_dir"
-  fi
 }
 trap cleanup EXIT
 
 # act names job containers and volumes after the workflow and the job only, and serves
 # artifacts on a fixed port of the host, so two runs at the same time, for example
 # from two worktrees, would collide. Runs on this machine therefore take turns.
-# The lock lives in one place per user, whatever the cache directory is.
-lock_base="/tmp/ferrofolio-ci-local-$(id -u)"
-if command -v flock > /dev/null; then
-  # Released by the kernel when the run ends, however it ends.
-  exec 9> "$lock_base.lock"
-  if ! flock --nonblock 9; then
-    echo "Waiting for another local CI run on this machine" >&2
-    flock 9
-  fi
-else
-  # Without flock (macOS), mkdir is the atomic step; a run that is killed leaves the
-  # directory behind, and it is not removed automatically to never break a live run.
-  lock_path="$lock_base.lock.d"
-  until mkdir "$lock_path" 2> /dev/null; do
-    # Gone in the meantime: the other run has finished, so try again at once.
-    [[ -e "$lock_path" ]] || continue
-    if [[ ! -d "$lock_path" ]]; then
-      echo "Cannot create the lock directory $lock_path" >&2
-      exit 1
-    fi
-    if [[ -z "${announced:-}" ]]; then
-      echo "Waiting for another local CI run on this machine; if none is running," >&2
-      echo "remove $lock_path" >&2
-      announced=true
-    fi
-    sleep 5
-  done
-  lock_dir="$lock_path"
+# The lock lives in one place per user, whatever the cache directory is. Every run
+# takes it with flock, so all of them use the same protocol, and the kernel releases
+# it when the run ends, however it ends.
+if ! command -v flock > /dev/null; then
+  echo "flock is needed to keep local CI runs apart (on macOS: brew install flock)." >&2
+  exit 1
+fi
+exec 9> "/tmp/ferrofolio-ci-local-$(id -u).lock"
+if ! flock -n 9; then
+  echo "Waiting for another local CI run on this machine" >&2
+  flock 9
 fi
 
 # The runner image: act's Ubuntu image plus what GitHub's runner has preinstalled
