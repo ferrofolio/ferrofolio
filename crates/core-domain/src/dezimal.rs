@@ -341,13 +341,20 @@ impl Hash for Dezimal {
 }
 
 impl Neg for Dezimal {
-    type Output = Dezimal;
+    type Output = Checked;
 
-    fn neg(self) -> Dezimal {
-        Dezimal {
-            negative: !self.negative,
-            ..self
-        }
+    /// `-value` in Python's context, as `Decimal.__neg__` computes it: rounded to 28
+    /// significant digits, and the negation of a zero is a positive zero.
+    fn neg(self) -> Checked {
+        Checked(add(Dezimal::ZERO, flip_sign(self), PRECISION))
+    }
+}
+
+/// The same digits with the other sign, without rounding.
+fn flip_sign(value: Dezimal) -> Dezimal {
+    Dezimal {
+        negative: !value.negative,
+        ..value
     }
 }
 
@@ -405,7 +412,8 @@ fn context_add(lhs: Dezimal, rhs: Dezimal) -> Result<Dezimal, ArithmeticError> {
 }
 
 fn context_sub(lhs: Dezimal, rhs: Dezimal) -> Result<Dezimal, ArithmeticError> {
-    add(lhs, -rhs, PRECISION)
+    // The sign flips exactly; only the sum is rounded, once.
+    add(lhs, flip_sign(rhs), PRECISION)
 }
 
 fn context_mul(lhs: Dezimal, rhs: Dezimal) -> Result<Dezimal, ArithmeticError> {
@@ -1101,7 +1109,7 @@ mod tests {
     #[test]
     fn parses_python_decimal_strings() {
         assert_eq!(d("1.50"), d("1.5"));
-        assert_eq!(d("  -2.5 "), -d("2.5"));
+        assert_eq!(d("  -2.5 "), (-d("2.5")).value().unwrap());
         assert_eq!(d("+3"), Dezimal::from(3));
         assert_eq!(d("1_000.25"), d("1000.25"));
         assert_eq!(d("1e3"), Dezimal::from(1000));
@@ -1258,7 +1266,7 @@ mod tests {
         assert_eq!(Dezimal::ONE.powi(1_000_000).value().unwrap(), Dezimal::ONE);
         assert_eq!(
             (-Dezimal::ONE).powi(1_000_001).value().unwrap(),
-            -Dezimal::ONE
+            (-Dezimal::ONE).value().unwrap()
         );
         assert_eq!(d("1.1").powi(2).value().unwrap(), d("1.21"));
         assert_eq!(d("2").powi(-2).value().unwrap(), d("0.25"));
