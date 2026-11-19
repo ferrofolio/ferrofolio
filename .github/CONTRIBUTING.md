@@ -6,7 +6,8 @@ Ferrofolio is an independent fork of [Finanze](https://github.com/finanze/finanz
 
 ## Getting Started
 
-See the [Development](../README.md#development) section of the README for complete setup instructions (backend and frontend).
+See the [developer guide](../docs/development.md) for complete setup instructions (backend and frontend), and the
+[agent guide](../AGENTS.md) for the rules every change follows.
 
 ## Ways to Contribute
 
@@ -32,13 +33,14 @@ grant nobody the right to relicense it.
 1. **Branching:** Fork the repository and create a descriptive branch from `develop` (e.g., `feature/super-cool` or `bugfix/sync-error`).
 2. **Code Style & Formatting:**
    - **Backend:** Run `ruff format` and `ruff check`.
+   - **Rust:** Run `cargo fmt --all` and `cargo clippy --workspace --all-targets -- -D warnings`.
    - **Frontend:** Run `pnpm format` and `pnpm lint`.
-   - More on this in [README.md](../README.md).
+   - More on this in the [developer guide](../docs/development.md#format-and-lint).
 3. **Testing:**
    - Add unit tests or integration tests for new features and infrastructure adapters in `tests/` and `e2e/` if possible.
-   - Ensure all tests pass: `pytest` (backend) and `pnpm test` (frontend).
+   - Ensure all tests pass: `pytest` (Python backend), `cargo test --workspace` (Rust backend) and `pnpm test` (frontend).
    - `scripts/ci-local.sh` runs the CI checks that apply to your change locally in containers, `--all` runs every one (needs Docker or Podman).
-   - More on this in [README.md](../README.md).
+   - More on this in the [developer guide](../docs/development.md#test).
 4. **Submit:** Open the Pull Request against the `develop` branch with a clear title and description of your changes.
 
 ---

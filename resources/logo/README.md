@@ -51,7 +51,8 @@ rsvg-convert -w 1024 -h 1024 ios/app-icon-tinted.svg | magick png:- -alpha off -
 rsvg-convert -w 180 -h 180 ios/app-icon.svg | magick png:- -alpha off -strip PNG24:ios/apple-touch-icon.png
 ```
 
-The web app and the Electron build use rendered copies as well. From the repository root:
+The web app uses rendered copies as well, and `ferrofolio-macos.icns` is built from the macOS source. From the
+repository root:
 
 ```bash
 rsvg-convert -w 1024 -h 1024 resources/logo/ios/app-icon.svg -o frontend/app/public/ferrofolio-app.png
