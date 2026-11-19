@@ -70,3 +70,12 @@ version = "{current_version}"'''
 replace = '''
 name = "server"
 version = "{new_version}"'''
+
+[[tool.bumpversion.files]]
+filename = "Cargo.lock"
+search = '''
+name = "infra-db"
+version = "{current_version}"'''
+replace = '''
+name = "infra-db"
+version = "{new_version}"'''
