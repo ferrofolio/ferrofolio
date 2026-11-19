@@ -829,6 +829,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "infra-db",
  "jiff",
  "nix",
  "serde",

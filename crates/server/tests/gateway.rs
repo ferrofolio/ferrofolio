@@ -30,9 +30,45 @@ use serde_json::{Value, json};
 use server::app::{AppState, router};
 use server::proxy::Backend;
 use server::sessions::{SessionClock, SessionSettings, Sessions};
+use server::user_data::DataDir;
 use tower::ServiceExt;
 
 const LOAN: &str = "/api/v1/calculation/loan";
+
+/// The database `tests/parity/generate_db_fixture.py` created with the Python
+/// backend, and its password, which is not a secret.
+const FIXTURE_DATABASE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../infra-db/tests/fixtures/data.db"
+);
+const FIXTURE_PASSWORD: &str = "fixture pass'word ü";
+const FIXTURE_USER: &str = "fixture-user";
+const FIXTURE_USER_ID: &str = "0d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7b";
+
+/// A data directory of its own with a `profiles.json` that names `FIXTURE_USER`
+/// and a copy of the fixture database as that user's.
+fn data_dir() -> DataDir {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let directory = std::env::temp_dir().join(format!(
+        "ferrofolio-gateway-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let profile = directory.join("profiles").join(FIXTURE_USER_ID);
+    std::fs::create_dir_all(&profile).unwrap();
+    std::fs::copy(FIXTURE_DATABASE, profile.join("data.db")).unwrap();
+    let profiles = json!({
+        "last_logged": FIXTURE_USER_ID,
+        "profiles": [{"id": FIXTURE_USER_ID, "name": FIXTURE_USER}],
+    });
+    std::fs::write(directory.join("profiles.json"), profiles.to_string()).unwrap();
+    DataDir::new(directory)
+}
+
+/// The body of a login of `FIXTURE_USER` with `password`.
+fn fixture_login(password: &str) -> String {
+    json!({"username": FIXTURE_USER, "password": password}).to_string()
+}
 
 /// The token the fake backend issues at its `n`th login, counted from 1.
 fn backend_token(n: usize) -> String {
@@ -136,6 +172,10 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
             ) if method.as_str().eq_ignore_ascii_case("POST") => {
                 let login: Value = serde_json::from_slice(&body).unwrap_or_default();
                 match login["username"].as_str() {
+                    // Without API sessions Python answers a login without a token.
+                    _ if recorded.sessions_disabled.load(Ordering::SeqCst) => {
+                        StatusCode::NO_CONTENT.into_response()
+                    }
                     Some("guest") => StatusCode::NO_CONTENT.into_response(),
                     Some("no-token") => axum::Json(json!({"message": "welcome"})).into_response(),
                     _ => {
@@ -147,8 +187,10 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 }
             }
             (Method::POST, "/api/v1/logout") => {
-                if !recorded.accepts(&parts.headers) && !recorded.guard_open.load(Ordering::SeqCst)
-                {
+                // Without API sessions Python has no session guard.
+                let guard_open = recorded.guard_open.load(Ordering::SeqCst)
+                    || recorded.sessions_disabled.load(Ordering::SeqCst);
+                if !recorded.accepts(&parts.headers) && !guard_open {
                     let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
                     return (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
                 }
@@ -484,20 +526,92 @@ async fn ported_routes_check_the_session_in_rust() {
 }
 
 #[tokio::test]
-async fn ported_routes_need_no_token_while_api_sessions_are_disabled() {
+async fn without_sessions_ported_routes_need_the_data_a_login_unlocked() {
     let (url, recorded) = fake_backend().await;
     recorded.sessions_disabled.store(true, Ordering::SeqCst);
-    let app = gateway_without_sessions(&url);
+    let settings = SessionSettings {
+        enabled: false,
+        remember_ttl: None,
+    };
+    let mut state = state(&url, settings, TestClock::new());
+    state.data_dir = Some(data_dir());
+    let app = router(state.clone());
 
+    let (status, _, _) = send(&app, loan_request(None)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    let (status, _, _) = send(&app, request).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(state.sessions.is_unlocked());
     let (status, _, body) = send(&app, loan_request(None)).await;
     assert_eq!(status, StatusCode::OK);
     let result: Value = serde_json::from_slice(&body).unwrap();
     assert!(result["current_installment_payment"].is_number());
-    // The backend was asked for its status, without a token.
-    let requests = recorded.requests.lock().unwrap();
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].1, "/api/v1/status");
-    assert!(!requests[0].2.contains_key(header::AUTHORIZATION));
+
+    let (status, _, _) = send(&app, logout(None)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(!state.sessions.is_unlocked());
+    let (status, _, _) = send(&app, loan_request(None)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    // Neither the session check nor the calculation reached the backend.
+    assert_eq!(recorded.paths(), ["/api/v1/login", "/api/v1/logout"]);
+}
+
+#[tokio::test]
+async fn a_login_unlocks_the_database_until_the_logout() {
+    let (url, _) = fake_backend().await;
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data_dir());
+    let app = router(state.clone());
+
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    let (status, _, body) = send(&app, request).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(state.sessions.is_unlocked());
+    let token = serde_json::from_slice::<Value>(&body).unwrap()["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let (status, _, _) = send(&app, logout(Some(&token))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(!state.sessions.is_unlocked());
+}
+
+#[tokio::test]
+async fn a_login_rust_cannot_unlock_with_still_starts_a_session() {
+    let (url, _) = fake_backend().await;
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data_dir());
+    let app = router(state.clone());
+
+    // The fake backend accepts any password; the database does not. An unknown
+    // user has no database at all.
+    for body in [
+        fixture_login("wrong password"),
+        json!({"username": "unknown", "password": FIXTURE_PASSWORD}).to_string(),
+    ] {
+        let (status, _, body) = send(&app, login_request("/api/v1/login", &body)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(!state.sessions.is_unlocked());
+        let token = serde_json::from_slice::<Value>(&body).unwrap()["token"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let (status, _, _) = send(&app, loan_request(Some(&token))).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    // A guest's signup leaves the data locked, even with the right password.
+    let body = json!({
+        "username": FIXTURE_USER,
+        "password": FIXTURE_PASSWORD,
+        "guest": true,
+    });
+    let (status, _, _) = send(&app, login_request("/api/v1/signup", &body.to_string())).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!state.sessions.is_unlocked());
 }
 
 #[tokio::test]
@@ -999,13 +1113,9 @@ async fn without_sessions_logins_and_tokens_pass_through_unchanged() {
     let app = gateway_without_sessions(&url);
     let body = r#"{"username":"u","password":"p","remember":true}"#;
 
-    let (status, headers, answer) = send(&app, login_request("/api/v1/login", body)).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(headers[header::CACHE_CONTROL], "no-store");
-    assert_eq!(
-        serde_json::from_slice::<Value>(&answer).unwrap()["token"],
-        backend_token(1)
-    );
+    let (status, _, answer) = send(&app, login_request("/api/v1/login", body)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(answer.is_empty());
     {
         let requests = recorded.requests.lock().unwrap();
         assert_eq!(requests.last().unwrap().3, body);
@@ -1086,10 +1196,10 @@ async fn an_unreachable_backend_answers_502() {
     // With sessions, ported routes check the session without the backend.
     let (status, _, _) = send(&app, loan_request(Some("made-up"))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    // Without them, they cannot tell whether the data is unlocked.
+    // Without them, no login has unlocked the data.
     let app = gateway_without_sessions(&url);
     let (status, _, _) = send(&app, loan_request(None)).await;
-    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 /// A body that never ends and reports when the gateway first reads it.

@@ -3,6 +3,12 @@ FROM rust:1.99.1-slim-trixie AS rust-builder
 
 WORKDIR /build
 
+# SQLCipher in infra-db is built against the system's OpenSSL (docs/rust-backend.md).
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y libssl-dev pkg-config && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 

@@ -13,6 +13,9 @@
 //! with that backend token in place of the client's; every other request reaches
 //! Python unchanged, so Python's guard decides about it as it did before. Clients
 //! therefore never hold a token Python knows.
+//!
+//! A login Python accepts also unlocks the user's database for Rust, read-only, and
+//! the logout that ends the sessions closes it again.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -23,6 +26,7 @@ use std::time::{Duration, SystemTime};
 use axum::body::Bytes;
 use axum::http::header::AUTHORIZATION;
 use axum::http::{HeaderMap, HeaderValue};
+use infra_db::Database;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -145,11 +149,16 @@ struct Session {
     backend: HeaderValue,
 }
 
+/// A user's database, open read-only while the data is unlocked.
+pub type OpenDatabase = Arc<Mutex<Database>>;
+
 #[derive(Default)]
 struct State {
     sessions: HashMap<TokenDigest, Session>,
     /// How many times a logout has ended the sessions.
     logouts: u64,
+    /// The database of the last login, while the data is unlocked.
+    database: Option<OpenDatabase>,
 }
 
 /// The sessions of the API. Clones share them.
@@ -255,10 +264,28 @@ impl Sessions {
         Some(session.backend.clone())
     }
 
-    /// Ends every session and forgets their backend tokens, as a logout does.
+    /// Keeps the database a login opened, unless a logout has ended the sessions
+    /// since the login reached Rust, which may have locked the data again.
+    pub fn unlock(&self, attempt: LoginAttempt, database: Database) -> Result<(), SessionError> {
+        let mut state = self.lock();
+        if state.logouts != attempt.logouts {
+            return Err(SessionError::LoggedOut);
+        }
+        state.database = Some(Arc::new(Mutex::new(database)));
+        Ok(())
+    }
+
+    /// Whether a login has unlocked the data for Rust since the last logout.
+    pub fn is_unlocked(&self) -> bool {
+        self.lock().database.is_some()
+    }
+
+    /// Ends every session, forgets their backend tokens and closes the database, as
+    /// a logout does.
     pub fn revoke_all(&self) {
         let mut state = self.lock();
         state.sessions.clear();
+        state.database = None;
         state.logouts = state.logouts.wrapping_add(1);
     }
 
@@ -283,15 +310,44 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
     (!token.is_empty()).then(|| token.to_owned())
 }
 
+/// The username and password of a login, as strings, the only types with which
+/// Python accepts one.
+#[derive(Clone)]
+pub struct Credentials {
+    pub username: String,
+    pub password: String,
+}
+
+impl fmt::Debug for Credentials {
+    // The password stays out of logs.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Credentials").finish_non_exhaustive()
+    }
+}
+
 /// The body of a login or signup as Rust forwards it, and what Rust reads from it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct LoginBody {
     /// The body the backend gets.
     pub forwarded: Bytes,
-    /// Whether the client asked to be remembered, if Rust could read the body and
-    /// so ask the backend for a token that lasts until the logout. A login whose
-    /// body Rust cannot read starts no session.
+    /// Whether the client asked to be remembered, if Rust asked the backend for a
+    /// token that lasts until the logout. A login whose body Rust could not
+    /// rewrite starts no session.
     pub remember: Option<bool>,
+    /// The username and password, if the body is a JSON object that has both.
+    pub credentials: Option<Credentials>,
+    /// Whether a signup is a guest's, which leaves the data locked.
+    pub guest: bool,
+}
+
+impl fmt::Debug for LoginBody {
+    // The body holds the password.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LoginBody")
+            .field("remember", &self.remember)
+            .field("guest", &self.guest)
+            .finish_non_exhaustive()
+    }
 }
 
 impl LoginBody {
@@ -309,20 +365,31 @@ impl LoginBody {
     /// private number token as a number, so such a `remember` can count as false
     /// where Python counts it as true: the session then lasts until the logout, as
     /// the client could ask for with `false` (docs/rust-backend.md, known deviations).
-    pub fn new(body: Bytes, is_json: bool) -> Self {
-        let unchanged = |body| LoginBody {
+    ///
+    /// Without API sessions there is no token to ask for, and the body goes on
+    /// unchanged (`ask_lasting` false).
+    pub fn new(body: Bytes, is_json: bool, ask_lasting: bool) -> Self {
+        let unchanged = |body, credentials, guest| LoginBody {
             forwarded: body,
             remember: None,
+            credentials,
+            guest,
         };
         if !is_json {
-            return unchanged(body);
+            return unchanged(body, None, false);
         }
         let Ok(Value::Object(fields)) = serde_json::from_slice::<Value>(&body) else {
-            return unchanged(body);
+            return unchanged(body, None, false);
         };
+        let text = |key: &str| fields.get(key).and_then(Value::as_str).map(str::to_owned);
+        let credentials = text("username")
+            .zip(text("password"))
+            .map(|(username, password)| Credentials { username, password });
+        let guest = fields.get("guest").is_some_and(pycompat::truthy);
         // serde_json allows only whitespace after the object.
-        let Some(end) = body.iter().rposition(|byte| *byte == b'}') else {
-            return unchanged(body);
+        let end = body.iter().rposition(|byte| *byte == b'}');
+        let Some(end) = end.filter(|_| ask_lasting) else {
+            return unchanged(body, credentials, guest);
         };
         let member: &[u8] = if fields.is_empty() {
             br#""remember":false"#
@@ -333,6 +400,8 @@ impl LoginBody {
         LoginBody {
             forwarded: Bytes::from([head, member, tail].concat()),
             remember: Some(fields.get("remember").is_some_and(pycompat::truthy)),
+            credentials,
+            guest,
         }
     }
 }
@@ -590,7 +659,7 @@ mod tests {
 
     #[test]
     fn asks_the_backend_for_a_lasting_token() {
-        let body = |raw: &str| LoginBody::new(Bytes::from(raw.to_owned()), true);
+        let body = |raw: &str| LoginBody::new(Bytes::from(raw.to_owned()), true, true);
         let login = body(r#"{"username":"u","password":"p","remember":true}"#);
         assert_eq!(
             login.forwarded,
@@ -615,6 +684,37 @@ mod tests {
     }
 
     #[test]
+    fn reads_the_credentials_and_the_guest_flag() {
+        let body =
+            |raw: &str, ask_lasting| LoginBody::new(Bytes::from(raw.to_owned()), true, ask_lasting);
+        let login = body(r#"{"username":"u","password":"p'w ü","guest":0}"#, true);
+        let credentials = login.credentials.unwrap();
+        assert_eq!(credentials.username, "u");
+        assert_eq!(credentials.password, "p'w ü");
+        assert!(!login.guest);
+        // The password never shows in debug output.
+        assert!(!format!("{credentials:?}").contains("p'w"));
+
+        let raw = r#"{"username":"g","guest":true}"#;
+        let login = body(raw, false);
+        assert!(login.credentials.is_none());
+        assert!(login.guest);
+        // Without sessions the body goes on unchanged.
+        assert_eq!(login.forwarded, raw);
+        assert_eq!(login.remember, None);
+
+        for raw in [
+            r#"{"username":1,"password":"p"}"#,
+            r#"{"username":"u","password":null}"#,
+            r#"{"password":"p"}"#,
+        ] {
+            assert!(body(raw, true).credentials.is_none(), "{raw}");
+        }
+        let login = body(r#"{"username":"u","password":"secret"}"#, true);
+        assert!(!format!("{login:?}").contains("secret"));
+    }
+
+    #[test]
     fn passes_bodies_it_cannot_read_on_unchanged() {
         for raw in [
             "",
@@ -624,12 +724,12 @@ mod tests {
             r#"{"a":1"#,
             r#"{"a":1}}"#,
         ] {
-            let login = LoginBody::new(Bytes::from(raw), true);
+            let login = LoginBody::new(Bytes::from(raw), true, true);
             assert_eq!(login.forwarded, raw);
             assert_eq!(login.remember, None, "{raw}");
         }
         let raw = r#"{"username":"u"}"#;
-        let login = LoginBody::new(Bytes::from(raw), false);
+        let login = LoginBody::new(Bytes::from(raw), false, true);
         assert_eq!(login.forwarded, raw);
         assert_eq!(login.remember, None);
     }
