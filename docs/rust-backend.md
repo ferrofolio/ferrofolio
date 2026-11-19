@@ -181,7 +181,7 @@ The parity fixtures record the new answers of both implementations.
 | S3 | Savings, horizon solved for a target | The search applied unrounded returns while the projection rounds them to cents, so the projection could fall short of the target. The search now rounds the same way; a target the rounded returns never reach has no horizon |
 | S4 | Savings, retirement | A negative `withdrawal_amount` added to the balance; it is now rejected with `400 INVALID_REQUEST` |
 | S5 | Savings, contributions solved for a target or a retirement | A rate too small to change `1 + rate` made an annuity factor zero and the request fail with `500`; such a rate now counts as zero |
-| L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST` |
+| L6 | Loan, dates | An `end` before `start` was accepted and gave an installment after the end of the loan; it is now rejected with `400 INVALID_REQUEST`, and so is a negative `fixed_years`, whose fixed period would end before the calendar begins |
 | L7 | Loan, end of the calendar | Counting and stepping the schedule went one period past `end`, so a schedule ending at the end of the calendar, or a fixed period of a mixed loan that ends beyond it, failed with `500`; a step beyond 31 December 9999 now ends there |
 | L8 | Loan, request dates | A date that was neither a string nor `null` failed with `500`; it is now rejected with `400 INVALID_REQUEST`, as by the Rust route |
 

@@ -223,6 +223,8 @@ class LoanCalculator(LoanCalculatorPort):
             raise MissingFieldsError(missing)
         if params.end < params.start:
             raise CalculationInputError("end must not be before start")
+        if params.interest_type is InterestType.MIXED and params.fixed_years < 0:
+            raise CalculationInputError("fixed_years must not be negative")
 
     def _current_annual_rate(self, p: LoanCalculationParams, today: date) -> Dezimal:
         base = p.interest_rate
