@@ -53,8 +53,8 @@ struct Recorded {
     /// The logout handler drops the connection without an answer after it has
     /// ended the backend's sessions.
     logout_answer_lost: AtomicBool,
-    /// The logout handler waits for `release_logout` before it ends the sessions,
-    /// and reports that it has started with `logout_started`.
+    /// The logout handler, once it has ended the sessions, reports it with
+    /// `logout_started` and waits for `release_logout` before it answers.
     logout_waits: AtomicBool,
     logout_started: Arc<tokio::sync::Notify>,
     release_logout: Arc<tokio::sync::Notify>,
@@ -152,11 +152,12 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                     let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
                     return (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
                 }
+                // Like Python's handler, it ends its sessions first.
+                recorded.accepted.lock().unwrap().clear();
                 if recorded.logout_waits.load(Ordering::SeqCst) {
                     recorded.logout_started.notify_one();
                     recorded.release_logout.notified().await;
                 }
-                recorded.accepted.lock().unwrap().clear();
                 if recorded.logout_answer_lost.load(Ordering::SeqCst) {
                     // Ends the connection without an answer.
                     panic!("the fake backend drops the logout answer");
@@ -690,12 +691,17 @@ async fn a_logout_ends_every_session() {
     let first = login(&app).await;
     let second = login(&app).await;
 
-    let (status, _, _) = send(&app, logout(Some(&first))).await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    // The newest backend token serves every session.
+    // Each session reaches the backend with the token of its own login.
+    send(&app, get("/api/v1/positions", Some(&second))).await;
     assert_eq!(
         recorded.last_authorization(),
         Some(format!("Bearer {}", backend_token(2)))
+    );
+    let (status, _, _) = send(&app, logout(Some(&first))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {}", backend_token(1)))
     );
     assert_ended(&app, &recorded, &[&first, &second]).await;
 
@@ -815,6 +821,56 @@ async fn a_logout_ends_the_sessions_also_when_its_client_goes_away() {
     tokio::time::timeout(Duration::from_secs(10), ended)
         .await
         .expect("the session outlived the logout");
+}
+
+#[tokio::test]
+async fn a_login_during_a_late_logout_does_not_revive_the_ended_sessions() {
+    let (url, recorded) = fake_backend().await;
+    let app = gateway(&url);
+    let ended = login(&app).await;
+    // Python has locked the data on its own and lets a logout without a session
+    // through; it ends its sessions at once but answers late.
+    recorded.guard_open.store(true, Ordering::SeqCst);
+    recorded.logout_waits.store(true, Ordering::SeqCst);
+    let client = tokio::spawn({
+        let app = app.clone();
+        let request = logout(None);
+        async move { app.oneshot(request).await }
+    });
+    tokio::time::timeout(Duration::from_secs(10), recorded.logout_started.notified())
+        .await
+        .expect("the logout never reached the backend");
+
+    // A login meanwhile gets a new backend token, which the ended session never
+    // uses: it keeps the token of its own login, which Python has ended.
+    let fresh = login(&app).await;
+    let (_, _, body) = send(&app, get("/api/v1/status", Some(&ended))).await;
+    assert_eq!(
+        recorded.last_authorization(),
+        Some(format!("Bearer {}", backend_token(1)))
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["status"],
+        "LOCKED"
+    );
+    let (_, _, body) = send(&app, get("/api/v1/status", Some(&fresh))).await;
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["status"],
+        "UNLOCKED"
+    );
+
+    // Once Python answers, Rust ends every session.
+    recorded.release_logout.notify_one();
+    let response = tokio::time::timeout(Duration::from_secs(10), client)
+        .await
+        .expect("the logout did not end")
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    for token in [&ended, &fresh] {
+        let (status, _, _) = send(&app, loan_request(Some(token))).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
 }
 
 #[tokio::test]
