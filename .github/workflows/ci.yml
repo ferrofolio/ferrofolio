@@ -81,7 +81,7 @@ jobs:
           rust_config='^(crates/|Cargo\.(toml|lock)$|rust-toolchain\.toml$|clippy\.toml$|deny\.toml$)'
           # Files generated from Python, which the backend job checks are current, and
           # the list of ported routes, which a Python test checks against the backend.
-          parity_fixtures='^(crates/server/tests/fixtures/|crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$|crates/server/src/python_printable\.rs$|crates/server/ported_routes\.json$)'
+          parity_fixtures='^(crates/server/tests/fixtures/|crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$|crates/server/src/python_printable\.rs$|crates/server/ported_routes\.json$|crates/infra-db/tests/fixtures/)'
 
           match() {
             local file
@@ -137,6 +137,9 @@ jobs:
 
       - name: Check the Rust decimal fixtures against Python
         run: python tests/parity/generate_decimal_fixtures.py --check crates/core-domain/tests/fixtures/decimal_parity.json
+
+      - name: Check that Python opens the Rust database fixture with every migration
+        run: python tests/parity/generate_db_fixture.py --check crates/infra-db/tests/fixtures
 
   rust:
     name: Rust
