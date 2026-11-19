@@ -335,28 +335,47 @@ class CalculateSavingsImpl(CalculateSavings):
         return balance
 
     def _raise_until(self, contribution: Dezimal, reaches) -> Dezimal:
-        """The smallest contribution in whole cents, from the given one up, that reaches
-        its goal under the projection's rounding of returns."""
+        """The smallest contribution in whole cents that reaches its goal under the
+        projection's rounding of returns, searched from the given one in both
+        directions."""
         start = max(Dezimal(0), contribution)
+        step = _CENT
         if reaches(start):
-            return start
-        # In cents above the start: `failing` does not reach the goal, `reaching` does.
-        failing, reaching = 0, 1
+            # Rounding returns to cents can let a smaller contribution reach it too.
+            reaching = start
+            for _ in range(_MAX_STEP_DOUBLINGS):
+                if reaching <= Dezimal(0):
+                    return reaching
+                candidate = max(Dezimal(0), start - step)
+                if not reaches(candidate):
+                    return self._narrow(candidate, reaching, reaches)
+                reaching, step = candidate, step * Dezimal(2)
+            if reaching <= Dezimal(0) or reaches(Dezimal(0)):
+                return Dezimal(0)
+            return self._narrow(Dezimal(0), reaching, reaches)
+        failing = start
         for _ in range(_MAX_STEP_DOUBLINGS):
-            if reaches(start + _CENT * Dezimal(reaching)):
+            candidate = start + step
+            if reaches(candidate):
+                return self._narrow(failing, candidate, reaches)
+            failing, step = candidate, step * Dezimal(2)
+        raise CalculationInputError(
+            "no contribution reaches the goal with this market performance"
+        )
+
+    def _narrow(self, failing: Dezimal, reaching: Dezimal, reaches) -> Dezimal:
+        """The smallest contribution in whole cents above `failing`, which does not
+        reach the goal, and up to `reaching`, which does."""
+        while reaching - failing > _CENT:
+            middle = self._round_cents((failing + reaching) / Dezimal(2))
+            # Near 28 significant digits, rounding can keep the middle on a bound.
+            if middle in (failing, reaching):
                 break
-            failing, reaching = reaching, reaching * 2
-        else:
-            raise CalculationInputError(
-                "no contribution reaches the goal with this market performance"
-            )
-        while reaching - failing > 1:
-            middle = (failing + reaching) // 2
-            if reaches(start + _CENT * Dezimal(middle)):
+            if reaches(middle):
                 reaching = middle
             else:
                 failing = middle
-        return start + _CENT * Dezimal(reaching)
+        return reaching
 
     def _negligible_rate(self, rate: Dezimal) -> bool:
         """True when the rate does not change `1 + rate`, so it acts as zero."""
