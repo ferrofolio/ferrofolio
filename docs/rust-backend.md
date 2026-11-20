@@ -157,9 +157,10 @@ from the same data as it always has: with the rule, or with `500` where it fails
 those coercions and never answers where Python would not. The pass-on is logged with the field, never with the stored
 value.
 
-The periodic flows are columns, which Python maps into a pydantic dataclass that reads `"true"` or `2` as a flag, an
-integer as a date and a number as an amount. Rust reads the forms `PeriodicFlowRepository.save` stores (a flag as `0`
-or `1`, a date as `YYYY-MM-DD`, an amount as the text of a `Dezimal`) and passes every other form on. It computes each
+The periodic flows are columns, which Python maps into a pydantic dataclass that reads `"true"` as a flag and a
+number as an amount. Rust reads the forms `PeriodicFlowRepository.save` stores (a flag as `0`
+or `1`, a date as `YYYY-MM-DD`, an amount as the text of a `Dezimal`), reads the alternate forms the parity fixtures
+record as "other" (such as braced UUIDs and `" 1_000.5 "`), and passes the remaining forms on. It computes each
 flow's next date with the server's clock, as `date.today()` does in Python, and passes the request on where Python's
 date arithmetic leaves the range of `date`, which Python answers with `500`. The query has no `ORDER BY`, as in
 Python, so Rust sends the same statement and gets the flows in the same order.

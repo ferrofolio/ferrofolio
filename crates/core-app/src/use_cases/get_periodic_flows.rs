@@ -84,9 +84,9 @@ impl<'a> GetPeriodicFlows<'a> {
     /// The flows in the port's order. A next date Python cannot compute is
     /// reported as unreadable, so that Python answers with its error.
     pub fn execute(&self) -> Result<Vec<PeriodicFlow>, ReadError> {
-        let today = self.clock.today();
         let mut flows = self.flows.get_all()?;
         for flow in &mut flows {
+            let today = self.clock.today();
             flow.next_date = next_date(flow, today)
                 .map_err(|Overflow| ReadError::Unreadable("next date".to_owned()))?;
         }
