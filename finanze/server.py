@@ -70,9 +70,6 @@ from application.use_cases.get_available_entities import GetAvailableEntitiesImp
 from application.use_cases.get_available_external_entities import (
     GetAvailableExternalEntitiesImpl,
 )
-from application.use_cases.get_backup_settings import GetBackupSettingsImpl
-from application.use_cases.get_backups import GetBackupsImpl
-from application.use_cases.get_cloud_auth import GetCloudAuthImpl
 from application.use_cases.get_contributions import GetContributionsImpl
 from application.use_cases.get_crypto_asset_details import GetCryptoAssetDetailsImpl
 from application.use_cases.get_exchange_rates import GetExchangeRatesImpl
@@ -101,13 +98,10 @@ from application.use_cases.get_status import GetStatusImpl
 from application.use_cases.get_template_fields import GetTemplateFieldsImpl
 from application.use_cases.get_templates import GetTemplatesImpl
 from application.use_cases.get_transactions import GetTransactionsImpl
-from application.use_cases.handle_cloud_auth import HandleCloudAuthImpl
-from application.use_cases.import_backup import ImportBackupImpl
 from application.use_cases.import_file import ImportFileImpl
 from application.use_cases.import_sheets import ImportSheetsImpl
 from application.use_cases.list_real_estate import ListRealEstateImpl
 from application.use_cases.register_user import RegisterUserImpl
-from application.use_cases.save_backup_settings import SaveBackupSettingsImpl
 from application.use_cases.save_commodities import SaveCommoditiesImpl
 from application.use_cases.save_pending_flow import SavePendingFlowImpl
 from application.use_cases.update_pending_flow import UpdatePendingFlowImpl
@@ -131,7 +125,6 @@ from application.use_cases.update_telemetry_consent import UpdateTelemetryConsen
 from application.use_cases.update_template import UpdateTemplateImpl
 from application.use_cases.update_tracked_quotes import UpdateTrackedQuotesImpl
 from application.use_cases.update_tracked_loans import UpdateTrackedLoansImpl
-from application.use_cases.upload_backup import UploadBackupImpl
 from application.use_cases.user_login import UserLoginImpl
 from application.use_cases.user_logout import UserLogoutImpl
 from application.use_cases.poll_external_integration_connection import (
@@ -169,16 +162,11 @@ from application.use_cases.ignore_recurring_movement import (
 from application.use_cases.restore_recurring_movement import (
     RestoreRecurringMovementImpl,
 )
-from domain.backup import BackupFileType
 from domain.export import FileFormat
 from domain.external_integration import ExternalIntegrationId
 from domain.platform import Distribution
 from domain.telemetry import TelemetryContext
 from domain.user_login import LoginRequest
-from infrastructure.client.cloud.backup.backup_client import BackupClient
-from infrastructure.client.cloud.backup.http_file_transfer_strategy import (
-    HttpFileTransferStrategy,
-)
 from infrastructure.client.ai.openai.openai_client import OpenAIClient
 from infrastructure.client.ai.chatgpt.chatgpt_client import ChatGPTClient
 from infrastructure.client.ai.chatgpt.chatgpt_oauth import ChatGPTOAuth
@@ -288,14 +276,7 @@ from infrastructure.client.rates.metal.historic_metal_price_client import (
     HistoricMetalPriceClient,
 )
 from infrastructure.client.rates.metal.metal_price_client import MetalPriceClient
-from infrastructure.cloud.backup.backup_processor_adapter import (
-    BackupProcessorAdapter,
-)
-from infrastructure.cloud.cloud_data_register import CloudDataRegister
 from infrastructure.config.file_legacy_config_source import FileLegacyConfigSource
-from infrastructure.config.legacy_config_backup_importer import (
-    LegacyConfigBackupImporter,
-)
 from infrastructure.config.server_details_adapter import (
     ServerDetailsAdapter,
     detect_distribution,
@@ -542,7 +523,6 @@ class FerrofolioServer:
             client=db_client
         )
         sheets_initiator = SheetsServiceLoader()
-        cloud_register = CloudDataRegister()
         etherscan_client = EtherscanClient()
         ethplorer_client = EthplorerClient()
         zerion_client = ZerionClient()
@@ -756,7 +736,6 @@ class FerrofolioServer:
             data_manager,
             settings_repository,
             sheets_initiator,
-            cloud_register,
             self._error_reporter,
             api_session_port=api_session_port,
         )
@@ -765,7 +744,6 @@ class FerrofolioServer:
             data_manager,
             settings_repository,
             sheets_initiator,
-            cloud_register,
             self._error_reporter,
             api_session_port=api_session_port,
         )
@@ -794,7 +772,6 @@ class FerrofolioServer:
             db_manager,
             settings_repository,
             sheets_initiator,
-            cloud_register,
             self._error_reporter,
             agent_runtime_port=agent_runtime_pool,
             import_preview_store=import_preview_store,
@@ -1344,54 +1321,6 @@ class FerrofolioServer:
             ignored_recurring_movement_repository
         )
 
-        backup_processor = BackupProcessorAdapter()
-        backup_repository = BackupClient(HttpFileTransferStrategy())
-
-        backupable_ports = {
-            BackupFileType.DATA: db_manager,
-        }
-        upload_backup = UploadBackupImpl(
-            data_initiator=db_manager,
-            backupable_ports=backupable_ports,
-            backup_processor=backup_processor,
-            backup_repository=backup_repository,
-            backup_local_registry=cloud_register,
-            cloud_register=cloud_register,
-        )
-        import_backup = ImportBackupImpl(
-            data_initiator=db_manager,
-            backupable_ports=backupable_ports,
-            backup_processor=backup_processor,
-            backup_repository=backup_repository,
-            backup_local_registry=cloud_register,
-            cloud_register=cloud_register,
-            legacy_config_importer=LegacyConfigBackupImporter(settings_repository),
-            error_reporter=self._error_reporter,
-        )
-        get_backups = GetBackupsImpl(
-            backupable_ports=backupable_ports,
-            backup_repository=backup_repository,
-            backup_local_registry=cloud_register,
-            cloud_register=cloud_register,
-        )
-
-        handle_cloud_auth = HandleCloudAuthImpl(
-            cloud_register=cloud_register,
-        )
-
-        get_cloud_auth = GetCloudAuthImpl(
-            cloud_register=cloud_register,
-        )
-
-        get_backup_settings = GetBackupSettingsImpl(
-            backup_settings_port=cloud_register,
-        )
-
-        save_backup_settings = SaveBackupSettingsImpl(
-            backup_settings_port=cloud_register,
-            cloud_register=cloud_register,
-        )
-
         self._log.info("Initial component setup completed.")
 
         auto_log = await self._init_user(args, user_login)
@@ -1490,13 +1419,6 @@ class FerrofolioServer:
             get_templates,
             get_template_fields,
             suggest_template_fields,
-            upload_backup,
-            import_backup,
-            get_backups,
-            handle_cloud_auth,
-            get_cloud_auth,
-            get_backup_settings,
-            save_backup_settings,
             get_euribor_rates,
             get_telemetry_consent,
             update_telemetry_consent,

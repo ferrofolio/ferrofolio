@@ -3,8 +3,6 @@ import asyncio
 from domain.data_init import DataEncryptedError
 from domain.exception.exceptions import (
     AddressNotFound,
-    BackupConflict,
-    BackupTransferFailed,
     CalculationInputError,
     EntityNameAlreadyExists,
     EntityNotFound,
@@ -20,7 +18,6 @@ from domain.exception.exceptions import (
     FlowNotFound,
     IntegrationNotFound,
     IntegrationSetupError,
-    InvalidBackupCredentials,
     InvalidPassword,
     InvalidProvidedCredentials,
     InvalidTemplateDefaultValue,
@@ -47,7 +44,6 @@ from domain.exception.exceptions import (
     TooManyRequests,
     TransactionNotFound,
     UnauthorizedToken,
-    UnsupportedBackupProtocol,
     UnsupportedFileFormat,
     UserAlreadyExists,
     UserAlreadyLoggedIn,
@@ -57,8 +53,6 @@ from domain.exception.exceptions import (
 # Expected outcomes of a business flow: surfaced to the user, never a defect.
 EXPECTED_EXCEPTIONS: tuple[type[BaseException], ...] = (
     AddressNotFound,
-    BackupConflict,
-    BackupTransferFailed,
     CalculationInputError,
     DataEncryptedError,
     EntityNameAlreadyExists,
@@ -75,7 +69,6 @@ EXPECTED_EXCEPTIONS: tuple[type[BaseException], ...] = (
     FlowNotFound,
     IntegrationNotFound,
     IntegrationSetupError,
-    InvalidBackupCredentials,
     InvalidPassword,
     InvalidProvidedCredentials,
     InvalidTemplateDefaultValue,
@@ -102,7 +95,6 @@ EXPECTED_EXCEPTIONS: tuple[type[BaseException], ...] = (
     TooManyRequests,
     TransactionNotFound,
     UnauthorizedToken,
-    UnsupportedBackupProtocol,
     UnsupportedFileFormat,
     UserAlreadyExists,
     UserAlreadyLoggedIn,

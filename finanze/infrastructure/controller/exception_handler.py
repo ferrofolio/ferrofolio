@@ -9,8 +9,6 @@ from domain.exception.exceptions import (
     INTEGRATION_SETUP_UNAUTHORIZED_CODES,
     AddressNotFound,
     AIProviderError,
-    BackupConflict,
-    BackupTransferFailed,
     EntityNotFound,
     ExecutionConflict,
     ExternalIntegrationRequired,
@@ -184,14 +182,6 @@ def handle_invalid_token(e):
     return jsonify({"code": "INVALID_TOKEN", "message": str(e)}), 400
 
 
-def handle_backup_conflict(e):
-    return jsonify({"code": "BACKUP_CONFLICT", "message": str(e)}), 409
-
-
-def handle_backup_transfer_failed(e):
-    return jsonify({"code": "BACKUP_TRANSFER_FAILED", "message": str(e)}), 502
-
-
 def handle_permission_denied(e):
     return jsonify({"code": "PERMISSION_DENIED", "message": str(e)}), 403
 
@@ -236,8 +226,6 @@ def register_exception_handlers(
     )
     app.register_error_handler(UnauthorizedToken, handle_unauthorized_token)
     app.register_error_handler(InvalidToken, handle_invalid_token)
-    app.register_error_handler(BackupConflict, handle_backup_conflict)
-    app.register_error_handler(BackupTransferFailed, handle_backup_transfer_failed)
     app.register_error_handler(PermissionDenied, handle_permission_denied)
     app.register_error_handler(LocalModelError, handle_local_model_error)
     app.register_error_handler(

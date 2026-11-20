@@ -10,7 +10,6 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from quart import jsonify
 
-from application.ports.cloud_register import CloudRegister
 from application.ports.entity_port import EntityPort
 from application.ports.exchange_rate_storage import ExchangeRateStorage
 from application.ports.file_storage_port import FileStoragePort
@@ -122,16 +121,12 @@ async def mcp_env(tmp_path):
     db_manager = DBManager(db_client)
     data_manager = UserDataManager(str(tmp_path))
     config_loader = SettingsRepository(db_client, FileLegacyConfigSource())
-    cloud_register = MagicMock(spec=CloudRegister)
-    cloud_register.connect = AsyncMock()
-    cloud_register.disconnect = AsyncMock()
 
     await RegisterUserImpl(
         db_manager,
         data_manager,
         config_loader,
         MagicMock(spec=SheetsInitiator),
-        cloud_register,
     ).execute(LoginRequest(USERNAME, PASSWORD))
 
     mcp_config_repo = McpConfigRepository(db_client)

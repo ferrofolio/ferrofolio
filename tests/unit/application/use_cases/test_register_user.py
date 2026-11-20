@@ -45,10 +45,7 @@ def _create_mocks(unlocked=False, users=None, existing_user=None):
     sheets_initiator = MagicMock()
     sheets_initiator.connect = MagicMock()
 
-    cloud_register = MagicMock()
-    cloud_register.connect = AsyncMock()
-
-    return source_initiator, data_manager, config_port, sheets_initiator, cloud_register
+    return source_initiator, data_manager, config_port, sheets_initiator
 
 
 class TestRegisterUserRejection:
@@ -59,7 +56,6 @@ class TestRegisterUserRejection:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=True)
 
         use_case = RegisterUserImpl(
@@ -67,7 +63,6 @@ class TestRegisterUserRejection:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(ValueError, match="Cannot register users while logged in"):
@@ -82,7 +77,6 @@ class TestRegisterUserRejection:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[existing_user])
 
         use_case = RegisterUserImpl(
@@ -90,7 +84,6 @@ class TestRegisterUserRejection:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(ValueError, match="only one user is supported"):
@@ -105,7 +98,6 @@ class TestRegisterUserRejection:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[existing_user])
 
         use_case = RegisterUserImpl(
@@ -113,7 +105,6 @@ class TestRegisterUserRejection:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(ValueError, match="only one user is supported"):
@@ -129,7 +120,6 @@ class TestRegisterUserSuccess:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[])
 
         use_case = RegisterUserImpl(
@@ -137,7 +127,6 @@ class TestRegisterUserSuccess:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", password="secret12"))
@@ -154,9 +143,6 @@ class TestRegisterUserSuccess:
         sheets_initiator.connect.assert_called_once()
         assert sheets_initiator.connect.call_args[0][0].username == "alice"
 
-        cloud_register.connect.assert_called_once()
-        assert cloud_register.connect.call_args[0][0].username == "alice"
-
         source_initiator.initialize.assert_called_once()
         params = source_initiator.initialize.call_args[0][0]
         assert params.user.username == "alice"
@@ -172,7 +158,6 @@ class TestRegisterUserSuccess:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[existing_user])
 
         use_case = RegisterUserImpl(
@@ -180,7 +165,6 @@ class TestRegisterUserSuccess:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="bob", password="pass1234"))
@@ -195,7 +179,6 @@ class TestRegisterUserCallOrder:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[])
 
         manager = MagicMock()
@@ -203,7 +186,6 @@ class TestRegisterUserCallOrder:
         manager.attach_mock(data_manager.set_last_user, "data_manager_set_last_user")
         manager.attach_mock(config_port.connect, "config_port_connect")
         manager.attach_mock(sheets_initiator.connect, "sheets_initiator_connect")
-        manager.attach_mock(cloud_register.connect, "cloud_register_connect")
         manager.attach_mock(source_initiator.initialize, "source_initiator_initialize")
 
         use_case = RegisterUserImpl(
@@ -211,7 +193,6 @@ class TestRegisterUserCallOrder:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", password="secret12"))
@@ -222,7 +203,6 @@ class TestRegisterUserCallOrder:
             "data_manager_set_last_user",
             "config_port_connect",
             "sheets_initiator_connect",
-            "cloud_register_connect",
             "source_initiator_initialize",
         ]
 
@@ -236,7 +216,6 @@ class TestGuestRegistration:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[])
 
         use_case = RegisterUserImpl(
@@ -244,7 +223,6 @@ class TestGuestRegistration:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", guest=True))
@@ -262,7 +240,6 @@ class TestGuestRegistration:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[])
 
         use_case = RegisterUserImpl(
@@ -270,7 +247,6 @@ class TestGuestRegistration:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", guest=True))
@@ -278,14 +254,13 @@ class TestGuestRegistration:
         source_initiator.initialize.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_guest_connects_config_sheets_cloud(self, monkeypatch):
+    async def test_guest_connects_config_and_sheets(self, monkeypatch):
         monkeypatch.delenv("MULTI_USER", raising=False)
         (
             source_initiator,
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, users=[])
 
         use_case = RegisterUserImpl(
@@ -293,14 +268,12 @@ class TestGuestRegistration:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", guest=True))
 
         config_port.connect.assert_called_once()
         sheets_initiator.connect.assert_called_once()
-        cloud_register.connect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_re_register_existing_guest_reuses_user(self, monkeypatch):
@@ -312,7 +285,6 @@ class TestGuestRegistration:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(
             unlocked=False, users=[existing_guest], existing_user=existing_guest
         )
@@ -322,7 +294,6 @@ class TestGuestRegistration:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", guest=True))
@@ -340,7 +311,6 @@ class TestGuestRegistration:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(
             unlocked=False, users=[existing_guest], existing_user=existing_guest
         )
@@ -350,7 +320,6 @@ class TestGuestRegistration:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", password="secret12"))

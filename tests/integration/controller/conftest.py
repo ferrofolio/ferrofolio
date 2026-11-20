@@ -13,9 +13,6 @@ from infrastructure.controller.routes.get_settings import get_settings
 from infrastructure.controller.routes.update_settings import update_settings
 from infrastructure.controller.routes.add_entity_login import add_entity_login
 from infrastructure.controller.routes.fetch_financial_data import fetch_financial_data
-from infrastructure.controller.routes.get_backups import get_backups
-from infrastructure.controller.routes.upload_backup import upload_backup
-from infrastructure.controller.routes.import_backup import import_backup
 from infrastructure.controller.routes.connect_crypto_wallet import connect_crypto_wallet
 from infrastructure.controller.routes.update_crypto_wallet import update_crypto_wallet
 from infrastructure.controller.routes.delete_crypto_wallet import delete_crypto_wallet
@@ -101,7 +98,6 @@ from infrastructure.config.base_config import BASE_CONFIG
 from infrastructure.repository.settings.settings_repository import SettingsRepository
 
 from application.ports.sheets_initiator import SheetsInitiator
-from application.ports.cloud_register import CloudRegister
 from application.ports.server_details_port import ServerDetailsPort
 from application.ports.feature_flag_port import FeatureFlagPort
 from application.ports.credentials_port import CredentialsPort
@@ -120,11 +116,6 @@ from application.ports.last_fetches_port import LastFetchesPort
 from application.ports.crypto_asset_port import CryptoAssetRegistryPort
 from application.ports.crypto_price_provider import CryptoAssetInfoProvider
 from application.ports.config_port import ConfigPort
-from application.ports.backup_local_registry import BackupLocalRegistry
-from application.ports.backup_repository import BackupRepository
-from application.ports.backup_processor import BackupProcessor
-from application.ports.datasource_backup_port import Backupable
-from application.ports.datasource_initiator import DatasourceInitiator
 from application.ports.entity_account_port import EntityAccountPort
 from application.ports.crypto_wallet_port import CryptoWalletPort
 from application.ports.crypto_entity_fetcher import CryptoEntityFetcher
@@ -148,9 +139,6 @@ from application.use_cases.get_settings import GetSettingsImpl
 from application.use_cases.update_settings import UpdateSettingsImpl
 from application.use_cases.add_entity_credentials import AddEntityCredentialsImpl
 from application.use_cases.fetch_financial_data import FetchFinancialDataImpl
-from application.use_cases.get_backups import GetBackupsImpl
-from application.use_cases.upload_backup import UploadBackupImpl
-from application.use_cases.import_backup import ImportBackupImpl
 from application.use_cases.connect_crypto_wallet import ConnectCryptoWalletImpl
 from application.use_cases.update_crypto_wallet import UpdateCryptoWalletConnectionImpl
 from application.use_cases.delete_crypto_wallet import DeleteCryptoWalletConnectionImpl
@@ -194,7 +182,6 @@ from infrastructure.calculations.loan_calculator import LoanCalculator
 from application.ports.tracked_updates_port import TrackedUpdatesPort
 
 from domain.entity import Entity
-from domain.backup import BackupFileType
 from domain.platform import OS
 from domain.status import BackendDetails, BackendOptions
 
@@ -207,10 +194,6 @@ async def app(tmp_path):
     config_loader = SettingsRepository(db_client, FileLegacyConfigSource())
 
     sheets_initiator = MagicMock(spec=SheetsInitiator)
-
-    cloud_register = MagicMock(spec=CloudRegister)
-    cloud_register.connect = AsyncMock()
-    cloud_register.disconnect = AsyncMock()
 
     server_details_port = MagicMock(spec=ServerDetailsPort)
     server_details_port.get_backend_details = AsyncMock(
@@ -264,17 +247,6 @@ async def app(tmp_path):
     config_port = AsyncMock(spec=ConfigPort)
     config_port.load_sections.return_value = BASE_CONFIG
 
-    backup_local_registry = AsyncMock(spec=BackupLocalRegistry)
-    backup_repository = AsyncMock(spec=BackupRepository)
-    backup_processor = AsyncMock(spec=BackupProcessor)
-    data_initiator = MagicMock(spec=DatasourceInitiator)
-    data_initiator.get_hashed_password = AsyncMock(return_value="hashed-password")
-
-    backupable_data = AsyncMock(spec=Backupable)
-    backupable_ports = {
-        BackupFileType.DATA: backupable_data,
-    }
-
     entity_account_port = AsyncMock(spec=EntityAccountPort)
     loan_calculator = AsyncMock(spec=LoanCalculatorPort)
 
@@ -304,14 +276,12 @@ async def app(tmp_path):
     tracked_updates_port.get_last_executed.return_value = None
 
     register_user_uc = RegisterUserImpl(
-        db_manager, data_manager, config_loader, sheets_initiator, cloud_register
+        db_manager, data_manager, config_loader, sheets_initiator
     )
     user_login_uc = UserLoginImpl(
-        db_manager, data_manager, config_loader, sheets_initiator, cloud_register
+        db_manager, data_manager, config_loader, sheets_initiator
     )
-    user_logout_uc = UserLogoutImpl(
-        db_manager, config_loader, sheets_initiator, cloud_register
-    )
+    user_logout_uc = UserLogoutImpl(db_manager, config_loader, sheets_initiator)
     change_password_uc = ChangeUserPasswordImpl(db_manager, data_manager, config_loader)
     get_status_uc = GetStatusImpl(
         db_manager, data_manager, server_details_port, feature_flag_port
@@ -346,28 +316,6 @@ async def app(tmp_path):
         fetch_pointers_port=fetch_pointers_port,
         transaction_label_port=transaction_label_port,
         transaction_labeler=transaction_labeler,
-    )
-    get_backups_uc = GetBackupsImpl(
-        backupable_ports,
-        backup_repository,
-        backup_local_registry,
-        cloud_register,
-    )
-    upload_backup_uc = UploadBackupImpl(
-        data_initiator,
-        backupable_ports,
-        backup_processor,
-        backup_repository,
-        backup_local_registry,
-        cloud_register,
-    )
-    import_backup_uc = ImportBackupImpl(
-        data_initiator,
-        backupable_ports,
-        backup_processor,
-        backup_repository,
-        backup_local_registry,
-        cloud_register,
     )
     connect_crypto_wallet_uc = ConnectCryptoWalletImpl(
         crypto_wallet_port,
@@ -566,18 +514,6 @@ async def app(tmp_path):
     async def fetch_financial_data_route():
         return await fetch_financial_data(fetch_financial_data_uc)
 
-    @test_app.route("/api/v1/cloud/backup", methods=["GET"])
-    async def get_backups_route():
-        return await get_backups(get_backups_uc)
-
-    @test_app.route("/api/v1/cloud/backup/upload", methods=["POST"])
-    async def upload_backup_route():
-        return await upload_backup(upload_backup_uc)
-
-    @test_app.route("/api/v1/cloud/backup/import", methods=["POST"])
-    async def import_backup_route():
-        return await import_backup(import_backup_uc)
-
     @test_app.route("/api/v1/crypto-wallet", methods=["POST"])
     async def connect_crypto_wallet_route():
         return await connect_crypto_wallet(connect_crypto_wallet_uc)
@@ -713,12 +649,6 @@ async def app(tmp_path):
         position_port,
         last_fetches_port,
         transaction_port,
-        cloud_register,
-        backup_local_registry,
-        backup_repository,
-        backup_processor,
-        backupable_ports,
-        data_initiator,
         entity_account_port,
         crypto_wallet_port,
         crypto_entity_fetchers,
@@ -765,7 +695,7 @@ async def entity_fetchers(app):
 
 @pytest_asyncio.fixture
 async def feature_flag_port(app):
-    return app[35]
+    return app[29]
 
 
 @pytest_asyncio.fixture
@@ -795,134 +725,104 @@ async def transaction_port(app):
 
 @pytest_asyncio.fixture
 async def fetch_pointers_port(app):
-    return app[32]
-
-
-@pytest_asyncio.fixture
-async def transaction_handler_port(app):
-    return app[33]
-
-
-@pytest_asyncio.fixture
-async def transaction_labeler(app):
-    return app[34]
-
-
-@pytest_asyncio.fixture
-async def cloud_register(app):
-    return app[8]
-
-
-@pytest_asyncio.fixture
-async def backup_local_registry(app):
-    return app[9]
-
-
-@pytest_asyncio.fixture
-async def backup_repository(app):
-    return app[10]
-
-
-@pytest_asyncio.fixture
-async def backup_processor(app):
-    return app[11]
-
-
-@pytest_asyncio.fixture
-async def backupable_ports(app):
-    return app[12]
-
-
-@pytest_asyncio.fixture
-async def data_initiator(app):
-    return app[13]
-
-
-@pytest_asyncio.fixture
-async def entity_account_port(app):
-    return app[14]
-
-
-@pytest_asyncio.fixture
-async def crypto_wallet_port(app):
-    return app[15]
-
-
-@pytest_asyncio.fixture
-async def crypto_entity_fetchers(app):
-    return app[16]
-
-
-@pytest_asyncio.fixture
-async def external_integration_port(app):
-    return app[17]
-
-
-@pytest_asyncio.fixture
-async def public_key_derivation(app):
-    return app[18]
-
-
-@pytest_asyncio.fixture
-async def entity_port(app):
-    return app[19]
-
-
-@pytest_asyncio.fixture
-async def manual_position_data_port(app):
-    return app[20]
-
-
-@pytest_asyncio.fixture
-async def virtual_import_registry(app):
-    return app[21]
-
-
-@pytest_asyncio.fixture
-async def crypto_asset_registry_port(app):
-    return app[22]
-
-
-@pytest_asyncio.fixture
-async def crypto_asset_info_provider(app):
-    return app[23]
-
-
-@pytest_asyncio.fixture
-async def auto_contr_port(app):
-    return app[24]
-
-
-@pytest_asyncio.fixture
-async def external_entity_port(app):
-    return app[25]
-
-
-@pytest_asyncio.fixture
-async def loan_calculator(app):
     return app[26]
 
 
 @pytest_asyncio.fixture
-async def real_estate_port(app):
+async def transaction_handler_port(app):
     return app[27]
 
 
 @pytest_asyncio.fixture
-async def periodic_flow_repo(app):
+async def transaction_labeler(app):
     return app[28]
 
 
 @pytest_asyncio.fixture
+async def entity_account_port(app):
+    return app[8]
+
+
+@pytest_asyncio.fixture
+async def crypto_wallet_port(app):
+    return app[9]
+
+
+@pytest_asyncio.fixture
+async def crypto_entity_fetchers(app):
+    return app[10]
+
+
+@pytest_asyncio.fixture
+async def external_integration_port(app):
+    return app[11]
+
+
+@pytest_asyncio.fixture
+async def public_key_derivation(app):
+    return app[12]
+
+
+@pytest_asyncio.fixture
+async def entity_port(app):
+    return app[13]
+
+
+@pytest_asyncio.fixture
+async def manual_position_data_port(app):
+    return app[14]
+
+
+@pytest_asyncio.fixture
+async def virtual_import_registry(app):
+    return app[15]
+
+
+@pytest_asyncio.fixture
+async def crypto_asset_registry_port(app):
+    return app[16]
+
+
+@pytest_asyncio.fixture
+async def crypto_asset_info_provider(app):
+    return app[17]
+
+
+@pytest_asyncio.fixture
+async def auto_contr_port(app):
+    return app[18]
+
+
+@pytest_asyncio.fixture
+async def external_entity_port(app):
+    return app[19]
+
+
+@pytest_asyncio.fixture
+async def loan_calculator(app):
+    return app[20]
+
+
+@pytest_asyncio.fixture
+async def real_estate_port(app):
+    return app[21]
+
+
+@pytest_asyncio.fixture
+async def periodic_flow_repo(app):
+    return app[22]
+
+
+@pytest_asyncio.fixture
 async def pending_flow_port(app):
-    return app[29]
+    return app[23]
 
 
 @pytest_asyncio.fixture
 async def file_storage_port(app):
-    return app[30]
+    return app[24]
 
 
 @pytest_asyncio.fixture
 async def historic_port(app):
-    return app[31]
+    return app[25]

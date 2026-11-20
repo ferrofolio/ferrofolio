@@ -16,7 +16,7 @@ need an issue of its own.
 | Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning and workflow lint | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
 | Phase 2 – Server mode and PWA | Capacitor, Pyodide and the desktop app are removed. Open: hardening, PWA, API contract | [#85](https://github.com/ferrofolio/ferrofolio/issues/85), [#86](https://github.com/ferrofolio/ferrofolio/issues/86), [#87](https://github.com/ferrofolio/ferrofolio/issues/87) |
 | Phase 3 – Rust foundation | Started ahead of phase 2: the Rust server is the entry point, holds the sessions and opens the database. Open: web app in Rust, end-to-end tests, spikes | [#88](https://github.com/ferrofolio/ferrofolio/issues/88) |
-| Phase 4 – Porting | Started: 7 of 118 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
+| Phase 4 – Porting | Started: 7 of 111 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
 | Scalable Capital | Not started | [#89](https://github.com/ferrofolio/ferrofolio/issues/89) |
 | Trade Republic sign-in on the server | Not started | [#90](https://github.com/ferrofolio/ferrofolio/issues/90) |
 | Phase 5, iOS stages A and B, Android | Not started; an issue is opened when the track becomes current | – |
@@ -428,7 +428,7 @@ Nearly done; the rest is tracked in [#83](https://github.com/ferrofolio/ferrofol
 |---|---|---|
 | Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5) |
 | Google Sheets redirect | Same | Done (#30) |
-| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Decided: removed. The web app's cloud UI and the Supabase client are gone, and the upstream guard test's `PENDING` list is empty; the backend's `/api/v1/cloud` routes follow in a separate pull request |
+| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Done: the web app's cloud UI, the Supabase client and the seven `/api/v1/cloud` routes are removed, a deliberate exception to additive API changes (decision 10). The upstream guard test's `PENDING` list is empty |
 | `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | Done (#31); a remote source can still be configured with `FEATURE_FLAG_URL`. The public keychain for four scraping connectors is opt-in |
 | `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | Done (#32): the source is configurable and off by default, as are the crypto snapshot and historic metal prices. Where they come from in future is open |
 | Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |
@@ -650,7 +650,7 @@ Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.
 | 7 | Record-level sync | Decide only when the simple reconciliation proves insufficient in daily use |
 | 8 | Scalable: talk to the interface directly or invoke the official CLI | Directly; clarify the terms of use first |
 | 9 | Reuse code from GiroCrab or contribute there | Read its connector code first, then decide |
-| 10 | The upstream cloud sign-in and backup code: delete it, although that removes `/api/v1` routes | Delete it. The routes cannot work without the upstream service, so their removal is recorded as a deliberate exception to additive API changes, and they need no port. Ferrofolio's own sync comes with iOS stage B |
+| 10 | The upstream cloud sign-in and backup code: delete it, although that removes `/api/v1` routes | Decided and done: deleted. The routes cannot work without the upstream service, so their removal is a deliberate exception to additive API changes, and they need no port. Ferrofolio's own sync comes with iOS stage B |
 | 11 | The default data directory `Finanze` | Rename it to `Ferrofolio` and move an existing directory once, in Python and the Rust server together |
 | 12 | Where the public keychain, ticker icons, crypto snapshot and historic metal prices come from | Keep them configurable and off; host nothing until a feature needs it |
 | 13 | Own GitHub, OpenAI and OpenRouter app identities | Register own identities where users grant access through them, so the consent names Ferrofolio |

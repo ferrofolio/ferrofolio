@@ -53,11 +53,8 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
         Some(SessionRoute::Login) => login(&state, request, false, client_addr).await,
         Some(SessionRoute::Signup) => login(&state, request, true, client_addr).await,
         Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
-        Some(SessionRoute::Import) => {
-            replace_database(&state, request, client_addr, false, has_session).await
-        }
         Some(SessionRoute::ChangePassword) => {
-            replace_database(&state, request, client_addr, true, has_session).await
+            replace_database(&state, request, client_addr, has_session).await
         }
         None => state.backend.forward_or_error(request, client_addr).await,
     }
@@ -349,25 +346,23 @@ async fn logout(
     }
 }
 
-/// Passes on a request with which Python replaces or rekeys the database (a backup
-/// import, a change of the password), with Rust's connection to the database
-/// closed until Python has answered (`user_data::UserDatabase`). The body is read
-/// first, so that a client that stalls while sending it holds no lock and Rust
-/// keeps reading its database meanwhile. It runs to its end in a task of its own,
-/// so that a client that goes away cannot reopen the connection while Python is
-/// still at work. When the connection to Python fails, or after a change of the
-/// password has succeeded, Rust keeps no connection at all: Python may still write
-/// the file, and the credentials of a password change open it no more. The next
-/// login opens it again. The same holds when Python refuses the request or fails:
-/// a backup import may have closed and replaced the file before it failed, and
-/// Python then reports the data as locked. Only a request without a session, which
+/// Passes on a request with which Python rekeys the database (a change of the
+/// password), with Rust's connection to the database closed until Python has
+/// answered (`user_data::UserDatabase`). The body is read first, so that a client
+/// that stalls while sending it holds no lock and Rust keeps reading its database
+/// meanwhile. It runs to its end in a task of its own, so that a client that goes
+/// away cannot reopen the connection while Python is still at work. When the
+/// connection to Python fails, or after the change has succeeded, Rust keeps no
+/// connection at all: Python may still write the file, and the old credentials
+/// open it no more. The next login opens it again. The same holds when Python
+/// refuses the request or fails: it may have rekeyed the file before it failed,
+/// and then reports the data as locked. Only a request without a session, which
 /// Python's session guard refuses while the data is unlocked, leaves Rust's
 /// connection alone, so that no client without a session can close it.
 async fn replace_database(
     state: &AppState,
     request: Request,
     client_addr: Option<SocketAddr>,
-    rekeys: bool,
     has_session: bool,
 ) -> Response {
     let (parts, body) = request.into_parts();
@@ -403,9 +398,7 @@ async fn replace_database(
             }
         };
         let guard_refused = sessions_enabled && !has_session;
-        if (rekeys && response.status().is_success())
-            || (!response.status().is_success() && !guard_refused)
-        {
+        if response.status().is_success() || !guard_refused {
             sessions.forget_database();
         }
         drop(guard);
@@ -436,9 +429,6 @@ enum SessionRoute {
     Signup,
     /// `POST /api/v1/logout`.
     Logout,
-    /// `POST /api/v1/cloud/backup/import`, with which Python replaces the
-    /// database and keeps its password.
-    Import,
     /// `POST /api/v1/change-password`, with which Python rekeys the database and
     /// locks it.
     ChangePassword,
@@ -456,7 +446,6 @@ fn session_route(method: &Method, raw_path: &str) -> Option<SessionRoute> {
         "api/v1/login" => Some(SessionRoute::Login),
         "api/v1/signup" => Some(SessionRoute::Signup),
         "api/v1/logout" => Some(SessionRoute::Logout),
-        "api/v1/cloud/backup/import" => Some(SessionRoute::Import),
         "api/v1/change-password" => Some(SessionRoute::ChangePassword),
         _ => None,
     }
@@ -509,7 +498,7 @@ mod tests {
 
     #[test]
     fn recognises_the_session_routes_only_for_post() {
-        use SessionRoute::{ChangePassword, Import, Login, Logout, Signup};
+        use SessionRoute::{ChangePassword, Login, Logout, Signup};
         assert_eq!(session_route(&Method::POST, "/api/v1/login"), Some(Login));
         assert_eq!(session_route(&Method::POST, "/api/v1/signup"), Some(Signup));
         assert_eq!(session_route(&Method::POST, "/api/v1/logout"), Some(Logout));
@@ -526,15 +515,13 @@ mod tests {
         assert_eq!(session_route(&Method::GET, "/api/v1/login"), None);
         assert_eq!(session_route(&Method::GET, "/api/v1/logout"), None);
         assert_eq!(
-            session_route(&Method::POST, "/api/v1/cloud/backup/import"),
-            Some(Import)
-        );
-        assert_eq!(
             session_route(&lowercase, "//api/v1/change-%70assword"),
             Some(ChangePassword)
         );
+        assert_eq!(session_route(&Method::GET, "/api/v1/change-password"), None);
+        // The upstream cloud's backup import is gone and is forwarded like any route.
         assert_eq!(
-            session_route(&Method::GET, "/api/v1/cloud/backup/import"),
+            session_route(&Method::POST, "/api/v1/cloud/backup/import"),
             None
         );
         assert_eq!(session_route(&Method::POST, "/api/v1/login/"), None);
