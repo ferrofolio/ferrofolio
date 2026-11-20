@@ -165,7 +165,8 @@ jobs:
       # a secret that was added and removed again, which stays in the history. Without
       # --diff-merges, git log shows no diff for a merge commit, so a secret written
       # while resolving a conflict would go unseen.
-      # --redact keeps what was found out of the log.
+      # --verbose prints the file, line, rule and fingerprint of each finding, and
+      # --redact keeps the value itself out of the log.
       - name: Scan for secrets with gitleaks
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -177,11 +178,11 @@ jobs:
           token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          gitleaks dir . --no-banner --redact
+          gitleaks dir . --no-banner --redact --verbose
           # A local run without a base commit (scripts/ci-local.sh with uncommitted
           # changes or --all) has only the tree to scan.
           if git cat-file -e "$BASE_SHA^{commit}" 2> /dev/null && git cat-file -e "$HEAD_SHA^{commit}" 2> /dev/null; then
-            gitleaks git . --no-banner --redact --log-opts="--diff-merges=separate $BASE_SHA..$HEAD_SHA"
+            gitleaks git . --no-banner --redact --verbose --log-opts="--diff-merges=separate $BASE_SHA..$HEAD_SHA"
           else
             echo "The base or head commit is not available; scanned the tree only."
           fi
