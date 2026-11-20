@@ -1069,6 +1069,18 @@ fn parse_python_decimal(raw: &str) -> Result<Dezimal, ParseDezimalError> {
     let all_digits = format!("{integral}{fractional}");
     let significant = all_digits.trim_start_matches('0');
     if significant.is_empty() {
+        // A zero keeps the limit on the exponent that every other value has:
+        // Python rejects `0e1000000000000000000`, and an exponent beyond 32 bits
+        // is rejected here as for any other value (a recorded deviation).
+        let exponent = i64::try_from(fractional.len())
+            .ok()
+            .and_then(|length| exponent.checked_sub(length));
+        if exponent
+            .and_then(|value| i32::try_from(value).ok())
+            .is_none()
+        {
+            return Err(ParseDezimalError);
+        }
         return Ok(Dezimal {
             negative,
             coefficient: 0,
@@ -1104,6 +1116,25 @@ mod tests {
 
     fn d(value: &str) -> Dezimal {
         Dezimal::from_python_str(value).unwrap()
+    }
+
+    #[test]
+    fn limits_the_exponent_of_zero_like_that_of_any_value() {
+        // Python rejects the first; the second exceeds 32 bits like `1e-2147483649`.
+        for value in [
+            "0e1000000000000000000",
+            "0e999999999999999999",
+            "0e-2147483649",
+        ] {
+            assert_eq!(
+                Dezimal::from_python_str(value),
+                Err(ParseDezimalError),
+                "{value}"
+            );
+        }
+        for value in ["0e0", "0e-500", "-0.000", "0e2147483647"] {
+            assert!(d(value).is_zero(), "{value}");
+        }
     }
 
     #[test]
