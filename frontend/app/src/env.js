@@ -6,11 +6,6 @@ export const BASE_URL = runtime.BASE_URL || import.meta.env.VITE_BASE_URL
 export const BS_FRONTEND_DSN =
   runtime.BS_FRONTEND_DSN || import.meta.env.VITE_BS_FRONTEND_DSN || ""
 
-export const BS_MOBILE_BACKEND_DSN =
-  runtime.BS_MOBILE_BACKEND_DSN ||
-  import.meta.env.VITE_BS_MOBILE_BACKEND_DSN ||
-  ""
-
 export const BS_ENVIRONMENT =
   runtime.BS_ENVIRONMENT ||
   import.meta.env.VITE_BS_ENVIRONMENT ||
