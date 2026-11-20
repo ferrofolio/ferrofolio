@@ -337,27 +337,6 @@ class CalculationInputError(Exception):
         super().__init__(details)
 
 
-class InvalidBackupCredentials(Exception):
-    pass
-
-
-class BackupConflict(Exception):
-    """Raised when local changes conflict with remote backup"""
-
-    pass
-
-
-class BackupTransferFailed(Exception):
-    """Raised when backup upload or download to cloud storage fails"""
-
-    pass
-
-
-class UnsupportedBackupProtocol(Exception):
-    def __init__(self, protocol_version: int):
-        super().__init__(f"Unsupported backup protocol version: {protocol_version}")
-
-
 class UnauthorizedToken(Exception):
     """Raised when a token is invalid or expired"""
 

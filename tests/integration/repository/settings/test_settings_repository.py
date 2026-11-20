@@ -15,9 +15,6 @@ from domain.settings import (
     SettingsSection,
 )
 from infrastructure.config.base_config import BASE_CONFIG
-from infrastructure.config.legacy_config_backup_importer import (
-    LegacyConfigBackupImporter,
-)
 from infrastructure.repository.db.client import DBClient
 from infrastructure.repository.db.versions.v0.v11.v0110_4_settings import (
     V01104Settings,
@@ -29,8 +26,6 @@ from tests.legacy_config_samples import (
     custom_settings,
     default_settings,
     labeling_settings,
-    mobile_backup_payload,
-    read_sample,
 )
 
 OLD_TS = "2020-01-01T00:00:00+00:00"
@@ -482,56 +477,3 @@ class TestLegacySource:
         legacy_source.load.side_effect = RuntimeError("boom")
 
         assert await repository.load_legacy() is None
-
-
-class TestLegacyConfigBackupImporter:
-    @pytest.mark.asyncio
-    async def test_imports_desktop_backup_payload(self, setup):
-        repository, *_ = setup
-        importer = LegacyConfigBackupImporter(repository)
-
-        await importer.import_data(read_sample("desktop_v8_custom.yml").encode())
-
-        assert_same_settings(await repository.load(), custom_settings())
-
-    @pytest.mark.asyncio
-    async def test_imports_mobile_backup_payload(self, setup):
-        repository, *_ = setup
-        importer = LegacyConfigBackupImporter(repository)
-
-        await importer.import_data(mobile_backup_payload("mobile_v8_labeling.json"))
-
-        assert_same_settings(await repository.load(), labeling_settings())
-
-    @pytest.mark.asyncio
-    async def test_skips_older_backup_payload(self, setup):
-        repository, *_ = setup
-        await repository.save(labeling_settings())
-        importer = LegacyConfigBackupImporter(repository)
-
-        await importer.import_data(read_sample("desktop_v8_custom.yml").encode())
-
-        assert_same_settings(await repository.load(), labeling_settings())
-
-    @pytest.mark.parametrize(
-        "payload", [b"- general\n- data\n", b"just a string\n", b""]
-    )
-    @pytest.mark.asyncio
-    async def test_rejects_non_mapping_payload(self, setup, payload):
-        repository, conn, _ = setup
-        importer = LegacyConfigBackupImporter(repository)
-
-        with pytest.raises(ValueError):
-            await importer.import_data(payload)
-
-        assert _rows(conn) == {}
-
-    @pytest.mark.asyncio
-    async def test_rejects_invalid_yaml(self, setup):
-        repository, conn, _ = setup
-        importer = LegacyConfigBackupImporter(repository)
-
-        with pytest.raises(Exception):
-            await importer.import_data(read_sample("desktop_invalid_yaml.yml").encode())
-
-        assert _rows(conn) == {}

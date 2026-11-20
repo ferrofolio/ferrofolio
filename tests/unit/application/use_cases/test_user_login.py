@@ -40,11 +40,7 @@ def _create_mocks(unlocked=False, user=None):
     sheets_initiator.connect = MagicMock()
     sheets_initiator.disconnect = MagicMock()
 
-    cloud_register = MagicMock()
-    cloud_register.connect = AsyncMock()
-    cloud_register.disconnect = AsyncMock()
-
-    return source_initiator, data_manager, config_port, sheets_initiator, cloud_register
+    return source_initiator, data_manager, config_port, sheets_initiator
 
 
 class TestUserLoginRejection:
@@ -55,7 +51,6 @@ class TestUserLoginRejection:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=True)
 
         use_case = UserLoginImpl(
@@ -63,7 +58,6 @@ class TestUserLoginRejection:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(UserAlreadyLoggedIn):
@@ -76,7 +70,6 @@ class TestUserLoginRejection:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=None)
 
         use_case = UserLoginImpl(
@@ -84,7 +77,6 @@ class TestUserLoginRejection:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(UserNotFound):
@@ -100,7 +92,6 @@ class TestUserLoginSuccess:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=user)
 
         use_case = UserLoginImpl(
@@ -108,14 +99,12 @@ class TestUserLoginSuccess:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", password="secret"))
 
         config_port.connect.assert_called_once()
         sheets_initiator.connect.assert_called_once()
-        cloud_register.connect.assert_called_once()
         data_manager.set_last_user.assert_called_once()
         source_initiator.initialize.assert_called_once()
 
@@ -132,13 +121,11 @@ class TestUserLoginSuccess:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=user)
 
         manager = MagicMock()
         manager.attach_mock(config_port.connect, "config_port_connect")
         manager.attach_mock(sheets_initiator.connect, "sheets_initiator_connect")
-        manager.attach_mock(cloud_register.connect, "cloud_register_connect")
         manager.attach_mock(data_manager.set_last_user, "data_manager_set_last_user")
         manager.attach_mock(source_initiator.initialize, "source_initiator_initialize")
 
@@ -147,7 +134,6 @@ class TestUserLoginSuccess:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         await use_case.execute(LoginRequest(username="alice", password="secret"))
@@ -156,7 +142,6 @@ class TestUserLoginSuccess:
         assert call_names == [
             "config_port_connect",
             "sheets_initiator_connect",
-            "cloud_register_connect",
             "data_manager_set_last_user",
             "source_initiator_initialize",
         ]
@@ -169,7 +154,6 @@ class TestUserLoginSuccess:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=user)
         error_reporter = MagicMock()
 
@@ -178,7 +162,6 @@ class TestUserLoginSuccess:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
             error_reporter=error_reporter,
         )
 
@@ -196,7 +179,6 @@ class TestUserLoginRollback:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=user)
         sheets_initiator.connect.side_effect = RuntimeError("sheets failed")
 
@@ -205,7 +187,6 @@ class TestUserLoginRollback:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(RuntimeError, match="sheets failed"):
@@ -216,7 +197,6 @@ class TestUserLoginRollback:
         sheets_initiator.disconnect.assert_called_once()
         data_manager.set_last_user.assert_not_called()
         source_initiator.initialize.assert_not_called()
-        cloud_register.connect.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_rolls_back_on_initialize_failure(self):
@@ -226,7 +206,6 @@ class TestUserLoginRollback:
             data_manager,
             config_port,
             sheets_initiator,
-            cloud_register,
         ) = _create_mocks(unlocked=False, user=user)
         source_initiator.initialize.side_effect = RuntimeError("init failed")
 
@@ -239,7 +218,6 @@ class TestUserLoginRollback:
             data_manager=data_manager,
             config_port=config_port,
             sheets_initiator=sheets_initiator,
-            cloud_register=cloud_register,
         )
 
         with pytest.raises(RuntimeError, match="init failed"):
@@ -247,12 +225,10 @@ class TestUserLoginRollback:
 
         config_port.connect.assert_called_once()
         sheets_initiator.connect.assert_called_once()
-        cloud_register.connect.assert_called_once()
         data_manager.set_last_user.assert_called_once()
         source_initiator.initialize.assert_called_once()
         config_port.disconnect.assert_called_once()
         sheets_initiator.disconnect.assert_called_once()
-        cloud_register.disconnect.assert_called_once()
 
         call_names = [c[0] for c in manager.mock_calls]
         disconnect_idx = call_names.index("config_port_disconnect")
@@ -260,7 +236,7 @@ class TestUserLoginRollback:
         assert disconnect_idx > init_idx
 
 
-def _build_with_session(source_initiator, data_manager, config_port, sheets, cloud):
+def _build_with_session(source_initiator, data_manager, config_port, sheets):
     api_session_port = MagicMock()
     api_session_port.create.return_value = "issued-token"
     use_case = UserLoginImpl(
@@ -268,7 +244,6 @@ def _build_with_session(source_initiator, data_manager, config_port, sheets, clo
         data_manager=data_manager,
         config_port=config_port,
         sheets_initiator=sheets,
-        cloud_register=cloud,
         api_session_port=api_session_port,
     )
     return use_case, api_session_port

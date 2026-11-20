@@ -43,9 +43,6 @@ from domain.use_cases.get_available_entities import GetAvailableEntities
 from domain.use_cases.get_available_external_entities import (
     GetAvailableExternalEntities,
 )
-from domain.use_cases.get_backup_settings import GetBackupSettings
-from domain.use_cases.get_backups import GetBackups
-from domain.use_cases.get_cloud_auth import GetCloudAuth
 from domain.use_cases.get_contributions import GetContributions
 from domain.use_cases.get_crypto_asset_details import GetCryptoAssetDetails
 from domain.use_cases.get_euribor_rates import GetEuriborRates
@@ -81,13 +78,10 @@ from domain.use_cases.get_status import GetStatus
 from domain.use_cases.get_template_fields import GetTemplateFields
 from domain.use_cases.get_templates import GetTemplates
 from domain.use_cases.get_transactions import GetTransactions
-from domain.use_cases.handle_cloud_auth import HandleCloudAuth
-from domain.use_cases.import_backup import ImportBackup
 from domain.use_cases.import_file import ImportFile
 from domain.use_cases.import_sheets import ImportSheets
 from domain.use_cases.list_real_estate import ListRealEstate
 from domain.use_cases.register_user import RegisterUser
-from domain.use_cases.save_backup_settings import SaveBackupSettings
 from domain.use_cases.save_commodities import SaveCommodities
 from domain.use_cases.save_pending_flow import SavePendingFlow
 from domain.use_cases.update_pending_flow import UpdatePendingFlow
@@ -107,7 +101,6 @@ from domain.use_cases.update_telemetry_consent import UpdateTelemetryConsent
 from domain.use_cases.update_template import UpdateTemplate
 from domain.use_cases.update_tracked_quotes import UpdateTrackedQuotes
 from domain.use_cases.update_tracked_loans import UpdateTrackedLoans
-from domain.use_cases.upload_backup import UploadBackup
 from domain.use_cases.user_login import UserLogin
 from domain.use_cases.user_logout import UserLogout
 from domain.use_cases.create_label import CreateLabel
@@ -247,9 +240,6 @@ from infrastructure.controller.routes.get_crypto_asset_details import (
     get_crypto_asset_details,
 )
 from infrastructure.controller.routes.get_available_sources import get_available_sources
-from infrastructure.controller.routes.get_backup_settings import get_backup_settings
-from infrastructure.controller.routes.get_backups import get_backups
-from infrastructure.controller.routes.get_cloud_auth import get_cloud_auth
 from infrastructure.controller.routes.get_external_integrations import (
     get_external_integrations,
 )
@@ -265,7 +255,6 @@ from infrastructure.controller.routes.get_template_fields_route import (
     get_template_fields,
 )
 from infrastructure.controller.routes.get_templates import get_templates
-from infrastructure.controller.routes.handle_cloud_auth import handle_cloud_auth
 from infrastructure.controller.routes.historic import get_historic
 from infrastructure.controller.routes.gains_timeline import gains_timeline
 from infrastructure.controller.routes.networth_timeline import networth_timeline
@@ -278,7 +267,6 @@ from infrastructure.controller.routes.relay_external_entity_callback import (
 from infrastructure.controller.routes.regenerate_mcp_token import (
     regenerate_mcp_token,
 )
-from infrastructure.controller.routes.import_backup import import_backup
 from infrastructure.controller.routes.import_file import import_file_route
 from infrastructure.controller.routes.import_sheets import import_sheets
 from infrastructure.controller.routes.instrument_details import instrument_details
@@ -295,7 +283,6 @@ from infrastructure.controller.routes.poll_external_integration_connection impor
 )
 from infrastructure.controller.routes.positions import positions
 from infrastructure.controller.routes.register_user import register_user
-from infrastructure.controller.routes.save_backup_settings import save_backup_settings
 from infrastructure.controller.routes.save_commodities import save_commodities
 from infrastructure.controller.routes.save_pending_flow import save_pending_flow
 from infrastructure.controller.routes.update_pending_flow import update_pending_flow
@@ -318,7 +305,6 @@ from infrastructure.controller.routes.update_telemetry_consent import (
 from infrastructure.controller.routes.update_template import update_template
 from infrastructure.controller.routes.update_tracked_quotes import update_tracked_quotes
 from infrastructure.controller.routes.update_tracked_loans import update_tracked_loans
-from infrastructure.controller.routes.upload_backup import upload_backup
 from infrastructure.controller.routes.user_login import user_login
 from infrastructure.controller.routes.search_crypto_assets import search_crypto_assets
 from infrastructure.controller.routes.suggest_template_fields import (
@@ -407,13 +393,6 @@ async def register_routes(
     get_templates_uc: GetTemplates,
     get_template_fields_uc: GetTemplateFields,
     suggest_template_fields_uc: SuggestTemplateFields,
-    upload_backup_uc: UploadBackup,
-    import_backup_uc: ImportBackup,
-    get_backups_uc: GetBackups,
-    handle_cloud_auth_uc: HandleCloudAuth,
-    get_cloud_auth_uc: GetCloudAuth,
-    get_backup_settings_uc: GetBackupSettings,
-    save_backup_settings_uc: SaveBackupSettings,
     get_euribor_rates_uc: GetEuriborRates,
     get_telemetry_consent_uc: GetTelemetryConsent,
     update_telemetry_consent_uc: UpdateTelemetryConsent,
@@ -903,34 +882,6 @@ async def register_routes(
     @app.route("/api/v1/calculations/savings", methods=["POST"])
     async def calculate_savings_route():
         return await calculate_savings(calculate_savings_uc)
-
-    @app.route("/api/v1/cloud/backup/upload", methods=["POST"])
-    async def upload_backup_route():
-        return await upload_backup(upload_backup_uc)
-
-    @app.route("/api/v1/cloud/backup/import", methods=["POST"])
-    async def import_backup_route():
-        return await import_backup(import_backup_uc)
-
-    @app.route("/api/v1/cloud/backup", methods=["GET"])
-    async def get_backups_route():
-        return await get_backups(get_backups_uc)
-
-    @app.route("/api/v1/cloud/auth", methods=["POST"])
-    async def handle_cloud_auth_route():
-        return await handle_cloud_auth(handle_cloud_auth_uc)
-
-    @app.route("/api/v1/cloud/auth", methods=["GET"])
-    async def get_cloud_auth_route():
-        return await get_cloud_auth(get_cloud_auth_uc)
-
-    @app.route("/api/v1/cloud/backup/settings", methods=["GET"])
-    async def get_backup_settings_route():
-        return await get_backup_settings(get_backup_settings_uc)
-
-    @app.route("/api/v1/cloud/backup/settings", methods=["POST"])
-    async def save_backup_settings_route():
-        return await save_backup_settings(save_backup_settings_uc)
 
     @app.route("/api/v1/rates/euribor", methods=["GET"])
     async def get_euribor_rates_route():

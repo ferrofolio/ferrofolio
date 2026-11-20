@@ -11,7 +11,6 @@ import pytest_asyncio
 
 from domain.data_init import DatasourceInitContext
 from infrastructure.config.file_legacy_config_source import FileLegacyConfigSource
-from infrastructure.repository.db import settings_snapshot
 from infrastructure.repository.db.client import DBClient
 from infrastructure.repository.db.version_registry import versions
 from infrastructure.repository.db.versions.v0.v11 import v0110_4_settings
@@ -161,9 +160,8 @@ class TestSettingsMigrationGuards:
 
         assert names[index - 1] == "v0.11.0:3_periodic_flow_budget_label"
 
-    @pytest.mark.parametrize("module", [v0110_4_settings, settings_snapshot])
-    def test_core_tier_modules_only_import_core_modules_at_top_level(self, module):
-        tree = ast.parse(Path(module.__file__).read_text())
+    def test_core_tier_module_only_imports_core_modules_at_top_level(self):
+        tree = ast.parse(Path(v0110_4_settings.__file__).read_text())
 
         for node in tree.body:
             if isinstance(node, ast.ImportFrom):

@@ -1,9 +1,6 @@
 import asyncio
 import hashlib
 import logging
-import shutil
-import tempfile
-from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection
 from typing import Optional
@@ -12,7 +9,6 @@ from asyncio import Lock
 from sqlcipher3 import dbapi2 as sqlcipher
 from sqlcipher3._sqlite3 import DatabaseError
 
-from application.ports.datasource_backup_port import Backupable
 from application.ports.datasource_initiator import DatasourceInitiator
 from domain.data_init import (
     AlreadyUnlockedError,
@@ -22,17 +18,13 @@ from domain.data_init import (
 )
 from domain.user import User
 from infrastructure.repository.db.client import DBClient, UnderlyingConnection
-from infrastructure.repository.db.settings_snapshot import (
-    read_settings_rows,
-    restore_settings_rows_if_empty,
-)
 from infrastructure.repository.db.upgrader import DatabaseUpgrader
 from infrastructure.repository.db.version_registry import versions
 
 DB_NAME = "data.db"
 
 
-class DBManager(DatasourceInitiator, Backupable):
+class DBManager(DatasourceInitiator):
     def __init__(self, db_client: DBClient):
         self._log = logging.getLogger(__name__)
         self._client = db_client
@@ -171,127 +163,6 @@ class DBManager(DatasourceInitiator, Backupable):
             raise
         except Exception as e:
             raise MigrationError(f"Database schema setup failed: {e}") from e
-
-    async def export(self) -> bytes:
-        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        tmp_path = Path(tmp.name)
-        tmp.close()
-
-        try:
-            async with self._client.tx():
-                # Update last update timestamp before exporting
-                pass
-
-            await self._client.wal_checkpoint()
-
-            tmp_path_str = str(tmp_path.absolute())
-
-            async with self._client.tx(skip_last_update=True) as cursor:
-                await cursor.execute_script(f"""
-                ATTACH DATABASE '{tmp_path_str}' AS backup_db KEY '';
-                SELECT sqlcipher_export('backup_db');
-                DETACH DATABASE backup_db;
-                """)
-
-            with open(tmp_path, "rb") as f:
-                data = f.read()
-
-            return data
-        finally:
-            try:
-                if tmp_path.exists():
-                    tmp_path.unlink()
-            except (OSError, NameError):
-                pass
-
-    async def import_data(
-        self,
-        data: bytes,
-        initialize: bool = False,
-        user: Optional[User] = None,
-        password: Optional[str] = None,
-    ):
-        if initialize:
-            if user is None or password is None:
-                raise RuntimeError("user and password are required for initial import")
-            db_path = user.path / DB_NAME
-
-            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
-                tmp_bkg_db_path = Path(tmpdir) / "tmp_backup.db"
-                tmp_bkg_db_path.write_bytes(data)
-
-                connection = self._base_connect(tmp_bkg_db_path)
-                temp_client = DBClient(connection)
-
-                db_path_str = str(db_path.absolute())
-                sanitized_passwd = self._sanitize_password(password)
-
-                async with temp_client.tx(skip_last_update=True) as cursor:
-                    await cursor.execute_script(f"""
-                    ATTACH DATABASE '{db_path_str}' AS new_db KEY '{sanitized_passwd}';
-                    SELECT sqlcipher_export('new_db');
-                    DETACH DATABASE new_db;
-                    """)
-                connection.close()
-
-            await self._initialize(
-                DatasourceInitParams.build(user=user, password=password)
-            )
-            return
-
-        await self._client.wal_checkpoint()
-
-        settings_rows = await read_settings_rows(self._client)
-
-        user = self._user
-        user_path = user.path
-        passwd = self._pass
-        db_path = user_path / DB_NAME
-        await self.lock()
-
-        temp_old_db_path = user_path / (DB_NAME + ".tmp")
-        shutil.copy2(db_path, temp_old_db_path)
-
-        db_path.unlink()
-
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
-            tmp_bkg_db_path = Path(tmpdir) / "tmp_backup.db"
-            tmp_bkg_db_path.write_bytes(data)
-
-            connection = self._base_connect(tmp_bkg_db_path)
-            temp_client = DBClient(connection)
-
-            db_path_str = str(db_path.absolute())
-            sanitized_passwd = self._sanitize_password(passwd)
-
-            async with temp_client.tx(skip_last_update=True) as cursor:
-                await cursor.execute_script(f"""
-                ATTACH DATABASE '{db_path_str}' AS new_db KEY '{sanitized_passwd}';
-                SELECT sqlcipher_export('new_db');
-                DETACH DATABASE new_db;
-                """)
-            connection.close()
-
-        await self._initialize(DatasourceInitParams.build(user=user, password=passwd))
-
-        try:
-            await restore_settings_rows_if_empty(self._client, settings_rows)
-        except Exception as e:
-            self._log.exception(f"Could not restore settings after import: {e}")
-
-        temp_old_db_path.unlink()
-
-    async def get_last_updated(self) -> datetime:
-        async with self._client.read() as cursor:
-            await cursor.execute(
-                """SELECT value
-                   FROM sys_config
-                   WHERE "key" = ?
-                """,
-                ("last_update",),
-            )
-            row = await cursor.fetchone()
-            return datetime.fromisoformat(row["value"])
 
     async def get_hashed_password(self) -> Optional[str]:
         if not self._unlocked:

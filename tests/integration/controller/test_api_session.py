@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from application.ports.cloud_register import CloudRegister
 from application.ports.feature_flag_port import FeatureFlagPort
 from application.ports.server_details_port import ServerDetailsPort
 from application.ports.sheets_initiator import SheetsInitiator
@@ -50,9 +49,6 @@ async def env(tmp_path):
     data_manager = UserDataManager(str(tmp_path))
     settings_repository = SettingsRepository(db_client, FileLegacyConfigSource())
     sheets_initiator = MagicMock(spec=SheetsInitiator)
-    cloud_register = MagicMock(spec=CloudRegister)
-    cloud_register.connect = AsyncMock()
-    cloud_register.disconnect = AsyncMock()
 
     server_details_port = MagicMock(spec=ServerDetailsPort)
     server_details_port.get_backend_details = AsyncMock(
@@ -67,17 +63,12 @@ async def env(tmp_path):
         remember_ttl=timedelta(days=REMEMBER_DAYS)
     )
     common = (db_manager, data_manager, settings_repository, sheets_initiator)
-    register_user_uc = RegisterUserImpl(
-        *common, cloud_register, api_session_port=api_session_port
-    )
-    user_login_uc = UserLoginImpl(
-        *common, cloud_register, api_session_port=api_session_port
-    )
+    register_user_uc = RegisterUserImpl(*common, api_session_port=api_session_port)
+    user_login_uc = UserLoginImpl(*common, api_session_port=api_session_port)
     user_logout_uc = UserLogoutImpl(
         db_manager,
         settings_repository,
         sheets_initiator,
-        cloud_register,
         api_session_port=api_session_port,
     )
     get_status_uc = GetStatusImpl(

@@ -56,10 +56,6 @@ def parse_sample(name: str) -> Any:
     return strictyaml.load(content).data
 
 
-def mobile_backup_payload(name: str) -> bytes:
-    return strictyaml.as_document(json.loads(read_sample(name))).as_yaml().encode()
-
-
 def _base() -> Settings:
     return deepcopy(BASE_CONFIG)
 

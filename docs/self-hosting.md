@@ -72,7 +72,8 @@ The server keeps all its data in the `.storage` folder next to `docker-compose.y
 with your key. To back it up, stop Ferrofolio with `docker compose stop`, copy the `.storage` folder somewhere safe and
 start it again with `docker compose start`.
 
-The cloud sign-in and cloud backup of the app run on upstream Finanze services and do not work in Ferrofolio.
+Ferrofolio has no cloud sign-in or cloud backup. The ones of upstream Finanze ran on its own services and were
+removed.
 
 ## Upgrade from Finanze
 
@@ -90,8 +91,8 @@ The upstream compose file named its services `finanze-server` and `finanze-front
 Run the upgrade in the directory that holds the existing `./.storage` folder, or copy that folder into the new
 checkout first: a new checkout starts with an empty `./.storage`. The old data is not deleted.
 
-Images built from this repository are not configured for the upstream cloud sign-in and cloud backup, so these
-features stop working after the upgrade. The local data in `./.storage` is not affected.
+Ferrofolio has no upstream cloud sign-in or cloud backup, so these features are gone after the upgrade. The local
+data in `./.storage` is not affected.
 
 ## Optional services
 
@@ -137,9 +138,9 @@ The server reads these environment variables. Set them under `environment:` of `
 | `UNICAJA_ABCK` | Needed to sign in to Unicaja, which uses Akamai bot protection |
 | `WEBDRIVER_ADDRESS` | Address of the Selenium service, for Mintos |
 | `FINANZE_LLAMA_SERVER_URL`, `FINANZE_LLAMA_SERVER_API_KEY` | Address and key of the `ferrofolio-llama` service. Values entered in the app take precedence |
-| `FF_<NAME>` | Sets a feature flag, for example `FF_TR_V2_AUTH_API=OFF` for the previous Trade Republic sign-in. Only applies while `FEATURE_FLAG_URL` is unset. The upstream cloud (`FF_CLOUD`) is off by default |
+| `FF_<NAME>` | Sets a feature flag, for example `FF_TR_V2_AUTH_API=OFF` for the previous Trade Republic sign-in. Only applies while `FEATURE_FLAG_URL` is unset |
 | `FEATURE_FLAG_URL` | Remote source for feature flags. When set, all flags come from it and `FF_` variables are ignored. Not set by default, so no request leaves the server for it |
-| `CRYPTO_DATASET_URL`, `METAL_RATES_URL`, `CLOUD_URL` | Sources for a crypto coin snapshot, historic metal prices and cloud backups. None is set by default, so the server does not contact upstream services for them |
+| `CRYPTO_DATASET_URL`, `METAL_RATES_URL` | Sources for a crypto coin snapshot and historic metal prices. Neither is set by default, so the server does not contact upstream services for them |
 
 ### Public address
 
