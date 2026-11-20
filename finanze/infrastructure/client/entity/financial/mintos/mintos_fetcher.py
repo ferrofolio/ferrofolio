@@ -57,8 +57,14 @@ def map_loan_distribution(input_json: dict) -> dict:
             "sum_key": "delayedWithinGracePeriodSum",
         },
         "late1_15": {"count_key": "late115Count", "sum_key": "late115Sum"},
-        "late16_30": {"count_key": "late1630Count", "sum_key": "late1630Sum"},
-        "late31_60": {"count_key": "late3160Count", "sum_key": "late3160Sum"},
+        "late16_30": {
+            "count_key": "late1630Count",  # gitleaks:allow (a field name)
+            "sum_key": "late1630Sum",
+        },
+        "late31_60": {
+            "count_key": "late3160Count",  # gitleaks:allow (a field name)
+            "sum_key": "late3160Sum",
+        },
         "default": {"count_key": "defaultCount", "sum_key": "defaultSum"},
         "badDebt": {"count_key": "badDebtCount", "sum_key": "badDebtSum"},
         "recovery": {"count_key": "recoveryCount", "sum_key": "recoverySum"},

@@ -26,7 +26,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Rust for pydantic compilation
+# Install Rust for pydantic compilation. pipefail lets a failed download fail the build
+# instead of handing sh an empty script.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
 
@@ -35,6 +37,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
+WORKDIR /build
 COPY requirements.txt requirements-selenium.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 

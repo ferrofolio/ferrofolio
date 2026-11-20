@@ -17,7 +17,8 @@ from infrastructure.client.http.http_session import get_http_session
 
 class FinectClient:
     BASE_URL = "https://api.finect.com/v4"
-    API_KEY = "BtpdnaHkD4F6L5IIiajyWnlHhkrt8Nu5"
+    # Public key of the Finect web app, not a user credential
+    API_KEY = "BtpdnaHkD4F6L5IIiajyWnlHhkrt8Nu5"  # gitleaks:allow
 
     def __init__(self):
         self._session = get_http_session()

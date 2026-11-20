@@ -1,0 +1,7 @@
+# Configuration of actionlint, which the "Lint" job of .github/workflows/ci.yml runs.
+paths:
+  .github/workflows/ci.yml:
+    ignore:
+      # The E2E Tests job is switched off with "if: false" while the repository is
+      # rewritten (#84). Remove this entry when the job is turned back on.
+      - 'constant expression "false" in condition'

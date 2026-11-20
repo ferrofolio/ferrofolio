@@ -1,0 +1,7 @@
+# Configuration of hadolint, which the "Lint" job of .github/workflows/ci.yml runs on
+# every Dockerfile.
+ignored:
+  # Pinning Debian packages to exact versions breaks the build whenever the mirror
+  # drops the old version. The base images are pinned instead, and Dependabot raises
+  # them; the packages follow the release of the base image.
+  - DL3008

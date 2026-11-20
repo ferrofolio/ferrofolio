@@ -5,6 +5,8 @@
 # tools only, no checks; the checks stay in .github/workflows/ci.yml.
 FROM ghcr.io/catthehacker/ubuntu:act-24.04
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # rustup; the workflow installs the toolchain from rust-toolchain.toml with it.
 # TARGETARCH is set by the image builder (amd64 or arm64).
 ARG TARGETARCH
