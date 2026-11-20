@@ -480,7 +480,7 @@ Started; tracked in [#91](https://github.com/ferrofolio/ferrofolio/issues/91), w
 | # | Slice | Note | Status |
 |---|---|---|---|
 | 1 | Status, login, settings | Small; rehearses the process | Settings, sessions and unlocking done (#76, #77, #79). The status and the login move together, once Rust is the authority on the unlock state (section 5) |
-| 2 | Read paths: positions, transactions, timelines, history, cash flow, and the other routes that only read the database | High value, no external access; also what the iOS app needs first | Labels, labeling rules, periodic and pending flows done (#81, #82, #97, #PR) |
+| 2 | Read paths: positions, transactions, timelines, history, cash flow, and the other routes that only read the database | High value, no external access; also what the iOS app needs first | Labels, labeling rules, periodic and pending flows done (#81, #82, #97, #99) |
 | 3 | **Scalable Capital** (new) | First Rust connector, not a port; needs the write paths for positions and transactions | #89 |
 | 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7) | #90 |
 | 5 | **Enable Banking** | Proven connector, official interface, ~1,100 lines | |
