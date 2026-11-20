@@ -188,7 +188,9 @@ async fn passes_requests_on_while_python_has_locked_the_data_on_its_own() {
 async fn a_login_of_another_user_ends_the_sessions_of_the_first() {
     let fixtures = fixtures();
     let harness = harness(&fixtures, "settings.db", true).await;
-    harness.add_user("other", "settings.db");
+    // The other user's database holds no settings, the first user's does, so the
+    // answers tell the two databases apart.
+    harness.add_user("other", "empty.db");
     let first = harness.login().await.unwrap();
     harness.python.set_unlocked(false);
     let second = harness.login_as("other").await.unwrap();
@@ -209,7 +211,9 @@ async fn a_login_of_another_user_ends_the_sessions_of_the_first() {
     // The second user's own session reads the second user's database.
     let (status, body) = answer(&harness.app, get_settings(Some(&second))).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.unwrap().get("forwarded").is_none());
+    let body = body.unwrap();
+    assert!(body.get("forwarded").is_none());
+    assert_eq!(body["general"]["defaultCurrency"], "EUR");
 }
 
 /// A request Rust serves under the spelling of the route but passes on after all

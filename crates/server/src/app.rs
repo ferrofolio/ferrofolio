@@ -56,7 +56,13 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
     PortedRoute {
         method: Method::GET,
         path: settings::PATH,
-        mount: |filter| any(forward).on(filter, settings::get_settings),
+        // Axum would answer `HEAD` with the `GET` handler; like every other
+        // method on a ported path, it goes to Python.
+        mount: |filter| {
+            any(forward)
+                .on(filter, settings::get_settings)
+                .on(MethodFilter::HEAD, forward)
+        },
     },
 ];
 
