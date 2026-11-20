@@ -282,7 +282,7 @@ Each user already registers their own Enable Banking application (the applicatio
 - The redirect points to the user's own instance, for example `https://<instance>/api/v1/…/callback`.
 - That address must be added as an allowed redirect URL in the user's Enable Banking application.
 - The instance does not need to be publicly reachable for this, only reachable from the user's browser, because the redirect happens in the browser.
-- Status: done (#5). Open banking through Enable Banking is the one connection verified since the fork; the setup guide documents the redirect URL.
+- Status: done (#5), and verified with a real bank consent through the instance's own redirect. Open banking through Enable Banking is the one connection verified since the fork; the setup guide documents the redirect URL.
 
 ### 4.6 Scalable Capital
 
@@ -325,7 +325,7 @@ So no scraping process has to be replaced, only the acquisition of this one toke
 
 Further points:
 
-- **The choice between the old and the new sign-in is a local setting** since #31: the feature flag `TR_V2_AUTH_API` is no longer served by `features.api.finanze.me`, and v2 is the default (`FF_TR_V2_AUTH_API=OFF` selects the old sign-in).
+- **The choice between the old and the new sign-in is a local setting** since #31: the feature flag `TR_V2_AUTH_API` is no longer served by `features.api.finanze.me`, and v2 is the default. `FF_TR_V2_AUTH_API=OFF` selects the old sign-in while no `FEATURE_FLAG_URL` is set; with one, all flags come from that source.
 - According to `pytr`, Trade Republic is retiring the old web sign-in together with the SMS code, which is why v2 is the default.
 - The connector stays on Python as long as possible and is the last of the core connectors to be ported. While Python runs, fixes from upstream and from `pytr` can be taken directly; this interface changes without notice.
 - GiroCrab (section 4.6) already has a Trade Republic connector in Rust, which may shorten the later port.
@@ -571,7 +571,7 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 
 The server repository additionally runs coverage (`cargo llvm-cov`), actionlint and hadolint. Occasionally, not per pull request: mutation tests (`cargo mutants`) for money arithmetic and auth.
 
-State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run on every pull request, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. The required checks are `Rust`, `Docker Image`, `Parity`, `Format Check` and `Frontend Tests`; a job that its paths do not concern is skipped and counts as passed. `Parity` checks that the fixtures the Rust tests replay still match what Python answers (#94); the Python `Tests` job still runs for changes to the backend but is not required. The end-to-end tests are off during the rewrite and become a required check again when they are back; gitleaks, coverage, actionlint and hadolint are not set up.
+State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run in CI, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. Each job runs only for pull requests that change the paths it covers (the `Rust` job for `crates/` and the Cargo and toolchain files, `Tests` and `Parity` for the Python backend, its tests and the fixtures), and every job runs when the workflow changes or the change detection fails. The required checks are `Rust`, `Docker Image`, `Parity`, `Format Check` and `Frontend Tests`; a job that its paths do not concern is skipped and counts as passed. `Parity` checks that the fixtures the Rust tests replay still match what Python answers (#94); the Python `Tests` job still runs for changes to the backend but is not required. The end-to-end tests are off during the rewrite and become a required check again when they are back; gitleaks, coverage, actionlint and hadolint are not set up.
 
 iOS builds run on macOS runners; the standard runners are free for public repositories. They have no Docker, so the server is started as a native binary for the tests.
 
