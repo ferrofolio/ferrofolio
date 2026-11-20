@@ -38,6 +38,11 @@ pub const MAX_BODY_BYTES: usize = 1024 * 1024;
 /// size. Requests beyond it wait. A body without `Content-Length` reserves the
 /// largest size.
 pub const BODY_BUDGET_KIB: u32 = 64 * 1024;
+/// Requests that replace the database (a backup import, a change of the
+/// password) at once, the one Python works on and those waiting for it. Python
+/// runs them one after another, and they are rare, so a few suffice; further ones
+/// are refused with `503` rather than holding the body budget while they wait.
+pub const REPLACEMENT_SLOTS: usize = 4;
 /// Time a client has to send the body of a ported route or a login.
 const BODY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 /// Longest wait for a free calculation permit before a request is refused with

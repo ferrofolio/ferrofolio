@@ -70,6 +70,10 @@ pub struct AppState {
     /// The request bodies ported routes hold in memory at once, one permit per KiB
     /// (`routes::BODY_BUDGET_KIB`).
     pub body_budget: Arc<Semaphore>,
+    /// Requests that replace the database at once, running or waiting for the
+    /// one that runs (`routes::REPLACEMENT_SLOTS`), so that they cannot hold the
+    /// body budget that logins and calculations need.
+    pub replacements: Arc<Semaphore>,
 }
 
 impl AppState {
@@ -84,6 +88,7 @@ impl AppState {
             calculations: Arc::new(Semaphore::new(cores)),
             calculation_wait: routes::CALCULATION_WAIT,
             body_budget: Arc::new(Semaphore::new(routes::BODY_BUDGET_KIB as usize)),
+            replacements: Arc::new(Semaphore::new(routes::REPLACEMENT_SLOTS)),
         }
     }
 }

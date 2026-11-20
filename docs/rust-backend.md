@@ -251,10 +251,12 @@ the current version, and records every case again against the committed files.
 
 `crates/server/tests/common/database.rs` copies a fixture database into a data directory laid out as the backend lays
 it out and starts the router with a stand-in for Python that accepts the login, reports the lock state on
-`GET /api/v1/status` and answers every other request with a mark of the request as it arrived. Tests log in through
-the router, so Rust opens the database as at a real login; `database_harness.rs` checks that this opens every fixture
-database, with and without API sessions. A case that Rust must pass on to Python compares `forwarded`: the stand-in
-received it unchanged, and Python then gives the recorded answer.
+`GET /api/v1/status` and answers every other request with a mark of the request as it arrived: its method, its URI
+and its `Authorization` header. Tests log in through the router, so Rust opens the database as at a real login;
+`database_harness.rs` checks that this opens every fixture database, with and without API sessions. A case that Rust
+must pass on to Python compares `forwarded`: the stand-in received the same method and URI, and the backend token in
+place of the client's session token, and Python then gives the recorded answer. The mark does not cover the body or
+other headers; that the gateway passes those on unchanged is tested in `gateway.rs`.
 
 Regenerate the fixtures after adding a migration or changing a slice:
 
@@ -287,6 +289,7 @@ python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/f
 | A ported route while the database is locked, with or without a session | Allowed: the session guard lets everything through while locked | `401 NOT_LOGGED` (fixture cases "no session while the data is locked" and "session while the data is locked"; Rust holds no session while the data is locked, so the second case sends the token of a session a logout has ended) |
 | A login or signup body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body to ask for a lasting backend token |
 | A backup-import or change-password body above 1 MiB | Accepted up to 50 MB | `413 PAYLOAD_TOO_LARGE`; Rust reads the body before it closes its connection for the replacement |
+| More than four backup imports or changes of the password at once, running or waiting | Run one after another | `503 SERVER_BUSY` with `Retry-After: 5` for the fifth and later, before their body is read; waiting ones would otherwise hold the body budget that logins and calculations need |
 | The end of a remembered session | The remember period is added to the local wall-clock time, so a change to or from daylight saving time in between moves the end by the size of the change | Exactly that many days of 24 hours after the login |
 | A login body Python reads but serde_json does not, such as one with `NaN`, a lone surrogate escape or in UTF-16 | Logged in | `400 INVALID_REQUEST` and no session, as Rust cannot ask for a lasting backend token; Python has unlocked the data |
 | A `remember` that is an object whose first key is serde_json's private number token | True, a non-empty dict | Read as the number, so `{"$serde_json::private::Number": "0"}` is false and the session lasts until the logout, as with `false` |

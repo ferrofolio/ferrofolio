@@ -27,6 +27,8 @@ pub enum ApiError {
     BackendUnavailable,
     /// 503 when no calculation permit became free in time.
     Busy,
+    /// 503 when too many requests that replace the database wait already.
+    ReplacementsBusy,
     /// 504 when the Python backend did not answer in time.
     BackendTimeout,
 }
@@ -65,9 +67,13 @@ impl IntoResponse for ApiError {
                 StatusCode::GATEWAY_TIMEOUT,
                 json!({"code": "BACKEND_TIMEOUT", "message": "The backend did not answer in time"}),
             ),
-            ApiError::Busy => {
-                let body =
-                    json!({"code": "SERVER_BUSY", "message": "Too many calculations are running"});
+            ApiError::Busy | ApiError::ReplacementsBusy => {
+                let message = if self == ApiError::Busy {
+                    "Too many calculations are running"
+                } else {
+                    "Too many requests replace the database"
+                };
+                let body = json!({"code": "SERVER_BUSY", "message": message});
                 let mut response = (StatusCode::SERVICE_UNAVAILABLE, Json(body)).into_response();
                 response
                     .headers_mut()
