@@ -47,7 +47,7 @@ function LegacyLabelsRedirect() {
 }
 
 function App() {
-  const { isAuthenticated, isInitializing } = useAuth()
+  const { isAuthenticated, isInitializing, hasConnectionFailed } = useAuth()
   const regionRestricted = useRegionRestriction()
   const [showReleaseModal, setShowReleaseModal] = useState(false)
   const releaseModalDismissedRef = useRef(false)
@@ -99,12 +99,12 @@ function App() {
   }
 
   if (isInitializing) {
-    return <SplashScreen />
+    return <SplashScreen hasConnectionFailed={hasConnectionFailed} />
   }
 
   if (!isAuthenticated) {
     if (regionRestricted === null) {
-      return <SplashScreen />
+      return <SplashScreen hasConnectionFailed={hasConnectionFailed} />
     }
     if (regionRestricted) {
       return <RestrictedRegionScreen />

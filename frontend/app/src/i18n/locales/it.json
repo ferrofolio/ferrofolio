@@ -106,6 +106,8 @@
     "unpinAsset": "Rimuovi bene",
     "continueInBackground": "Continua in background",
     "connectingToServer": "Connessione al server...",
+    "serverCannotReach":
+      "Impossibile raggiungere il server. Controlla l'indirizzo del backend nelle impostazioni e assicurati che il server sia in esecuzione.",
     "details": "Dettagli",
     "optional": "Opzionale",
     "clear": "Cancella",

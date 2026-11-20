@@ -2,7 +2,13 @@ import { useI18n } from "@/i18n"
 import { LoginQuickSettings } from "@/components/ui/ThemeSelector"
 import { useTheme } from "@/context/ThemeContext"
 
-export default function SplashScreen() {
+interface SplashScreenProps {
+  hasConnectionFailed?: boolean
+}
+
+export default function SplashScreen({
+  hasConnectionFailed = false,
+}: SplashScreenProps) {
   const { t } = useI18n()
   const { theme } = useTheme()
 
@@ -29,11 +35,24 @@ export default function SplashScreen() {
         draggable={false}
       />
       <div className="absolute bottom-20 flex flex-col items-center gap-3">
-        <p
-          className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
-        >
-          {t.common.connectingToServer}
-        </p>
+        {hasConnectionFailed ? (
+          <>
+            <p
+              className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
+            >
+              {t.common.connectingToServer}
+            </p>
+            <p className="text-sm text-gray-400 max-w-xs text-center">
+              {t.common.serverCannotReach}
+            </p>
+          </>
+        ) : (
+          <p
+            className={`text-lg font-bold bg-gradient-to-r ${gradientClass} bg-[length:200%_auto] animate-text-shine bg-clip-text text-transparent`}
+          >
+            {t.common.connectingToServer}
+          </p>
+        )}
       </div>
       <div
         className="absolute left-6"
