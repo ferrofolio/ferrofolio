@@ -91,6 +91,7 @@ updates together with this table.
 | `GET /api/v1/labels` | `routes/get_labels.py`, `use_cases/get_labels.py`, `repository/labeling/label_repository.py` | Read paths (phase 4, slice 2); reads the database |
 | `GET /api/v1/labeling/rules` | `routes/get_labeling_rules.py`, `use_cases/get_labeling_rules.py`, `repository/labeling/labeling_rule_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored conditions on |
 | `GET /api/v1/flows/periodic` | `routes/get_periodic_flows.py`, `use_cases/get_periodic_flows.py`, `repository/earnings_expenses/periodic_flow_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values on |
+| `GET /api/v1/flows/pending` | `routes/get_pending_flows.py`, `use_cases/query_pending_flows.py`, `repository/earnings_expenses/pending_flow_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values and pages beyond `i64` on |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -164,6 +165,16 @@ record as "other" (such as braced UUIDs and `" 1_000.5 "`), and passes the remai
 flow's next date with the server's clock, as `date.today()` does in Python, and passes the request on where Python's
 date arithmetic leaves the range of `date`, which Python answers with `500`. The query has no `ORDER BY`, as in
 Python, so Rust sends the same statement and gets the flows in the same order.
+
+The pending flows are read the same way. The time of the last status change is read only in the form
+`datetime.isoformat()` writes it and gives back unchanged, with an offset of whole minutes; pydantic reads other
+forms, such as `Z`, a space as the separator, `.000000` or a number of seconds, to a time that `isoformat()` writes
+differently, so Rust passes them on. The query is read as `request.args` reads it: an unknown status, type, sort field
+or order fails with Python's message in Python's order, and `page` and `limit` follow `int()`, which strips Unicode
+whitespace but keeps the separators U+001C to U+001F, accepts digits of any script and falls back to none for
+anything else. Paging follows Python's slices, also for a zero or negative page or limit; a `page` or `limit` outside
+`i64`, which Python holds exactly, is passed on, and so are statistics whose sum a float cannot hold, which Python
+writes as `Infinity`.
 
 Python reads the settings from the database on every request and keeps no copy, and Rust's read-only connection reads
 what Python has committed with every new statement (WAL mode), so a change Python writes with `POST
@@ -348,9 +359,11 @@ records under `functions` against the Rust functions they describe (the labels r
 enums for inputs no database row could show; the labeling rules record how Python reads stored conditions, and the
 periodic flows how Python maps stored rows, in the forms its writer produces, which Rust must read identically, and in
 many it does not, where Rust may only pass the request on; the periodic flows also record the next date for every
-frequency over starts and days around month ends, leap days and the end of the range). A slice whose route reads the
+frequency over starts and days around month ends, leap days and the end of the range; the pending flows record how
+`args.get(name, type=int)` reads `page` and `limit`). A slice whose route reads the
 date records with a fixed day, which it names in its `context` and the Rust test sets as the server's clock. A case with a valid session on unlocked data that Rust passes on because of the data it finds is marked
-`passed_on` and compares as `forwarded`, with the backend token of the session.
+`passed_on` and compares as `forwarded`, with the backend token of the session. A body Python writes with `NaN` or `Infinity` is
+recorded as no body, since it is not JSON.
 
 The ids of rows are read with `core_domain::pyuuid::parse`, which follows `uuid.UUID(text)` exactly: it removes every
 `urn:` and `uuid:`, strips braces from both ends, removes every hyphen, and reads the 32 remaining characters with `int(text, 16)`, which accepts
@@ -472,8 +485,8 @@ virtual environment if needed.
 The order across all tracks is in the [roadmap](roadmap.md#10-next-steps). For the port itself:
 
 1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings, the labels
-   and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): the periodic flows
-   are done; next the pending flows, then positions, transactions and the timelines.
+   and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): the periodic and
+   pending flows are done; next positions, transactions and the timelines.
 2. Rust's first write access to the database (the settings, the labels), with the writes Python makes to the same
    tables until the cutover.
 3. The status and the login move to Rust together, once Rust is the authority on the unlock state rather than an

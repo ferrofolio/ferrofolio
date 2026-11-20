@@ -261,6 +261,12 @@ class DataState:
     unlocked = False
 
 
+def _reject_constant(constant):
+    """A body with NaN or Infinity, which Python's jsonify writes for a float that
+    is not finite, is not JSON; it is recorded as none, as any other such body."""
+    raise ValueError(f"{constant} is not JSON")
+
+
 async def _send(http, entry, token):
     headers = {}
     session = entry.get("session", "valid")
@@ -274,7 +280,7 @@ async def _send(http, entry, token):
     response = await http.open(path, method=entry["method"], headers=headers)
     data = await response.get_data()
     try:
-        body = json.loads(data)
+        body = json.loads(data, parse_constant=_reject_constant)
     except ValueError:
         body = None
     return {"status": response.status_code, "body": body}, data

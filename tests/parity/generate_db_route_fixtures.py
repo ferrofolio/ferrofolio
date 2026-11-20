@@ -22,9 +22,22 @@ import sys
 from pathlib import Path
 
 from ci_python import require_ci_python
-from db_routes import harness, labeling_rules, labels, periodic_flows, settings
+from db_routes import (
+    harness,
+    labeling_rules,
+    labels,
+    pending_flows,
+    periodic_flows,
+    settings,
+)
 
-SLICES = [settings.SLICE, labels.SLICE, labeling_rules.SLICE, periodic_flows.SLICE]
+SLICES = [
+    settings.SLICE,
+    labels.SLICE,
+    labeling_rules.SLICE,
+    periodic_flows.SLICE,
+    pending_flows.SLICE,
+]
 
 
 def main() -> int:

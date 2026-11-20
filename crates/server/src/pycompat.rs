@@ -442,6 +442,61 @@ fn unquote_plus(text: &str) -> String {
     }
 }
 
+/// What `int(text)` gives for a text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PyInt {
+    /// An integer in the range of `i64`.
+    Value(i64),
+    /// Python fails with a `ValueError`.
+    Invalid,
+    /// An integer outside the range of `i64`, which Python reads exactly, or fails
+    /// to read when it has more than 4300 digits.
+    OutOfRange,
+}
+
+/// `int(text)`: whitespace around, a sign, and decimal digits of any script with
+/// single underscores between them. CPython keeps ASCII characters as they are
+/// and strips only ASCII whitespace among them, so unlike `str.strip()` it keeps
+/// the separators U+001C to U+001F, as Rust's `trim` does.
+pub fn py_int(text: &str) -> PyInt {
+    let stripped = text.trim();
+    let (negative, digits) = match stripped.chars().next() {
+        Some('-') => (true, stripped.get(1..).unwrap_or_default()),
+        Some('+') => (false, stripped.get(1..).unwrap_or_default()),
+        _ => (false, stripped),
+    };
+    let mut value: i128 = 0;
+    let mut out_of_range = false;
+    let mut previous_digit = false;
+    let mut any = false;
+    for character in digits.chars() {
+        if character == '_' {
+            if !previous_digit {
+                return PyInt::Invalid;
+            }
+            previous_digit = false;
+            continue;
+        }
+        let Some(digit) = core_domain::unicode_digits::decimal_digit(character) else {
+            return PyInt::Invalid;
+        };
+        previous_digit = true;
+        any = true;
+        if !out_of_range {
+            value = value * 10 + i128::from(digit);
+            out_of_range = value > i128::from(i64::MAX) + 1;
+        }
+    }
+    if !any || !previous_digit {
+        return PyInt::Invalid;
+    }
+    let signed = if negative { -value } else { value };
+    match i64::try_from(signed) {
+        Ok(value) if !out_of_range => PyInt::Value(value),
+        _ => PyInt::OutOfRange,
+    }
+}
+
 /// `Enum(value)` failure message: `'X' is not a valid InterestType`.
 pub fn invalid_enum(value: &Value, enum_name: &str) -> String {
     format!("{} is not a valid {enum_name}", repr(value))
@@ -452,6 +507,38 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn reads_integers_like_python() {
+        assert_eq!(py_int(" +1_000 "), PyInt::Value(1000));
+        assert_eq!(py_int("-0"), PyInt::Value(0));
+        assert_eq!(py_int("007"), PyInt::Value(7));
+        assert_eq!(
+            py_int("\u{3000}\u{0662}\u{0663}\u{85}\u{0B}"),
+            PyInt::Value(23)
+        );
+        assert_eq!(py_int("\u{1C}1"), PyInt::Invalid);
+        assert_eq!(py_int("-9223372036854775808"), PyInt::Value(i64::MIN));
+        assert_eq!(py_int("9223372036854775808"), PyInt::OutOfRange);
+        assert_eq!(py_int(&"9".repeat(5000)), PyInt::OutOfRange);
+        for text in [
+            "",
+            " ",
+            "+",
+            "-",
+            "_1",
+            "1_",
+            "1__0",
+            "+_1",
+            "1 0",
+            "1.0",
+            "0x1",
+            "--1",
+            "\u{200B}1",
+        ] {
+            assert_eq!(py_int(text), PyInt::Invalid, "{text:?}");
+        }
+    }
 
     #[test]
     fn reads_query_values_like_quart() {

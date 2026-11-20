@@ -10,14 +10,12 @@
 //! the route passes the request on to Python, which answers from the same data.
 
 use core_app::ports::{PeriodicFlowPort, PortError, ReadError};
-use core_domain::Dezimal;
-use core_domain::dates::Date;
 use core_domain::earnings_expenses::{FlowFrequency, FlowType, PeriodicFlow, RealEstateFlowInfo};
 use core_domain::pyuuid;
 pub use rusqlite::types::ValueRef;
 
 use crate::Database;
-use crate::read::iso_date;
+use crate::read::{Read, amount, date, flag, required, text};
 
 /// `PeriodicFlowsQueries.GET_ALL`, word for word: it has no `ORDER BY`, so the
 /// flows come in the order SQLite reads them, which the same query on the same
@@ -61,51 +59,6 @@ pub struct StoredFlow<'v> {
     pub re_flow_subtype: ValueRef<'v>,
     pub max_amount: ValueRef<'v>,
     pub label_id: ValueRef<'v>,
-}
-
-type Read<T> = Result<T, String>;
-
-/// A text column, `None` for NULL. Any other type is unreadable: pydantic does
-/// not read a number as a `str`, and a blob is not what the writer stores.
-fn text<'v>(value: ValueRef<'v>, what: &str) -> Read<Option<&'v str>> {
-    match value {
-        ValueRef::Null => Ok(None),
-        ValueRef::Text(bytes) => std::str::from_utf8(bytes)
-            .map(Some)
-            .map_err(|_| what.to_owned()),
-        _ => Err(what.to_owned()),
-    }
-}
-
-/// A text column that must hold a value.
-fn required<'v>(value: ValueRef<'v>, what: &str) -> Read<&'v str> {
-    text(value, what)?.ok_or_else(|| what.to_owned())
-}
-
-/// `Dezimal(text)` of an amount the writer stores as `str(Dezimal)`. A number that
-/// a float cannot hold, which Python would answer as `Infinity`, is unreadable.
-fn amount(text: &str, what: &str) -> Read<Dezimal> {
-    match Dezimal::from_python_str(text) {
-        Ok(amount) if amount.to_f64_for_api().is_finite() => Ok(amount),
-        _ => Err(what.to_owned()),
-    }
-}
-
-/// A flag the writer stores as a Python `bool`, which SQLite keeps as `0` or `1`.
-fn flag(value: ValueRef<'_>, what: &str) -> Read<bool> {
-    match value {
-        ValueRef::Integer(0) => Ok(false),
-        ValueRef::Integer(1) => Ok(true),
-        _ => Err(what.to_owned()),
-    }
-}
-
-/// A date the writer stores as `date.isoformat()`.
-fn date(value: ValueRef<'_>, what: &str) -> Read<Option<Date>> {
-    match text(value, what)? {
-        None => Ok(None),
-        Some(text) => iso_date(text).map(Some).ok_or_else(|| what.to_owned()),
-    }
 }
 
 /// `UUID(row[key]) if row[key] else None`: NULL and the empty text are `None`.
@@ -190,6 +143,8 @@ impl PeriodicFlowPort for PeriodicFlowRepository<'_> {
 
 #[cfg(test)]
 mod tests {
+    use core_domain::Dezimal;
+    use core_domain::dates::Date;
     use rusqlite::Connection;
 
     use super::*;
