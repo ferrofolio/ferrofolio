@@ -604,7 +604,7 @@ CodeRabbit never approves changes to these paths automatically (section 7.2), an
 
 ### 7.7 Watching upstream
 
-A weekly agent run: `git fetch upstream`, review the new commits, report "relevant / to take / ignore". While Python runs, changes are taken by merge or cherry-pick; afterwards they are carried over by hand. Not set up yet (#84).
+Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.yml`) lists the commits that upstream Finanze added since its previous run, as a comment on the open issue labelled `upstream`. Each commit is a task to triage as "relevant / to take / ignore", by a maintainer or an agent. While Python runs, changes are taken by merge or cherry-pick; afterwards they are carried over by hand.
 
 ---
 
