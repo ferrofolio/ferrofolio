@@ -58,10 +58,12 @@ jobs:
             issue="${url##*/}"
           fi
 
+          # A failed request stops the run: the checkpoint only advances after a report
+          # that covers every commit since the previous one has been posted.
           head="$(gh api "repos/${UPSTREAM}/commits/${UPSTREAM_BRANCH}" --jq .sha)"
-          last="$(gh api --paginate "repos/${REPO}/issues/${issue}/comments" \
-            --jq '.[] | select(.user.login == "github-actions[bot]") | .body' \
-            | grep -oE "<!-- ${marker}: [0-9a-f]{40} -->" | tail -n 1 \
+          bodies="$(gh api --paginate "repos/${REPO}/issues/${issue}/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | .body')"
+          last="$(grep -oE "<!-- ${marker}: [0-9a-f]{40} -->" <<< "$bodies" | tail -n 1 \
             | grep -oE '[0-9a-f]{40}' || true)"
 
           if [[ $last == "$head" ]]; then
@@ -83,21 +85,33 @@ jobs:
             + " (" + ((.commit.author.name // "unknown") | '"$escape"') + ", "
             + (.commit.author.date // "" | .[0:10]) + ")"'
 
-          commits="$RUNNER_TEMP/commits.md"
-          range=""
-          note=""
-          if [[ -n $last ]] && compare="$(gh api "repos/${UPSTREAM}/compare/${last}...${head}")" \
-            && [[ $(jq -r .status <<< "$compare") == ahead ]]; then
-            jq -r ".commits[] | $line" <<< "$compare" > "$commits"
-            total="$(jq -r .total_commits <<< "$compare")"
-            shown="$(wc -l < "$commits")"
-            range="[\`${last:0:7}...${head:0:7}\`](https://github.com/${UPSTREAM}/compare/${last}...${head})"
-            if (( total > shown )); then
-              note="Only the first ${shown} of ${total} commits are listed; the comparison shows all of them."
+          # The comparison is `ahead` when the recorded commit is an ancestor of the
+          # head. A recorded commit that upstream no longer has (404) or that is not an
+          # ancestor (after a force-push) falls back to the lookback window; any other
+          # error stops the run.
+          status=none
+          if [[ -n $last ]]; then
+            err="$RUNNER_TEMP/compare.err"
+            if status="$(gh api "repos/${UPSTREAM}/compare/${last}...${head}?per_page=1" \
+              --jq .status 2> "$err")"; then
+              :
+            elif grep -q 'HTTP 404' "$err"; then
+              status=missing
+            else
+              cat "$err" >&2
+              exit 1
             fi
+          fi
+
+          commits="$RUNNER_TEMP/commits.md"
+          note=""
+          if [[ $status == ahead ]]; then
+            gh api --paginate "repos/${UPSTREAM}/compare/${last}...${head}?per_page=100" \
+              --jq ".commits[] | $line" > "$commits"
+            range="[\`${last:0:7}...${head:0:7}\`](https://github.com/${UPSTREAM}/compare/${last}...${head})"
           else
             if [[ -n $last ]]; then
-              note="The commit \`${last:0:7}\` of the previous comment is no longer an ancestor of upstream; this lists the last ${LOOKBACK_DAYS} days."
+              note="The commit \`${last:0:7}\` of the previous report is no longer an ancestor of upstream (${status}); this lists the last ${LOOKBACK_DAYS} days only."
             fi
             since="$(date -u -d "${LOOKBACK_DAYS} days ago" +%Y-%m-%dT%H:%M:%SZ)"
             gh api --paginate "repos/${UPSTREAM}/commits?sha=${head}&since=${since}&per_page=100" \
@@ -111,24 +125,49 @@ jobs:
             exit 0
           fi
 
-          comment="$RUNNER_TEMP/comment.md"
-          {
-            echo "### ${count} new upstream commits"
-            echo
-            echo "${UPSTREAM}@${UPSTREAM_BRANCH}, ${range}. Triage each as relevant, to take or ignore."
-            if [[ -n $note ]]; then
-              echo
-              echo "$note"
+          # A comment holds at most 65,536 characters, so a long list is split into
+          # parts. Only the last part records the checkpoint: if a post fails, the next
+          # run reports the same range again.
+          parts="$RUNNER_TEMP/parts"
+          mkdir -p "$parts"
+          part=1
+          size=0
+          : > "$parts/1"
+          while IFS= read -r task; do
+            if (( size + ${#task} + 1 > 60000 )); then
+              part=$((part + 1))
+              size=0
+              : > "$parts/$part"
             fi
-            echo
-            if (( count == 0 )); then
-              echo "No commits in this range."
-            else
-              cat "$commits"
-            fi
-            echo
-            echo "<!-- ${marker}: ${head} -->"
-          } > "$comment"
+            printf '%s\n' "$task" >> "$parts/$part"
+            size=$((size + ${#task} + 1))
+          done < "$commits"
 
-          gh issue comment "$issue" --repo "$REPO" --body-file "$comment" > /dev/null
-          echo "Reported ${count} upstream commits up to ${head:0:12} on issue #${issue}."
+          for ((i = 1; i <= part; i++)); do
+            comment="$RUNNER_TEMP/comment-$i.md"
+            {
+              if (( part > 1 )); then
+                echo "### ${count} new upstream commits (part ${i} of ${part})"
+              else
+                echo "### ${count} new upstream commits"
+              fi
+              echo
+              echo "${UPSTREAM}@${UPSTREAM_BRANCH}, ${range}. Triage each as relevant, to take or ignore."
+              if [[ -n $note ]]; then
+                echo
+                echo "$note"
+              fi
+              echo
+              if (( count == 0 )); then
+                echo "No commits in this range."
+              else
+                cat "$parts/$i"
+              fi
+              if (( i == part )); then
+                echo
+                echo "<!-- ${marker}: ${head} -->"
+              fi
+            } > "$comment"
+            gh issue comment "$issue" --repo "$REPO" --body-file "$comment" > /dev/null
+          done
+          echo "Reported ${count} upstream commits up to ${head:0:12} on issue #${issue} in ${part} comment(s)."

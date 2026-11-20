@@ -604,7 +604,7 @@ CodeRabbit never approves changes to these paths automatically (section 7.2), an
 
 ### 7.7 Watching upstream
 
-Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.yml`) lists the commits that upstream Finanze added since its previous run, as a comment on the open issue labelled `upstream`. Each commit is a task to triage as "relevant / to take / ignore", by a maintainer or an agent. While Python runs, changes are taken by merge or cherry-pick; afterwards they are carried over by hand.
+Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.yml`) lists the commits that upstream Finanze added since its previous run, as a comment on the open issue labelled `upstream`. On its first run, and when the commit its previous report ended at is no longer an ancestor of upstream (after a force-push), it lists only the last seven days, so such a report can miss older commits. Each commit is a task to triage as "relevant / to take / ignore", by a maintainer or an agent. While Python runs, changes are taken by merge or cherry-pick; afterwards they are carried over by hand.
 
 ---
 
