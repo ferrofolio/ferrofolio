@@ -1037,14 +1037,29 @@ async fn a_login_unlocks_the_database_until_the_logout() {
     let (status, _, body) = send(&app, request).await;
     assert_eq!(status, StatusCode::OK);
     assert!(state.sessions.is_unlocked());
+    assert_eq!(state.sessions.database_openings(), 1);
     let token = serde_json::from_slice::<Value>(&body).unwrap()["token"]
         .as_str()
         .unwrap()
         .to_owned();
 
+    // A further login of the same user, from another client, keeps the open
+    // connection instead of deriving the key again.
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+    assert!(reads(&state));
+    assert_eq!(state.sessions.database_openings(), 1);
+
     let (status, _, _) = send(&app, logout(Some(&token))).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert!(!state.sessions.is_unlocked());
+
+    // After the logout the next login opens the database again.
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+    assert!(reads(&state));
+    assert_eq!(state.sessions.database_openings(), 2);
+    drop(app);
 }
 
 #[tokio::test]

@@ -189,6 +189,13 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
     let (Some(data_dir), Some(credentials)) = (state.data_dir.clone(), credentials) else {
         return;
     };
+    // A further login of the same user while the data is unlocked, from another
+    // client for example, opens nothing new: Rust keeps the connection it has
+    // instead of deriving the key once more. A logout since has dropped it.
+    if state.sessions.holds_database_of(&credentials) {
+        tracing::debug!("the login's database is unlocked for Rust already");
+        return;
+    }
     let sessions = state.sessions.clone();
     // Deriving the key takes a while, so it runs on the blocking pool.
     let unlocked = tokio::task::spawn_blocking(move || {
