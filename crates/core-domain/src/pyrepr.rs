@@ -64,3 +64,41 @@ pub fn repr_str_limited(text: &str, limit: usize) -> String {
     push(&mut out, quote.encode_utf8(&mut buffer));
     out
 }
+
+/// `repr()` of a Python `bytes` value.
+pub fn repr_bytes(bytes: &[u8]) -> String {
+    let quote = if bytes.contains(&b'\'') && !bytes.contains(&b'"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut out = String::with_capacity(bytes.len().saturating_add(3));
+    out.push('b');
+    out.push(quote);
+    for &byte in bytes {
+        match byte {
+            b'\\' => out.push_str("\\\\"),
+            b'\t' => out.push_str("\\t"),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\'' if quote == '\'' => out.push_str("\\'"),
+            0x20..=0x7E => out.push(char::from(byte)),
+            other => out.push_str(&format!("\\x{other:02x}")),
+        }
+    }
+    out.push(quote);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writes_bytes_like_python() {
+        // Recorded from Python 3.14.
+        assert_eq!(repr_bytes(b"INCOME"), "b'INCOME'");
+        assert_eq!(repr_bytes(b"it's\x00\xff\\"), "b\"it's\\x00\\xff\\\\\"");
+        assert_eq!(repr_bytes(b"a'b\"c\n"), "b'a\\'b\"c\\n'");
+    }
+}
