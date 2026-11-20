@@ -118,7 +118,7 @@ never renamed or removed, like everything else under `/api/v1`.
 
 | Capability | Listed when |
 |---|---|
-| `apiSessions` | Login and signup return a bearer token that the other routes require; off with `FINANZE_API_SESSION=false` |
+| `apiSessions` | Login and non-guest signup return a bearer token, which every request outside the public paths must carry once the data is unlocked; not listed with `FINANZE_API_SESSION=false` |
 
 ## CI checks
 
