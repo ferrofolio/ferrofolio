@@ -38,9 +38,8 @@ Because the data is encrypted with your key, the server is locked after every re
 Automatic updates of your accounts only run while it is unlocked; to unlock it on start, set `USERNAME` and `PASSWORD`
 (see [Settings](#settings)).
 
-The web app works in any modern browser, on the desktop and on the phone. There is no desktop app. Offline use and
-installing the web app on the home screen are in progress, and native mobile apps are planned in their own
-repositories.
+The web app works in any modern browser, on the desktop and on the phone. There is no desktop app. Installing the
+web app on the home screen is planned, and native mobile apps are planned in their own repositories.
 
 ## Use it from other devices
 
@@ -55,7 +54,8 @@ another computer in the same network:
 
 > [!WARNING]
 > Do not make Ferrofolio reachable from the internet. The server is not hardened for that yet (see the
-> [roadmap](roadmap.md), section 4.4). To use it away from home, connect to your home network through a VPN.
+> [roadmap](roadmap.md), section 4.4, and [#85](https://github.com/ferrofolio/ferrofolio/issues/85)). To use it away
+> from home, connect to your home network through a VPN.
 
 ## Update
 

@@ -42,10 +42,15 @@ issues and review replies. The only exception is the content of locale files und
 1. Work on a branch created from `develop`. Never push to `develop` or `main` directly and never force-push them.
 2. Keep pull requests small: one concern each, as a guideline under 500 changed lines not counting tests and fixtures.
 3. Run the checks below, on your machine, before opening a pull request.
-4. Open the pull request against `develop` with a description of what changed and why.
+4. Open the pull request against `develop` with a description of what changed and why, naming the `roadmap` issue it
+   advances, if any.
 5. Address every review comment by fixing it or by explaining why not. Do not resolve a thread that still needs a
    decision from a maintainer.
 6. A maintainer merges. An agent never merges its own pull request.
+7. Once merged, tick the item of the `roadmap` issue that the pull request completed.
+
+Progress on the roadmap is tracked in one GitHub issue per workstream, labelled `roadmap`, each with a short list of
+milestones. Do not open an issue for a single task or pull request; bugs and feature requests get issues as usual.
 
 ## Commits
 

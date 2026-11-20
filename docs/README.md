@@ -12,5 +12,6 @@
 - [Contributing](../.github/CONTRIBUTING.md): how contributions are made and licensed
 - [Agent guide](../AGENTS.md): rules for contributors and coding agents
 - [Rust backend](rust-backend.md): the port of the backend from Python to Rust
-- [Roadmap](roadmap.md): the plan for the project
+- [Roadmap](roadmap.md): the plan for the project; progress is tracked in the
+  [`roadmap` issues](https://github.com/ferrofolio/ferrofolio/issues?q=is%3Aissue+label%3Aroadmap)
 - [Logo](../resources/logo/README.md): the mark, its colours and the icon files

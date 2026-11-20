@@ -15,6 +15,9 @@ See the [developer guide](../docs/development.md) for complete setup instruction
 - **Request features:** Use the [feature request template](ISSUE_TEMPLATE/feature_request.md).
 - **Add connectors:** Add support for new banks, financial entities, crypto exchanges, or blockchain networks.
 - **Improve codebase:** Submit fixes, refactors, and performance improvements via Pull Requests.
+- **Help with the roadmap:** The [roadmap](../docs/roadmap.md) holds the plan, and the issues labelled
+  [`roadmap`](https://github.com/ferrofolio/ferrofolio/issues?q=is%3Aissue+label%3Aroadmap) show what is open in each
+  part of it.
 
 ---
 
