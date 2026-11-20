@@ -24,6 +24,7 @@ async def status(get_status_uc: GetStatus):
             "platform_type": result.server.platform_type,
             "platform_version": result.server.platform_version,
             "publicUrl": public_base_url(),
+            "capabilities": [capability.value for capability in result.capabilities],
             "options": {
                 "dataDir": result.server.options.data_dir,
                 "port": result.server.options.port,

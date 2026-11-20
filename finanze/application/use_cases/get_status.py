@@ -6,7 +6,7 @@ from application.ports.data_manager import DataManager
 from application.ports.datasource_initiator import DatasourceInitiator
 from application.ports.feature_flag_port import FeatureFlagPort
 from application.ports.server_details_port import ServerDetailsPort
-from domain.status import GlobalStatus, LoginStatusCode
+from domain.status import Capability, GlobalStatus, LoginStatusCode
 from domain.use_cases.get_status import GetStatus
 
 
@@ -44,6 +44,9 @@ class GetStatusImpl(GetStatus):
 
         last_logged = await self._data_manager.get_last_user()
         current_user = self._source_initiator.get_user() if authorized else None
+        capabilities = []
+        if self._api_session_port is not None:
+            capabilities.append(Capability.API_SESSIONS)
         return GlobalStatus(
             status=status,
             last_logged=last_logged.username if last_logged else None,
@@ -52,4 +55,5 @@ class GetStatusImpl(GetStatus):
             user=current_user,
             pending_register=last_logged.guest if last_logged else False,
             api_session=self._api_session_port is not None,
+            capabilities=capabilities,
         )

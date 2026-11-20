@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from application.use_cases.get_status import GetStatusImpl
-from domain.status import LoginStatusCode
+from domain.status import Capability, LoginStatusCode
 from domain.user import User
 from infrastructure.api_session.in_memory_api_session_store import (
     InMemoryApiSessionStore,
@@ -96,3 +96,25 @@ class TestGetStatusApiSession:
         assert result.status == LoginStatusCode.LOCKED
         assert result.user is user
         assert result.pending_register is True
+
+
+class TestGetStatusCapabilities:
+    @pytest.mark.asyncio
+    async def test_reports_api_sessions_when_enabled(self):
+        use_case = _build(
+            unlocked=False,
+            user=_make_user(),
+            api_session_port=InMemoryApiSessionStore(),
+        )
+
+        result = await use_case.execute()
+
+        assert result.capabilities == [Capability.API_SESSIONS]
+
+    @pytest.mark.asyncio
+    async def test_reports_no_api_sessions_when_disabled(self):
+        use_case = _build(unlocked=True, user=_make_user())
+
+        result = await use_case.execute()
+
+        assert result.capabilities == []
