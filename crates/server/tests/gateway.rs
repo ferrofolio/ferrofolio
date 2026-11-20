@@ -970,6 +970,64 @@ async fn a_failed_replacement_with_a_session_leaves_rust_without_a_connection() 
 }
 
 #[tokio::test]
+async fn requests_that_replace_the_database_queue_only_up_to_their_slots() {
+    let (url, recorded) = fake_backend().await;
+    recorded.replacement_waits.store(true, Ordering::SeqCst);
+    let data = TempDataDir::new();
+    let (state, app) = unlocked_gateway(&url, &data).await;
+
+    // One import is with Python and three wait for it.
+    let running = start_replacement(&app, &recorded, "/api/v1/cloud/backup/import").await;
+    let waiting: Vec<_> = (0..server::routes::REPLACEMENT_SLOTS - 1)
+        .map(|_| {
+            let app = app.clone();
+            let request = login_request("/api/v1/cloud/backup/import", "{}");
+            tokio::spawn(async move { app.oneshot(request).await })
+        })
+        .collect();
+    wait_until(
+        || state.sessions.waiting_replacements() == server::routes::REPLACEMENT_SLOTS - 1,
+        "the waiting imports never reached the lock",
+    )
+    .await;
+
+    // A further one is refused at once, before its body is read.
+    let request = login_request("/api/v1/cloud/backup/import", "{}");
+    let (status, headers, body) = send(&app, request).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(headers[header::RETRY_AFTER], "5");
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["code"], "SERVER_BUSY");
+
+    // The fake backend holds each import until it is released.
+    let release = async {
+        loop {
+            recorded.release_replacement.notify_one();
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    };
+    let finished = async {
+        assert_eq!(running.await.unwrap().unwrap().status(), StatusCode::OK);
+        for client in waiting {
+            assert_eq!(client.await.unwrap().unwrap().status(), StatusCode::OK);
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::select! {
+            () = finished => {}
+            () = release => {}
+        }
+    })
+    .await
+    .expect("the queued imports did not finish");
+
+    // The slots are free again.
+    recorded.replacement_waits.store(false, Ordering::SeqCst);
+    let request = login_request("/api/v1/cloud/backup/import", "{}");
+    assert_eq!(send(&app, request).await.0, StatusCode::OK);
+}
+
+#[tokio::test]
 async fn a_client_that_goes_away_does_not_reopen_the_database() {
     let (url, recorded) = fake_backend().await;
     recorded.replacement_waits.store(true, Ordering::SeqCst);

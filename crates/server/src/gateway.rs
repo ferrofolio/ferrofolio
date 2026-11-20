@@ -10,6 +10,7 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use axum::body::{Body, Bytes, to_bytes};
@@ -358,6 +359,11 @@ async fn replace_database(
 ) -> Response {
     let (parts, body) = request.into_parts();
     let has_origin = parts.headers.contains_key(ORIGIN);
+    // A slot of its own, taken before the body is read: requests waiting for the
+    // one Python works on hold at most a few shares of the body budget.
+    let Ok(slot) = Arc::clone(&state.replacements).try_acquire_owned() else {
+        return with_cors(ApiError::ReplacementsBusy.into_response(), has_origin);
+    };
     let (body, budget) = match budgeted_body(state, &parts.headers, body).await {
         Ok(read) => read,
         Err(error) => return with_cors(error.into_response(), has_origin),
@@ -367,14 +373,19 @@ async fn replace_database(
     let sessions_enabled = state.sessions.enabled();
     let replacement = tokio::spawn(async move {
         let guard = sessions.close_for_replacement().await;
+        // The share of the body budget goes once the body has been handed on.
+        let body = Body::new(BudgetedBody {
+            data: Some(body),
+            budget: Some(budget),
+        });
         let response = match backend
-            .forward(Request::from_parts(parts, Body::from(body)), client_addr)
+            .forward(Request::from_parts(parts, body), client_addr)
             .await
         {
             Ok(response) => response,
             Err(error) => {
                 sessions.forget_database();
-                drop(budget);
+                drop(slot);
                 return with_cors(error.into_response(), has_origin);
             }
         };
@@ -385,7 +396,7 @@ async fn replace_database(
             sessions.forget_database();
         }
         drop(guard);
-        drop(budget);
+        drop(slot);
         response
     });
     replacement.await.unwrap_or_else(|error| {
