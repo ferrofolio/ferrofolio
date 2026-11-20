@@ -428,7 +428,7 @@ Nearly done; the rest is tracked in [#83](https://github.com/ferrofolio/ferrofol
 |---|---|---|
 | Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5) |
 | Google Sheets redirect | Same | Done (#30) |
-| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Off by default (#31, #32). Deleting the code needs a decision, because it removes `/api/v1` routes; the upstream guard test still lists the cloud UI |
+| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Decided: removed. The web app's cloud UI and the Supabase client are gone, and the upstream guard test's `PENDING` list is empty; the backend's `/api/v1/cloud` routes follow in a separate pull request |
 | `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | Done (#31); a remote source can still be configured with `FEATURE_FLAG_URL`. The public keychain for four scraping connectors is opt-in |
 | `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | Done (#32): the source is configurable and off by default, as are the crypto snapshot and historic metal prices. Where they come from in future is open |
 | Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |

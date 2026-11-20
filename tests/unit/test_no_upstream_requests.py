@@ -26,12 +26,7 @@ UPSTREAM = re.compile(r"(?:https?://|@|\b)(?:[a-z0-9-]+\.)*finanze\.me\b", re.I)
 # Files that still reference finanze.me, each with the change that removes it and
 # the number of lines that may still reference it. Lower the count or remove the
 # entry as references go away; do not add entries or raise a count.
-PENDING = {
-    # Upstream cloud UI; hidden unless the CLOUD feature flag is on. Links and
-    # e-mail addresses only, nothing is requested.
-    "frontend/app/src/components/settings/CloudTab.tsx": ("upstream cloud UI", 3),
-    "frontend/app/src/components/ui/PlusMessage.tsx": ("upstream cloud UI", 1),
-}
+PENDING: dict[str, tuple[str, int]] = {}
 
 
 def _files():

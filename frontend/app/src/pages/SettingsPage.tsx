@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/Label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs"
 import { motion } from "framer-motion"
 import {
-  Cloud,
   Sun,
   Moon,
   SunMoon,
@@ -25,12 +24,8 @@ import {
 } from "lucide-react"
 import { useAppContext, type SettingsKey } from "@/context/AppContext"
 import { useTheme } from "@/context/ThemeContext"
-import { useBackupAlert } from "@/context/BackupAlertContext"
-import { useCloud } from "@/context/CloudContext"
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
-import { CloudRole, FFStatus } from "@/types"
 import { GeneralTab } from "@/components/settings/GeneralTab"
-import { CloudTab } from "@/components/settings/CloudTab"
 import { McpTab } from "@/components/settings/McpTab"
 import { AIModelsCard } from "@/components/ai/AIModelsCard"
 import { AI_SETTINGS_TAB } from "@/components/ai/TaskAIProviders"
@@ -42,33 +37,18 @@ import { DataDisplayMode } from "@/types"
 const APPLICATION_LOCALES: Locale[] = ["en-US", "es-ES", "it-IT", "de-DE"]
 const LEGACY_MCP_TAB = "mcp"
 const GENERAL_TAB_SETTINGS: SettingsKey[] = ["general", "data", "assets"]
-const TAB_GRID_COLS: Record<number, string> = {
-  2: "sm:grid-cols-2",
-  3: "sm:grid-cols-3",
-  4: "sm:grid-cols-4",
-}
-
 export default function SettingsPage() {
   const { t, locale, changeLocale } = useI18n()
   const [searchParams] = useSearchParams()
-  const {
-    fetchSettings,
-    isLoadingSettings,
-    fetchExternalIntegrations,
-    featureFlags,
-  } = useAppContext()
-  const { role } = useCloud()
+  const { fetchSettings, isLoadingSettings, fetchExternalIntegrations } =
+    useAppContext()
   const { theme, setThemeMode } = useTheme()
-  const { alertColor } = useBackupAlert()
   const { mode: dataDisplayMode, setMode: setDataDisplayMode } =
     useDataDisplayMode()
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get("tab") || "general"
     return tab === LEGACY_MCP_TAB ? AI_SETTINGS_TAB : tab
   })
-
-  const isCloudEnabled = featureFlags.CLOUD === FFStatus.ON
-  const tabCount = 3 + Number(isCloudEnabled)
 
   const applicationLanguageOptions = APPLICATION_LOCALES.map(code => ({
     code,
@@ -107,9 +87,7 @@ export default function SettingsPage() {
         className="w-full"
       >
         <div className="flex justify-center w-full">
-          <TabsList
-            className={`grid w-full max-w-[800px] h-auto min-h-[3rem] grid-cols-2 ${TAB_GRID_COLS[tabCount]}`}
-          >
+          <TabsList className="grid w-full max-w-[800px] h-auto min-h-[3rem] grid-cols-2 sm:grid-cols-3">
             <TabsTrigger
               value="general"
               className="text-xs sm:text-sm px-1 sm:px-2 py-2 whitespace-normal text-center leading-tight min-h-[2.5rem] flex items-center justify-center gap-1"
@@ -117,35 +95,6 @@ export default function SettingsPage() {
               <Settings2 className="h-4 w-4 shrink-0" />
               {t.settings.general}
             </TabsTrigger>
-            {isCloudEnabled && (
-              <TabsTrigger
-                value="cloud"
-                className="text-xs sm:text-sm px-1 sm:px-2 py-2 whitespace-normal text-center leading-tight min-h-[2.5rem] flex items-center justify-center gap-1"
-              >
-                <Cloud
-                  className={cn(
-                    "h-4 w-4",
-                    role === CloudRole.PLUS
-                      ? "text-amber-400"
-                      : role === CloudRole.BASIC
-                        ? "text-foreground"
-                        : undefined,
-                  )}
-                />
-                {t.settings.cloud.tabTitle}
-                {alertColor && (
-                  <span
-                    className={`ml-1 inline-block h-1.5 w-1.5 rounded-full ${
-                      alertColor === "dark-red"
-                        ? "bg-red-700"
-                        : alertColor === "red"
-                          ? "bg-red-500"
-                          : "bg-amber-500"
-                    }`}
-                  />
-                )}
-              </TabsTrigger>
-            )}
             <TabsTrigger
               value="application"
               className="text-xs sm:text-sm px-1 sm:px-2 py-2 whitespace-normal text-center leading-tight min-h-[2.5rem] flex items-center justify-center gap-1"
@@ -329,12 +278,6 @@ export default function SettingsPage() {
             </div>
           </motion.div>
         </TabsContent>
-
-        {isCloudEnabled && (
-          <TabsContent value="cloud" className="space-y-4 mt-4">
-            <CloudTab />
-          </TabsContent>
-        )}
 
         <TabsContent value={AI_SETTINGS_TAB} className="space-y-4 mt-4">
           <AIModelsCard />

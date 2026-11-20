@@ -9,7 +9,6 @@ import {
 } from "@/context/EntityWorkflowContext"
 import {
   type Entity,
-  BackupMode,
   AutoRefreshMode,
   AutoRefreshMaxOutdatedTime,
 } from "@/types"
@@ -27,21 +26,11 @@ export const mockUpdateEntityAccount = vi.fn()
 export const mockFetchEntities = vi.fn().mockResolvedValue(undefined)
 
 let currentEntities: Entity[] = []
-let currentBackupMode = BackupMode.OFF
 let currentAutoRefreshSettings = buildAutoRefreshSettings()
 let currentEntitiesLoaded = true
-let currentCloudInitialized = true
 
 export function setEntities(entities: Entity[]) {
   currentEntities = entities
-}
-
-export function setBackupMode(mode: BackupMode) {
-  currentBackupMode = mode
-}
-
-export function setCloudInitialized(initialized: boolean) {
-  currentCloudInitialized = initialized
 }
 
 export function setAutoRefreshSettings(
@@ -90,14 +79,6 @@ vi.mock("@/context/AppContext", () => ({
     entitiesLoaded: currentEntitiesLoaded,
     featureFlags: {},
     isLoading: false,
-  }),
-}))
-
-vi.mock("@/context/CloudContext", () => ({
-  useCloud: () => ({
-    backupMode: currentBackupMode,
-    permissions: [],
-    isInitialized: currentCloudInitialized,
   }),
 }))
 
@@ -200,7 +181,6 @@ export function getContext() {
 
 export function resetAllMocks() {
   currentEntities = []
-  currentBackupMode = BackupMode.OFF
   currentAutoRefreshSettings = buildAutoRefreshSettings()
   currentSettings = {
     general: { defaultCurrency: "EUR", defaultCommodityWeightUnit: "oz" },
@@ -208,7 +188,6 @@ export function resetAllMocks() {
     data: { autoRefresh: currentAutoRefreshSettings },
   }
   currentEntitiesLoaded = true
-  currentCloudInitialized = true
   capturedContext = null
   lastRenderResult = null
 

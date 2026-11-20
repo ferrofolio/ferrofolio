@@ -7,8 +7,6 @@ import { AppProvider } from "@/context/AppContext"
 import { I18nProvider } from "@/i18n"
 import { ThemeProvider } from "@/context/ThemeContext"
 import { AuthProvider } from "@/context/AuthContext"
-import { CloudProvider } from "@/context/CloudContext"
-import { BackupAlertProvider } from "@/context/BackupAlertContext"
 import { ModalRegistryProvider } from "@/context/ModalRegistryContext"
 import { DataDisplayModeProvider } from "@/context/DataDisplayModeContext"
 import { initE2eMockExternalLogin } from "@/lib/dev/initE2eMockExternalLogin"
@@ -31,11 +29,7 @@ async function bootstrap(): Promise<void> {
               <ModalRegistryProvider>
                 <AuthProvider>
                   <AppProvider>
-                    <CloudProvider>
-                      <BackupAlertProvider>
-                        <App />
-                      </BackupAlertProvider>
-                    </CloudProvider>
+                    <App />
                   </AppProvider>
                 </AuthProvider>
               </ModalRegistryProvider>

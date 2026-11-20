@@ -14,10 +14,6 @@ vi.mock("@/services/api", () => ({
   changePassword: vi.fn(),
 }))
 
-vi.mock("@/hooks/useBackupStatus", () => ({
-  resetBackupStatusCache: vi.fn(),
-}))
-
 let observed = { hasConnectionFailed: false, isInitializing: true }
 
 function Probe() {

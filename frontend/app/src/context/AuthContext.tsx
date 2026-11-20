@@ -15,7 +15,6 @@ import {
 import { AuthResultCode, type User } from "@/types"
 import { getFeatureFlags, setFeatureFlags } from "@/context/featureFlagsStore"
 import { isDeviceInRestrictedRegion } from "@/lib/regionRestriction"
-import { resetBackupStatusCache } from "@/hooks/useBackupStatus"
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -38,7 +37,6 @@ interface AuthContextType {
     password: string,
     remember?: boolean,
   ) => Promise<boolean>
-  guestSignup: (username: string) => Promise<boolean>
   logout: () => Promise<void>
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>
   setIsChangingPassword: (isChanging: boolean) => void
@@ -168,32 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const guestSignup = async (username: string): Promise<boolean> => {
-    setIsLoading(true)
-    try {
-      if (await isRegionBlocked()) return false
-      const { success } = await apiSignup({ username, guest: true })
-      if (success) {
-        try {
-          await syncStatus()
-        } catch {
-          setLastLoggedUser(username)
-        }
-      }
-      return success
-    } catch (error) {
-      console.error("Guest signup error:", error)
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const logout = async (): Promise<void> => {
     setIsLoading(true)
     try {
       await apiLogout()
-      resetBackupStatusCache()
       setIsAuthenticated(false)
       setUser(null)
       // Always preserve lastLoggedUser - it should only be cleared when a new user logs in
@@ -271,7 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pendingPasswordChangeUser,
         login,
         signup,
-        guestSignup,
         logout,
         changePassword,
         setIsChangingPassword,

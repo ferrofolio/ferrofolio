@@ -36,7 +36,6 @@ import { GlobalEntityModals } from "./components/GlobalEntityModals"
 import { useReleaseUpdate } from "./hooks/useReleaseUpdate"
 import { EntityWorkflowProvider } from "./context/EntityWorkflowContext"
 import { FileImportJobProvider } from "./context/FileImportJobContext"
-import { BackupAlertSync } from "./components/BackupAlertSync"
 import { useState, useEffect, useRef } from "react"
 
 function LegacyLabelsRedirect() {
@@ -124,7 +123,6 @@ function App() {
           <PinnedShortcutsProvider>
             <BottomNavProvider>
               <FileImportJobProvider>
-                <BackupAlertSync />
                 <Layout>
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />

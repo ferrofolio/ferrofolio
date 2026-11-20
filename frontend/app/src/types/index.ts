@@ -205,92 +205,6 @@ export type FFValue = FFStatus | string
 
 export type FeatureFlags = Record<string, FFValue>
 
-export enum CloudRole {
-  BASIC = "BASIC",
-  PLUS = "PLUS",
-}
-
-export interface CloudAuthToken {
-  access_token: string
-  refresh_token: string
-  token_type: string
-  expires_at: number
-}
-
-export interface CloudAuthData {
-  role: CloudRole
-  permissions: string[]
-  email: string
-  token: CloudAuthToken
-}
-
-export interface CloudAuthRequest {
-  token: CloudAuthToken | null
-}
-
-export interface CloudAuthResponse {
-  role: CloudRole
-  permissions: string[]
-}
-
-export enum BackupFileType {
-  DATA = "DATA",
-}
-
-export enum BackupMode {
-  OFF = "OFF",
-  AUTO = "AUTO",
-  MANUAL = "MANUAL",
-}
-
-export enum SyncStatus {
-  SYNC = "SYNC",
-  PENDING = "PENDING",
-  CONFLICT = "CONFLICT",
-  OUTDATED = "OUTDATED",
-  MISSING = "MISSING",
-}
-
-export interface BackupInfo {
-  id: string
-  protocol: number
-  date: string
-  type: BackupFileType
-  size: number
-}
-
-export interface FullBackupInfo {
-  local: BackupInfo | null
-  remote: BackupInfo | null
-  status: SyncStatus
-  has_local_changes: boolean
-  last_update: string
-}
-
-export interface FullBackupsInfo {
-  pieces: Record<BackupFileType, FullBackupInfo>
-}
-
-export interface BackupSyncResult {
-  pieces: Record<BackupFileType, FullBackupInfo>
-}
-
-export interface UploadBackupRequest {
-  types: BackupFileType[]
-  force?: boolean
-}
-
-export interface ImportBackupRequest {
-  types: BackupFileType[]
-  password?: string
-  force?: boolean
-  initialize?: boolean
-}
-
-export interface BackupSettings {
-  mode: BackupMode
-}
-
 export interface StatusResponse {
   status: "LOCKED" | "UNLOCKED"
   lastLogged?: string | null
@@ -1491,7 +1405,4 @@ export interface SavingsScenarioResult {
 
 export interface SavingsCalculationResult {
   scenarios: SavingsScenarioResult[]
-}
-export interface GetBackupsInfoRequest {
-  only_local?: boolean
 }

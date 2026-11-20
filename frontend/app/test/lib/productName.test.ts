@@ -8,9 +8,6 @@ import en from "@/i18n/locales/en.json"
 import es from "@/i18n/locales/es.json"
 import it_ from "@/i18n/locales/it.json"
 
-// Strings about the upstream cloud account still name the upstream service.
-const UPSTREAM_SERVICE_KEYS = new Set(["deleteAccountEmailBody"])
-
 function namedStrings(value: unknown, key = ""): [string, string][] {
   if (typeof value === "string") return [[key, value]]
   if (value && typeof value === "object") {
@@ -26,9 +23,8 @@ describe("product name", () => {
     ["es", es],
     ["it", it_],
   ])("is Ferrofolio in the %s locale", (_, locale) => {
-    const offending = namedStrings(locale).filter(
-      ([key, text]) =>
-        !UPSTREAM_SERVICE_KEYS.has(key) && /\bFinanze\b/.test(text),
+    const offending = namedStrings(locale).filter(([, text]) =>
+      /\bFinanze\b/.test(text),
     )
     expect(offending).toEqual([])
     expect(locale.login.title).toContain("Ferrofolio")
