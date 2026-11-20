@@ -23,7 +23,8 @@ class Capability(str, Enum):
     only ever added, never renamed or removed.
     """
 
-    # Login and signup return a bearer token that every request must carry.
+    # Login and non-guest signup return a bearer token, which every request
+    # outside the public paths must carry once the data is unlocked.
     API_SESSIONS = "apiSessions"
 
 
