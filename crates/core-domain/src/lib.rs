@@ -9,6 +9,7 @@ pub mod calculations;
 pub mod dates;
 pub mod datetime;
 pub mod dezimal;
+pub mod earnings_expenses;
 pub mod exception;
 pub mod global_position;
 pub mod labeling;

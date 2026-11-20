@@ -182,29 +182,9 @@ fn date(group: &Map<String, Value>, key: &str) -> Read<Option<Date>> {
         Some(Value::String(text)) => text,
         Some(_) => return unreadable(key),
     };
-    let bytes = text.as_bytes();
-    let shape = bytes.len() == 10
-        && bytes.get(4) == Some(&b'-')
-        && bytes.get(7) == Some(&b'-')
-        && bytes
-            .iter()
-            .enumerate()
-            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit());
-    if !shape {
-        return unreadable(key);
-    }
-    let number = |range: std::ops::Range<usize>| -> Option<i16> { text.get(range)?.parse().ok() };
-    let (Some(year), Some(month), Some(day)) = (number(0..4), number(5..7), number(8..10)) else {
-        return unreadable(key);
-    };
-    if year < 1 {
-        return unreadable(key);
-    }
-    let month = i8::try_from(month).or_else(|_| unreadable(key))?;
-    let day = i8::try_from(day).or_else(|_| unreadable(key))?;
-    Date::new(year, month, day)
+    crate::read::iso_date(text)
         .map(Some)
-        .or_else(|_| unreadable(key))
+        .ok_or_else(|| key.to_owned())
 }
 
 /// The text condition, `None` when `text` is absent, `null` or `{}`.

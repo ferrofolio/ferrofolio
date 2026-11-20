@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 use core_domain::dates::Date;
+use core_domain::earnings_expenses::PeriodicFlow;
 use core_domain::exception::CalculationError;
 use core_domain::labeling::{Label, LabelingRule};
 use core_domain::loan_calculator::{LoanCalculationParams, LoanCalculationResult};
@@ -104,4 +105,11 @@ impl From<PortError> for ReadError {
 pub trait LabelingRulePort: Debug {
     /// `get_all(enabled_only=False)`: every rule, by creation and id.
     fn get_all(&self) -> Result<Vec<LabelingRule>, ReadError>;
+}
+
+/// `PeriodicFlowPort`: the recurring earnings and expenses, the reading half.
+pub trait PeriodicFlowPort: Debug {
+    /// `get_all`: every flow in the order the database returns them, each with
+    /// its real estate link and without a next date.
+    fn get_all(&self) -> Result<Vec<PeriodicFlow>, ReadError>;
 }
