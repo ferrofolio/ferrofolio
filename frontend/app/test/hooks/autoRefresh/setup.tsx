@@ -1,4 +1,4 @@
-import { type ReactNode } from "react"
+import { type ReactElement, type ReactNode } from "react"
 import { vi } from "vitest"
 import { render } from "@testing-library/react"
 import { I18nProvider } from "@/i18n"
@@ -149,29 +149,27 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 let lastRenderResult: ReturnType<typeof render> | null = null
+let lastView: ReactElement | null = null
 
 export function renderDropdown() {
-  const result = render(<EntityRefreshDropdown />, { wrapper: Wrapper })
+  lastView = <EntityRefreshDropdown />
+  const result = render(lastView, { wrapper: Wrapper })
   lastRenderResult = result
   return result
 }
 
 export function renderContextOnly() {
-  const result = render(<div data-testid="context-host" />, {
-    wrapper: Wrapper,
-  })
+  lastView = <div data-testid="context-host" />
+  const result = render(lastView, { wrapper: Wrapper })
   lastRenderResult = result
   return result
 }
 
+// Rerenders the same view; rerender applies the wrapper again, so the providers
+// stay mounted
 export function rerenderView() {
-  if (!lastRenderResult) throw new Error("Nothing rendered yet")
-  lastRenderResult.rerender(
-    <Wrapper>
-      <div data-testid="context-host" />
-      <ContextCapture />
-    </Wrapper>,
-  )
+  if (!lastRenderResult || !lastView) throw new Error("Nothing rendered yet")
+  lastRenderResult.rerender(lastView)
 }
 
 export function getContext() {
@@ -190,6 +188,7 @@ export function resetAllMocks() {
   currentEntitiesLoaded = true
   capturedContext = null
   lastRenderResult = null
+  lastView = null
 
   mockScrape.mockClear()
   mockShowToast.mockClear()

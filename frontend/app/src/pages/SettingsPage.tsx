@@ -36,6 +36,7 @@ import { DataDisplayMode } from "@/types"
 
 const APPLICATION_LOCALES: Locale[] = ["en-US", "es-ES", "it-IT", "de-DE"]
 const LEGACY_MCP_TAB = "mcp"
+const SETTINGS_TABS: string[] = ["general", "application", AI_SETTINGS_TAB]
 const GENERAL_TAB_SETTINGS: SettingsKey[] = ["general", "data", "assets"]
 export default function SettingsPage() {
   const { t, locale, changeLocale } = useI18n()
@@ -46,8 +47,10 @@ export default function SettingsPage() {
   const { mode: dataDisplayMode, setMode: setDataDisplayMode } =
     useDataDisplayMode()
   const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams.get("tab") || "general"
-    return tab === LEGACY_MCP_TAB ? AI_SETTINGS_TAB : tab
+    const tab = searchParams.get("tab")
+    if (tab === LEGACY_MCP_TAB) return AI_SETTINGS_TAB
+    // An unknown tab, such as the removed "cloud", would select no panel
+    return tab && SETTINGS_TABS.includes(tab) ? tab : "general"
   })
 
   const applicationLanguageOptions = APPLICATION_LOCALES.map(code => ({
