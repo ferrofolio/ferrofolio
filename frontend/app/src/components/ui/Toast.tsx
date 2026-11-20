@@ -10,6 +10,7 @@ interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
   isAnimating?: boolean
   bottomOffsetClassName?: string
   action?: React.ReactNode
+  closeLabel?: string
 }
 
 const variantConfig = {
@@ -45,6 +46,7 @@ const Toast = React.forwardRef<HTMLDivElement, ToastProps>(
       isAnimating,
       bottomOffsetClassName,
       action,
+      closeLabel,
       ...props
     },
     ref,
@@ -69,7 +71,9 @@ const Toast = React.forwardRef<HTMLDivElement, ToastProps>(
         {action}
         {onClose && (
           <button
+            type="button"
             onClick={onClose}
+            aria-label={closeLabel}
             className="ml-1 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <X className="h-3.5 w-3.5" />

@@ -58,13 +58,17 @@ function shellKey(request) {
   return SHELL_PATHS.has(url.pathname) ? url.pathname : null
 }
 
+// The cache is best-effort: when it cannot be read or written (for example when the storage quota
+// is exhausted), the network response is used as if there were no service worker.
 async function fromShell(key, request) {
-  const cache = await caches.open(CACHE_NAME)
-  const cached = await cache.match(key)
+  const cache = await caches.open(CACHE_NAME).catch(() => null)
+  const cached = cache
+    ? await cache.match(key).catch(() => undefined)
+    : undefined
   if (cached) return cached
   const response = await fetch(request)
-  if (response.ok && response.type === "basic") {
-    await cache.put(key, response.clone())
+  if (cache && response.ok && response.type === "basic") {
+    await cache.put(key, response.clone()).catch(() => undefined)
   }
   return response
 }

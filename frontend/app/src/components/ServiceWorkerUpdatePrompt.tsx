@@ -22,6 +22,7 @@ export function ServiceWorkerUpdatePrompt() {
       role="status"
       className="bottom-auto top-[max(1rem,env(safe-area-inset-top))]"
       onClose={() => setDismissed(true)}
+      closeLabel={t.common.close}
       action={
         <button
           type="button"

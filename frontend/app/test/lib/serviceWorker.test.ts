@@ -87,6 +87,7 @@ describe("registerServiceWorker", () => {
   it("activates the update and reloads only when the user asks", async () => {
     const { container, reload } = setup(true)
     const waiting = new FakeWorker()
+    waiting.state = "installed"
     container.registration.waiting = waiting
     await registerServiceWorker(container as any, reload)
 
@@ -97,6 +98,23 @@ describe("registerServiceWorker", () => {
     expect(waiting.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" })
     container.dispatchEvent(new Event("controllerchange"))
     container.dispatchEvent(new Event("controllerchange"))
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it("reloads at once when another tab has already activated the update", async () => {
+    const { container, reload } = setup(true)
+    const waiting = new FakeWorker()
+    waiting.state = "installed"
+    container.registration.waiting = waiting
+    await registerServiceWorker(container as any, reload)
+
+    // Another tab accepted the update: the worker activates and takes over this page too.
+    waiting.state = "activated"
+    container.dispatchEvent(new Event("controllerchange"))
+    expect(reload).not.toHaveBeenCalled()
+
+    applyServiceWorkerUpdate()
+    expect(waiting.postMessage).not.toHaveBeenCalled()
     expect(reload).toHaveBeenCalledOnce()
   })
 
