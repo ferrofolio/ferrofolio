@@ -122,12 +122,38 @@ mod tests {
     use core_domain::Dezimal;
     use core_domain::dates::Date;
     use rusqlite::Connection;
+    use rusqlite::types::Value;
 
     use super::*;
 
     const ID: &str = "550e8400-e29b-41d4-a716-446655440000";
 
-    fn database(rows: &[String]) -> Database {
+    /// The columns of one row: id, name, amount, currency, flow_type, category,
+    /// status, status_changed_at, date, icon.
+    type Row = [Value; 10];
+
+    fn text(value: &str) -> Value {
+        Value::Text(value.to_owned())
+    }
+
+    /// A row with the given columns, the others as the writer stores them for an
+    /// active expense without a category, a date or an icon.
+    fn row(status: Value, changed: Value, date: Value) -> Row {
+        [
+            text(ID),
+            text("n"),
+            text("1"),
+            text("EUR"),
+            text("EXPENSE"),
+            Value::Null,
+            status,
+            changed,
+            date,
+            Value::Null,
+        ]
+    }
+
+    fn database(rows: &[Row]) -> Database {
         let connection = Connection::open_in_memory().unwrap();
         connection
             .execute_batch(
@@ -139,10 +165,11 @@ mod tests {
             .unwrap();
         for values in rows {
             connection
-                .execute_batch(&format!(
+                .execute(
                     "INSERT INTO pending_flows (id, name, amount, currency, flow_type, category,
-                     status, status_changed_at, date, icon) VALUES ({values});"
-                ))
+                     status, status_changed_at, date, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    rusqlite::params_from_iter(values.iter()),
+                )
                 .unwrap();
         }
         Database { connection }
@@ -155,12 +182,30 @@ mod tests {
     #[test]
     fn reads_what_the_writer_stores() {
         let database = database(&[
-            format!(
-                "'{}', 'Bonus', '1500.50', 'EUR', 'EARNING', 'work', 'COMPLETED',
-                 '2026-11-20T14:36:09.123456+01:00', '2026-12-01', 'gift'",
-                ID.to_uppercase()
-            ),
-            format!("'{ID}', 'Tax', '1', 'EUR', 'EXPENSE', NULL, 'ACTIVE', NULL, NULL, NULL"),
+            [
+                text(&ID.to_uppercase()),
+                text("Bonus"),
+                text("1500.50"),
+                text("EUR"),
+                text("EARNING"),
+                text("work"),
+                text("COMPLETED"),
+                text("2026-11-20T14:36:09.123456+01:00"),
+                text("2026-12-01"),
+                text("gift"),
+            ],
+            [
+                text(ID),
+                text("Tax"),
+                text("1"),
+                text("EUR"),
+                text("EXPENSE"),
+                Value::Null,
+                text("ACTIVE"),
+                Value::Null,
+                Value::Null,
+                Value::Null,
+            ],
         ]);
         let flows = read(&database).unwrap();
         let flow = &flows[0];
@@ -181,28 +226,34 @@ mod tests {
 
     #[test]
     fn leaves_other_forms_to_python() {
-        let row = |status: &str, changed: &str, date: &str| {
-            format!("'{ID}', 'n', '1', 'EUR', 'EXPENSE', NULL, {status}, {changed}, {date}, NULL")
+        let active = || text("ACTIVE");
+        let changed = |value: &str| row(active(), text(value), Value::Null);
+        let with_column = |index: usize, value: Value| {
+            let mut stored = row(active(), Value::Null, Value::Null);
+            if let Some(column) = stored.get_mut(index) {
+                *column = value;
+            }
+            stored
         };
         for values in [
-            row("'active'", "NULL", "NULL"),
-            row("'ACTIVE'", "'2026-11-20 13:36:09+00:00'", "NULL"),
-            row("'ACTIVE'", "'2026-11-20T13:36:09Z'", "NULL"),
-            row("'ACTIVE'", "'2026-11-20T13:36:09.000000'", "NULL"),
-            row("'ACTIVE'", "'2026-11-20T13:36:09-00:00'", "NULL"),
-            row("'ACTIVE'", "'2026-11-20T13:36:09+01:00:30'", "NULL"),
-            row("'ACTIVE'", "'1700000000'", "NULL"),
-            row("'ACTIVE'", "1700000000", "NULL"),
-            row("'ACTIVE'", "''", "NULL"),
-            row("'ACTIVE'", "NULL", "'20261201'"),
-            row("'ACTIVE'", "NULL", "''"),
-            format!("'{ID}', 'n', 'NaN', 'EUR', 'EXPENSE', NULL, 'ACTIVE', NULL, NULL, NULL"),
-            "'x', 'n', '1', 'EUR', 'EXPENSE', NULL, 'ACTIVE', NULL, NULL, NULL".to_owned(),
+            row(text("active"), Value::Null, Value::Null),
+            changed("2026-11-20 13:36:09+00:00"),
+            changed("2026-11-20T13:36:09Z"),
+            changed("2026-11-20T13:36:09.000000"),
+            changed("2026-11-20T13:36:09-00:00"),
+            changed("2026-11-20T13:36:09+01:00:30"),
+            changed("1700000000"),
+            row(active(), Value::Integer(1_700_000_000), Value::Null),
+            changed(""),
+            row(active(), Value::Null, text("20261201")),
+            row(active(), Value::Null, text("")),
+            with_column(2, text("NaN")),
+            with_column(0, text("x")),
         ] {
             let database = database(std::slice::from_ref(&values));
             assert!(
                 matches!(read(&database), Err(ReadError::Unreadable(_))),
-                "{values}"
+                "{values:?}"
             );
         }
     }

@@ -469,6 +469,9 @@ pub fn py_int(text: &str) -> PyInt {
     let mut out_of_range = false;
     let mut previous_digit = false;
     let mut any = false;
+    // CPython refuses more than 4300 digits, leading zeros included; Rust leaves
+    // such a text to Python as one out of range.
+    let mut count: usize = 0;
     for character in digits.chars() {
         if character == '_' {
             if !previous_digit {
@@ -482,6 +485,8 @@ pub fn py_int(text: &str) -> PyInt {
         };
         previous_digit = true;
         any = true;
+        count += 1;
+        out_of_range |= count > 4300;
         if !out_of_range {
             value = value * 10 + i128::from(digit);
             out_of_range = value > i128::from(i64::MAX) + 1;
@@ -521,6 +526,8 @@ mod tests {
         assert_eq!(py_int("-9223372036854775808"), PyInt::Value(i64::MIN));
         assert_eq!(py_int("9223372036854775808"), PyInt::OutOfRange);
         assert_eq!(py_int(&"9".repeat(5000)), PyInt::OutOfRange);
+        assert_eq!(py_int(&"0".repeat(4300)), PyInt::Value(0));
+        assert_eq!(py_int(&"0".repeat(4301)), PyInt::OutOfRange);
         for text in [
             "",
             " ",

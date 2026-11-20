@@ -2,6 +2,8 @@
 
 //! Port of `finanze/application/use_cases/query_pending_flows.py`.
 
+use std::collections::HashMap;
+
 use core_domain::Dezimal;
 use core_domain::earnings_expenses::{
     CategoryStat, FlowSortField, FlowStatus, FlowType, FlowTypeStat, PendingFlow, PendingFlowPage,
@@ -188,19 +190,18 @@ fn flow_type_stat(
         .filter(|flow| flow.flow_type == flow_type)
         .collect();
     let mut totals = Vec::new();
+    // The groups in the order their categories first appear, and where each is.
     let mut by_category: Vec<(String, Vec<(String, Dezimal)>)> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
     let mut individual = Vec::new();
     for flow in &typed {
         add_to(&mut totals, &flow.currency, flow.amount)?;
         match flow.category.as_deref() {
             Some(category) if !per_entry && !category.is_empty() => {
-                let index = match by_category.iter().position(|(known, _)| known == category) {
-                    Some(index) => index,
-                    None => {
-                        by_category.push((category.to_owned(), Vec::new()));
-                        by_category.len() - 1
-                    }
-                };
+                let index = *positions.entry(category.to_owned()).or_insert_with(|| {
+                    by_category.push((category.to_owned(), Vec::new()));
+                    by_category.len() - 1
+                });
                 if let Some((_, amounts)) = by_category.get_mut(index) {
                     add_to(amounts, &flow.currency, flow.amount)?;
                 }
