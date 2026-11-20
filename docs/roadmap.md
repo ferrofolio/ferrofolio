@@ -559,6 +559,8 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 
 ### 7.3 CI gates
 
+The table is the target set of gates; what runs in the server repository today is described below it.
+
 | Gate | Server repository | iOS repository |
 |---|---|---|
 | Formatting, lint | `cargo fmt --check`, `cargo clippy -D warnings`; `ruff` for remaining Python, `eslint` and `prettier` for the frontend | swift-format, SwiftLint |
