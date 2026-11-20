@@ -773,6 +773,93 @@ async fn without_sessions_a_login_of_another_user_does_not_unlock_the_database()
     drop(app);
 }
 
+/// Whether the session with `token` reads Rust's database.
+fn session_reads(state: &AppState, token: &str) -> bool {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::AUTHORIZATION,
+        format!("Bearer {token}").parse().unwrap(),
+    );
+    state
+        .sessions
+        .with_database_of(&headers, |database| database.applied_migrations().is_ok())
+        .unwrap_or(false)
+}
+
+/// The token of the session a login request starts.
+async fn session_of(app: &Router, body: &str) -> String {
+    let (status, _, body) = send(app, login_request("/api/v1/login", body)).await;
+    assert_eq!(status, StatusCode::OK);
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    body["token"].as_str().unwrap().to_owned()
+}
+
+#[tokio::test]
+async fn a_session_reads_only_the_database_of_its_own_user() {
+    let (url, _) = fake_backend().await;
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+
+    let first = session_of(&app, &fixture_login(FIXTURE_PASSWORD)).await;
+    assert!(session_reads(&state, &first));
+
+    // Python accepts a login whose database Rust cannot open: its session is
+    // valid, but it never reads the database of the user before.
+    let missing = json!({"username": "no-profile", "password": FIXTURE_PASSWORD}).to_string();
+    let second = session_of(&app, &missing).await;
+    assert!(state.sessions.is_valid(&{
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {second}").parse().unwrap(),
+        );
+        headers
+    }));
+    assert!(!session_reads(&state, &second));
+    assert!(session_reads(&state, &first));
+
+    // A login of the first user that reaches its session only after another
+    // user's login has unlocked that user's database reads nothing either.
+    let late = state.sessions.login_attempt();
+    let other = session_of(&app, &other_login()).await;
+    assert!(session_reads(&state, &other));
+    assert!(
+        !session_reads(&state, &first),
+        "ended by the other user's unlock"
+    );
+    let late = state
+        .sessions
+        .start(late, false, "late-backend-token", Some(FIXTURE_USER))
+        .unwrap();
+    assert!(!session_reads(&state, &late));
+    assert!(session_reads(&state, &other));
+}
+
+#[tokio::test]
+async fn a_read_rust_cannot_serve_goes_to_python_without_waiting_for_a_permit() {
+    let (url, _) = fake_backend().await;
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    state.calculation_wait = Duration::from_millis(50);
+    let app = router(state.clone());
+    let token = session_of(&app, &fixture_login(FIXTURE_PASSWORD)).await;
+
+    // Every permit is taken and Rust holds no database: the request goes to
+    // Python at once instead of being refused as busy.
+    let cores = state.calculations.available_permits();
+    let _taken = Arc::clone(&state.calculations)
+        .acquire_many_owned(u32::try_from(cores).unwrap())
+        .await
+        .unwrap();
+    state.sessions.forget_database();
+    let (status, headers, _) = send(&app, get("/api/v1/settings", Some(&token))).await;
+    assert_eq!(status, StatusCode::IM_A_TEAPOT);
+    assert_eq!(headers["x-answered-by"], "backend");
+}
+
 #[tokio::test]
 async fn a_login_another_login_overtook_does_not_unlock_the_database() {
     let (url, recorded) = fake_backend().await;
