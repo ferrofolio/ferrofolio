@@ -9,6 +9,7 @@
 
 pub mod labeling;
 pub mod labeling_rules;
+pub mod pending_flows;
 pub mod periodic_flows;
 mod read;
 pub mod settings;

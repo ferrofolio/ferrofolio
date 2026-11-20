@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 use core_domain::dates::Date;
-use core_domain::earnings_expenses::PeriodicFlow;
+use core_domain::earnings_expenses::{PendingFlow, PeriodicFlow};
 use core_domain::exception::CalculationError;
 use core_domain::labeling::{Label, LabelingRule};
 use core_domain::loan_calculator::{LoanCalculationParams, LoanCalculationResult};
@@ -112,4 +112,10 @@ pub trait PeriodicFlowPort: Debug {
     /// `get_all`: every flow in the order the database returns them, each with
     /// its real estate link and without a next date.
     fn get_all(&self) -> Result<Vec<PeriodicFlow>, ReadError>;
+}
+
+/// `PendingFlowPort`: the single expected earnings and expenses, the reading half.
+pub trait PendingFlowPort: Debug {
+    /// `get_all`: every flow in the order the database returns them.
+    fn get_all(&self) -> Result<Vec<PendingFlow>, ReadError>;
 }

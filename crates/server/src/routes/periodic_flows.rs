@@ -52,7 +52,7 @@ fn prepare(
 }
 
 /// `date.isoformat()`.
-fn iso_date(date: Option<Date>) -> Value {
+pub(crate) fn iso_date(date: Option<Date>) -> Value {
     date.map_or(Value::Null, |date| {
         Value::String(format!(
             "{:04}-{:02}-{:02}",

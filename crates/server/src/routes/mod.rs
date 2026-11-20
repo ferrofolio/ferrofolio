@@ -12,6 +12,7 @@ pub mod calculations;
 pub mod database;
 pub mod labeling_rules;
 pub mod labels;
+pub mod pending_flows;
 pub mod periodic_flows;
 pub mod settings;
 

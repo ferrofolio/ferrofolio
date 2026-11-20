@@ -24,7 +24,9 @@ use tower::ServiceExt;
 
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
-use crate::routes::{self, calculations, labeling_rules, labels, periodic_flows, settings};
+use crate::routes::{
+    self, calculations, labeling_rules, labels, pending_flows, periodic_flows, settings,
+};
 use crate::sessions::Sessions;
 use crate::user_data::DataDir;
 
@@ -91,6 +93,17 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
         mount: |filter| {
             any(forward)
                 .on(filter, periodic_flows::get_periodic_flows)
+                .on(MethodFilter::HEAD, forward)
+        },
+    },
+    PortedRoute {
+        method: Method::GET,
+        path: pending_flows::PATH,
+        // `POST` and `PUT` on the same path, and `HEAD`, go to the backend, as do
+        // `/settle` and the paths of single flows.
+        mount: |filter| {
+            any(forward)
+                .on(filter, pending_flows::get_pending_flows)
                 .on(MethodFilter::HEAD, forward)
         },
     },
