@@ -346,7 +346,14 @@ impl Sessions {
 
     /// Whether Rust holds the database these credentials open: a login has
     /// unlocked it with them since the last logout.
+    ///
+    /// While a request that replaces the database is pending it reports `false`,
+    /// so that the login waits in `open_and_unlock` and opens the database again,
+    /// and no handle cloned here outlives `close_for_replacement`.
     pub fn holds_database_of(&self, credentials: &Credentials) -> bool {
+        let Ok(_reading) = self.replacement.try_read() else {
+            return false;
+        };
         let Some(database) = self.lock().database.clone() else {
             return false;
         };
