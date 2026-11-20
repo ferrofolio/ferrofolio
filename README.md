@@ -4,6 +4,17 @@
 <p align="center"><b>All your money in one place, on your own terms.</b></p>
 
 <p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue?logo=gnu&logoColor=white" alt="License"></a>
+  <img src="https://img.shields.io/badge/status-not%20production%20ready-orange" alt="Project status">
+  <a href="https://github.com/ferrofolio/ferrofolio/commits/develop"><img src="https://img.shields.io/github/last-commit/ferrofolio/ferrofolio/develop" alt="Last commit on develop"></a>
+  <a href="https://github.com/ferrofolio/ferrofolio/issues"><img src="https://img.shields.io/github/issues/ferrofolio/ferrofolio" alt="Open issues"></a>
+  <a href="https://github.com/ferrofolio/ferrofolio/pulls"><img src="https://img.shields.io/github/issues-pr/ferrofolio/ferrofolio" alt="Open pull requests"></a>
+  <br>
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fferrofolio%2Fferrofolio%2Fdevelop%2Frust-toolchain.toml&query=%24.toolchain.channel&label=Rust&color=CE422B&logo=rust&logoColor=white" alt="Rust version">
+  <img src="https://img.shields.io/github/package-json/dependency-version/ferrofolio/ferrofolio/dev/react/develop?filename=frontend%2Fapp%2Fpackage.json&label=React&color=61DAFB&logo=react&logoColor=black" alt="React version">
+</p>
+
+<p align="center">
 See your bank accounts, investments, crypto and property side by side, find out where your money goes and plan
 ahead. Ferrofolio runs on your own computer or home server and keeps your data there, encrypted.
 </p>
