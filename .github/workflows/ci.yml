@@ -83,6 +83,9 @@ jobs:
           # the list of ported routes, which a Python test checks against the backend.
           parity_fixtures='^(crates/server/tests/fixtures/|crates/core-domain/tests/fixtures/|crates/core-domain/src/unicode_digits\.rs$|crates/core-domain/src/python_printable\.rs$|crates/server/ported_routes\.json$|crates/infra-db/tests/fixtures/)'
 
+          # Workflows whose scripts the Python tests run.
+          tested_workflows='^\.github/workflows/upstream-review\.yml$'
+
           match() {
             local file
             for file in "${files[@]}"; do
@@ -95,7 +98,7 @@ jobs:
           }
 
           {
-            echo "backend=$(match "^(finanze|tests)/|$python_config|$parity_fixtures")"
+            echo "backend=$(match "^(finanze|tests)/|$python_config|$parity_fixtures|$tested_workflows")"
             echo "python=$(match "\.(py|pyi|ipynb)$|$python_config")"
             echo "rust=$(match "$rust_config")"
             echo "docker=$(match "^(Dockerfile|\.dockerignore|requirements(-selenium)?\.txt|finanze/)|$rust_config")"
