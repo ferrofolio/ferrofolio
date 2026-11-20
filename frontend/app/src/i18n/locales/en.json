@@ -106,6 +106,8 @@
     "unpinAsset": "Unpin asset",
     "continueInBackground": "Continue in background",
     "connectingToServer": "Connecting to the server...",
+    "serverCannotReach":
+      "The server could not be reached. Please check the backend address in settings and make sure the server is running.",
     "details": "Details",
     "optional": "Optional",
     "clear": "Clear",

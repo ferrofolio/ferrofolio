@@ -22,6 +22,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   isInitializing: boolean
+  hasConnectionFailed: boolean
   isChangingPassword: boolean
   lastLoggedUser: string | null
   pendingRegister: boolean
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [hasConnectionFailed, setHasConnectionFailed] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [lastLoggedUser, setLastLoggedUser] = useState<string | null>(null)
   const [pendingPasswordChangeUser, setPendingPasswordChangeUser] = useState<
@@ -90,9 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       while (true) {
         try {
           await syncStatus()
+          setHasConnectionFailed(false)
           setIsInitializing(false)
           return
         } catch {
+          setHasConnectionFailed(true)
           await new Promise(resolve => setTimeout(resolve, retryDelay))
         }
       }
@@ -259,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isInitializing,
+        hasConnectionFailed,
         isChangingPassword,
         lastLoggedUser,
         pendingRegister,
