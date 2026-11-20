@@ -84,6 +84,7 @@ target in both. The amount of a target that is kept is parsed exactly.
 | `POST /api/v1/calculation/loan` | `routes/calculate_loan.py`, `calculations/loan_calculator.py` | Calculators (phase 4, slice 8, pulled forward) |
 | `POST /api/v1/calculations/savings` | `routes/calculate_savings.py`, `use_cases/calculate_savings.py` | Calculators |
 | `GET /api/v1/settings` | `routes/get_settings.py`, `use_cases/get_settings.py`, `repository/settings` | Status, login, settings (phase 4, slice 1); reads the database |
+| `GET /api/v1/labels` | `routes/get_labels.py`, `use_cases/get_labels.py`, `repository/labeling/label_repository.py` | Read paths (phase 4, slice 2); reads the database |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -312,6 +313,18 @@ Regenerate the fixtures after adding a migration or changing a slice:
 python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/fixtures/db_routes
 ```
 
+SQLCipher salts every file, so `--output` keeps a committed database that still holds what its scenario defines and
+writes only new or changed ones; the binary files change only when their data does. A slice's parity test replays its
+cases with `common::database::replay`, which logs in once per database and lock state, and checks the functions it
+records under `functions` against the Rust functions they describe (the labels record `uuid.UUID()` and the label
+enums for inputs no database row could show).
+
+The ids of rows are read with `core_domain::pyuuid::parse`, which follows `uuid.UUID(text)` exactly: it removes every
+`urn:`, `uuid:` and hyphen, strips braces, and reads the 32 remaining characters with `int(text, 16)`, which accepts
+surrounding whitespace, a `+`, a `0x` prefix, single underscores and decimal digits of any script, and answers with
+Python's messages otherwise. A route that maps an id Python cannot read answers `500 UNEXPECTED_ERROR` with the same
+message as Python.
+
 ### Known deviations
 
 | Input | Python | Rust |
@@ -423,7 +436,10 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Phase 4, slice 1, continued: Rust holds the sessions, opens the database at a login and serves the settings from
-   it. Next it serves the status; writing the settings follows with Rust's first write access to the database.
-2. Read paths (positions, transactions, timelines), each with parity fixtures from a fixture database, following the
-   pattern of the settings (see [Routes that read the database](#routes-that-read-the-database)).
+1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings and the labels
+   (see [Routes that read the database](#routes-that-read-the-database)): next the labeling rules, the periodic and
+   pending flows, then positions, transactions and the timelines.
+2. Rust's first write access to the database (the settings, the labels), with the writes Python makes to the same
+   tables until the cutover.
+3. The status and the login move to Rust together, once Rust is the authority on the unlock state rather than an
+   observer of it; until then Python answers the status, which already decides whether Rust may read.

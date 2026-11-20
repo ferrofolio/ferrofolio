@@ -7,6 +7,7 @@ use std::fmt::Debug;
 
 use core_domain::dates::Date;
 use core_domain::exception::CalculationError;
+use core_domain::labeling::Label;
 use core_domain::loan_calculator::{LoanCalculationParams, LoanCalculationResult};
 use core_domain::settings::{PartialSettings, SettingsSection};
 
@@ -58,4 +59,14 @@ pub trait ConfigPort: Debug {
         &self,
         sections: &BTreeSet<SettingsSection>,
     ) -> Result<PartialSettings, PortError>;
+}
+
+/// `LabelPort`: the labels of transactions, the reading half.
+pub trait LabelPort: Debug {
+    /// `get_all`: every label, those with a key first, then by creation and name.
+    fn get_all(&self) -> Result<Vec<Label>, PortError>;
+
+    /// `get_usage`: how many transactions carry each label, by the label's id
+    /// (`str(UUID(...))`); labels no transaction carries are missing.
+    fn get_usage(&self) -> Result<std::collections::HashMap<String, u64>, PortError>;
 }

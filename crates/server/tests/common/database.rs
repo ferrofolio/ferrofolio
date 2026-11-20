@@ -10,6 +10,7 @@
 //! `GET /api/v1/status` and answers every other request it gets with a mark that
 //! it was passed on.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -244,4 +245,80 @@ impl Harness {
             .await
             .unwrap()
     }
+}
+
+/// The request of a case; `token` is the client's token of a valid session, if
+/// API sessions issue one.
+pub fn request(case: &Value, token: Option<&str>) -> Request<Body> {
+    let mut uri = case["path"].as_str().unwrap().to_owned();
+    if let Some(query) = case.get("query").and_then(Value::as_str) {
+        uri = format!("{uri}?{query}");
+    }
+    let mut builder = Request::builder()
+        .method(case["method"].as_str().unwrap())
+        .uri(uri);
+    let authorization = match case.get("session").and_then(Value::as_str) {
+        None => token.map(str::to_owned),
+        Some("unknown") => Some(UNKNOWN_TOKEN.to_owned()),
+        Some(_) => None,
+    };
+    if let Some(token) = authorization {
+        builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
+    }
+    builder.body(Body::empty()).unwrap()
+}
+
+/// Replays every case of a slice's fixtures with API sessions, or without them
+/// those with a valid session on unlocked data and those on locked data, on a
+/// server set up by `configure`, and returns how many it replayed and how each one
+/// that differs from Python does.
+pub async fn replay(
+    fixtures: &Value,
+    sessions: bool,
+    configure: impl Fn(&mut AppState),
+) -> (usize, Vec<String>) {
+    let cases = fixtures["cases"].as_array().unwrap();
+    let mut harnesses: HashMap<(String, bool), (Harness, Option<String>)> = HashMap::new();
+    let mut failures = Vec::new();
+    let mut replayed = 0;
+    for case in cases {
+        let database = case["database"].as_str().unwrap().to_owned();
+        let unlocked = case.get("unlocked") != Some(&Value::Bool(false));
+        let valid = case.get("session").is_none();
+        // Without API sessions Python lets every request through on unlocked data.
+        if !sessions && unlocked && !valid {
+            continue;
+        }
+        let key = (database.clone(), unlocked);
+        if !harnesses.contains_key(&key) {
+            let harness = Harness::start(&format!("{database}.db"), sessions, &configure).await;
+            let token = if unlocked {
+                harness.login().await
+            } else {
+                None
+            };
+            harnesses.insert(key.clone(), (harness, token));
+        }
+        let (harness, token) = &harnesses[&key];
+        let sent = request(case, token.as_deref());
+        let expected_forward = forwarded(&sent);
+        let (status, body) = super::answer(&harness.app, sent).await;
+        replayed += 1;
+        if case["compare"] == "forwarded" {
+            let passed_on = status == StatusCode::OK
+                && body
+                    .as_ref()
+                    .is_some_and(|body| super::same_json(body, &expected_forward));
+            if !passed_on {
+                failures.push(format!(
+                    "{}\n  expected the request to be passed on to Python\n  got      {status} {}",
+                    case["name"],
+                    body.unwrap_or_default()
+                ));
+            }
+        } else if let Some(message) = super::difference(case, status, &body) {
+            failures.push(message);
+        }
+    }
+    (replayed, failures)
 }
