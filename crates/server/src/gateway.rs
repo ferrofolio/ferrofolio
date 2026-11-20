@@ -343,11 +343,7 @@ async fn replace_database(
     let has_origin = parts.headers.contains_key(ORIGIN);
     let (body, budget) = match budgeted_body(state, &parts.headers, body).await {
         Ok(read) => read,
-        Err(error) => {
-            let mut response = error.into_response();
-            apply_cors(response.headers_mut(), has_origin);
-            return response;
-        }
+        Err(error) => return with_cors(error.into_response(), has_origin),
     };
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
@@ -361,7 +357,7 @@ async fn replace_database(
             Err(error) => {
                 sessions.forget_database();
                 drop(budget);
-                return error.into_response();
+                return with_cors(error.into_response(), has_origin);
             }
         };
         if rekeys && response.status().is_success() {
@@ -373,8 +369,18 @@ async fn replace_database(
     });
     replacement.await.unwrap_or_else(|error| {
         tracing::error!(%error, "a request that replaces the database did not complete");
-        ApiError::Unexpected("Request failed".to_owned()).into_response()
+        with_cors(
+            ApiError::Unexpected("Request failed".to_owned()).into_response(),
+            has_origin,
+        )
     })
+}
+
+/// An answer Rust gives itself in place of the backend's, with the CORS headers
+/// the backend's would carry, so that a cross-origin client can read it.
+fn with_cors(mut response: Response, has_origin: bool) -> Response {
+    apply_cors(response.headers_mut(), has_origin);
+    response
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

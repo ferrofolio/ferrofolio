@@ -1689,6 +1689,22 @@ async fn an_unreachable_backend_answers_502() {
         );
     }
 
+    // A request that replaces the database is answered by Rust itself, with the
+    // CORS headers, so that a cross-origin client can read the error.
+    for path in ["/api/v1/cloud/backup/import", "/api/v1/change-password"] {
+        let mut request = login_request(path, "{}");
+        request
+            .headers_mut()
+            .insert(header::ORIGIN, "http://localhost:8080".parse().unwrap());
+        let (status, headers, body) = send(&app, request).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY, "{path}");
+        assert_eq!(headers[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*", "{path}");
+        assert_eq!(
+            serde_json::from_slice::<Value>(&body).unwrap()["code"],
+            "BACKEND_UNAVAILABLE"
+        );
+    }
+
     // With sessions, ported routes check the session without the backend.
     let (status, _, _) = send(&app, loan_request(Some("made-up"))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
