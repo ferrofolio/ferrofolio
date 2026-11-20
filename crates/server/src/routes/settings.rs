@@ -22,7 +22,7 @@ use infra_db::settings::SettingsRepository;
 use crate::app::AppState;
 use crate::error::ApiError;
 use crate::pycompat;
-use crate::routes::database;
+use crate::routes::database::{self, Reply};
 
 pub const PATH: &str = "/api/v1/settings";
 
@@ -34,19 +34,20 @@ pub async fn get_settings(State(state): State<AppState>, request: Request) -> Re
 fn prepare(
     state: &AppState,
     parts: &Parts,
-) -> Result<impl FnOnce(&Database) -> Response + Send + use<>, ApiError> {
+) -> Result<impl FnOnce(&Database) -> Reply + Send + use<>, ApiError> {
     let sections = sections(parts.uri.query().unwrap_or_default())?;
     let base = Arc::clone(&state.settings_base);
     let time_zone = state.time_zone.clone();
     Ok(move |database: &Database| {
         let repository = SettingsRepository::new(database, &base, &time_zone);
-        match GetSettings::new(&repository).execute(&sections) {
+        let response = match GetSettings::new(&repository).execute(&sections) {
             Ok(settings) => respond(&settings),
             Err(error) => {
                 tracing::error!(%error, "reading the settings failed");
                 ApiError::Unexpected(error.0).into_response()
             }
-        }
+        };
+        Reply::from(response)
     })
 }
 

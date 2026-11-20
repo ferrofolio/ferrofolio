@@ -4,5 +4,6 @@
 
 pub mod calculate_loan;
 pub mod calculate_savings;
+pub mod get_labeling_rules;
 pub mod get_labels;
 pub mod get_settings;

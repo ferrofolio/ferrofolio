@@ -116,6 +116,7 @@ def case(
     unlocked=True,
     compare="full",
     deviation=None,
+    passed_on=False,
 ):
     """A request against a scenario's database and how Rust's answer is compared.
 
@@ -128,15 +129,20 @@ def case(
     mode: "forwarded", for a request Rust passes on to Python, which then gives
     the recorded answer. Rust answers from its own database only with a valid
     session on unlocked data (docs/rust-backend.md, "Routes that read the
-    database"); every other case must be "forwarded"."""
+    database"); every other case must be "forwarded". passed_on=True marks a
+    case with a valid session on unlocked data that Rust passes on as well,
+    because the database holds a value in a form Rust leaves to Python."""
     if session not in SESSIONS:
         raise ValueError(f"{name}: unknown session {session!r}")
     if session == "valid" and not unlocked:
         raise ValueError(f"{name}: a session exists only while the data is unlocked")
-    if (session != "valid" or not unlocked) != (compare == "forwarded"):
+    if passed_on and (session != "valid" or not unlocked):
+        raise ValueError(f"{name}: only a readable request is passed on for its data")
+    if (session != "valid" or not unlocked or passed_on) != (compare == "forwarded"):
         raise ValueError(
-            f"{name}: Rust passes exactly the requests without a valid session or "
-            "on locked data on to Python, which compare as forwarded"
+            f"{name}: Rust passes exactly the requests without a valid session, "
+            "on locked data or on data it leaves to Python on to Python, which "
+            "compare as forwarded"
         )
     entry = {
         "name": name,

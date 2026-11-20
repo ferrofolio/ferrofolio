@@ -1339,10 +1339,159 @@
      "count": 0
     },
     "labeling_rule_labels": {
-     "count": 3
+     "columns": [
+      "rule_id",
+      "label_id"
+     ],
+     "rows": [
+      [
+       "A1000000-0000-4000-8000-000000000000",
+       "label Braces"
+      ],
+      [
+       "A1000000-0000-4000-8000-000000000000",
+       "label Zoo"
+      ],
+      [
+       "A1000000-0000-4000-8000-000000000000",
+       "label custom_key"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000001",
+       "label Alpha"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000001",
+       "label Zoo"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000002",
+       "label Upper"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000007",
+       "label custom_key"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"FEE\"]}]",
+       "label bank_fees"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"INTEREST\"]}]",
+       "label interest"
+      ],
+      [
+       "seeded rule TRANSFER [{\"max_days\": 3}]",
+       "label internal_transfer"
+      ],
+      [
+       "{a1000000-0000-4000-8000-000000000005}",
+       "label Alpha"
+      ]
+     ]
     },
     "labeling_rules": {
-     "count": 3
+     "columns": [
+      "id",
+      "name",
+      "enabled",
+      "kind",
+      "conditions",
+      "created_at",
+      "updated_at"
+     ],
+     "rows": [
+      [
+       "A1000000-0000-4000-8000-000000000000",
+       "Ü ñ €",
+       1,
+       "MATCH",
+       "[{\"max_amount\": \"12345678901234567890.123456789\", \"text\": {\"values\": [\"^amzn\\\\s+mktp\", \"\\\"quoted\\\" \\\\ back\"], \"operator\": \"REGEX\", \"field\": \"COUNTERPARTY\"}}]",
+       "2026-03-01T09:00:00+01:00",
+       "2026-03-01T09:00:00+01:00"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000001",
+       "Groceries",
+       1,
+       "MATCH",
+       "[{\"types\": [\"OUTFLOW\", \"FEE\"], \"min_amount\": \"1.50\", \"max_amount\": \"250\", \"currency\": \"EUR\", \"text\": {\"values\": [\"Rewe\", \"Caf\\u00e9 \\u00dc\"], \"operator\": \"CONTAINS\", \"field\": \"ANY\"}}, {\"from_date\": \"2026-01-01\", \"to_date\": \"2026-12-31\", \"day_from\": 25, \"day_to\": 5, \"entities\": [\"e0000000-0000-0000-0000-000000000001\"]}]",
+       "2026-03-01T09:00:00+01:00",
+       "2026-03-01T09:00:00+01:00"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000002",
+       null,
+       0,
+       "TRANSFER",
+       "[{\"min_amount\": \"0.01\", \"max_days\": 2, \"ibans\": [\"XX00TEST0000000001\", \"XX00TEST0000000002\"]}]",
+       "2026-02-01T09:00:00+01:00",
+       "2026-02-01T09:00:00+01:00"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000004",
+       "No labels",
+       1,
+       "MATCH",
+       "[{\"currency\": \"usd\", \"from_date\": \"0001-01-01\"}]",
+       "2026-03-02T09:00:00+01:00",
+       "2026-03-02T09:00:00+01:00"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000006",
+       "Empty conditions",
+       1,
+       "MATCH",
+       "",
+       "2026-03-04T09:00:00+01:00",
+       "2026-03-04T09:00:00+01:00"
+      ],
+      [
+       "a1000000-0000-4000-8000-000000000007",
+       "Two groups",
+       1,
+       "MATCH",
+       "[{\"types\": [\"INTEREST\"], \"text\": {\"values\": [\"x\"], \"operator\": \"STARTS_WITH\", \"field\": \"NAME\"}}, {\"min_amount\": \"0\", \"to_date\": \"9999-12-31\", \"text\": {\"values\": [\"y\"], \"operator\": \"EQUALS\", \"field\": \"ANY\"}}]",
+       "2026-03-05T09:00:00+01:00",
+       "2026-03-05T09:00:00+01:00"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"FEE\"]}]",
+       null,
+       1,
+       "MATCH",
+       "[{\"types\": [\"FEE\"]}]",
+       "<seeded>",
+       "<seeded>"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"INTEREST\"]}]",
+       null,
+       1,
+       "MATCH",
+       "[{\"types\": [\"INTEREST\"]}]",
+       "<seeded>",
+       "<seeded>"
+      ],
+      [
+       "seeded rule TRANSFER [{\"max_days\": 3}]",
+       null,
+       1,
+       "TRANSFER",
+       "[{\"max_days\": 3}]",
+       "<seeded>",
+       "<seeded>"
+      ],
+      [
+       "{a1000000-0000-4000-8000-000000000005}",
+       "Other forms",
+       1,
+       "MATCH",
+       "[{\"types\": [], \"entities\": null, \"from_date\": \"\", \"ibans\": [], \"legacy\": 1, \"text\": {\"values\": [\"a\"]}, \"currency\": null}, {}]",
+       "2026-03-03T09:00:00+01:00",
+       "2026-03-03T09:00:00+01:00"
+      ]
+     ]
     },
     "labels": {
      "columns": [
@@ -2265,10 +2414,73 @@
      "count": 0
     },
     "labeling_rule_labels": {
-     "count": 3
+     "columns": [
+      "rule_id",
+      "label_id"
+     ],
+     "rows": [
+      [
+       "seeded rule MATCH [{\"types\": [\"FEE\"]}]",
+       "label bank_fees"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"INTEREST\"]}]",
+       "label interest"
+      ],
+      [
+       "seeded rule TRANSFER [{\"max_days\": 3}]",
+       "label internal_transfer"
+      ]
+     ]
     },
     "labeling_rules": {
-     "count": 3
+     "columns": [
+      "id",
+      "name",
+      "enabled",
+      "kind",
+      "conditions",
+      "created_at",
+      "updated_at"
+     ],
+     "rows": [
+      [
+       "b1000000-0000-4000-8000-000000000001",
+       "Coerced",
+       1,
+       "MATCH",
+       "[{\"day_from\": \"3\"}]",
+       "2026-03-01T09:00:00+01:00",
+       "2026-03-01T09:00:00+01:00"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"FEE\"]}]",
+       null,
+       1,
+       "MATCH",
+       "[{\"types\": [\"FEE\"]}]",
+       "<seeded>",
+       "<seeded>"
+      ],
+      [
+       "seeded rule MATCH [{\"types\": [\"INTEREST\"]}]",
+       null,
+       1,
+       "MATCH",
+       "[{\"types\": [\"INTEREST\"]}]",
+       "<seeded>",
+       "<seeded>"
+      ],
+      [
+       "seeded rule TRANSFER [{\"max_days\": 3}]",
+       null,
+       1,
+       "TRANSFER",
+       "[{\"max_days\": 3}]",
+       "<seeded>",
+       "<seeded>"
+      ]
+     ]
     },
     "labels": {
      "columns": [

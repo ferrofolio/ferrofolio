@@ -7,7 +7,7 @@ use std::fmt::Debug;
 
 use core_domain::dates::Date;
 use core_domain::exception::CalculationError;
-use core_domain::labeling::Label;
+use core_domain::labeling::{Label, LabelingRule};
 use core_domain::loan_calculator::{LoanCalculationParams, LoanCalculationResult};
 use core_domain::settings::{PartialSettings, SettingsSection};
 
@@ -69,4 +69,39 @@ pub trait LabelPort: Debug {
     /// `get_usage`: how many transactions carry each label, by the label's id
     /// (`str(UUID(...))`); labels no transaction carries are missing.
     fn get_usage(&self) -> Result<std::collections::HashMap<String, u64>, PortError>;
+}
+
+/// Why a port could not read what it was asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReadError {
+    /// The read failed as it fails in Python, which answers `500`.
+    Failed(PortError),
+    /// The stored data has a form Python's writer does not produce and Rust does
+    /// not read exactly as Python does, such as a value of the wrong type that
+    /// pydantic may coerce. The route passes the request on to Python, which
+    /// answers as it always has.
+    Unreadable(String),
+}
+
+impl std::fmt::Display for ReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadError::Failed(error) => write!(f, "{error}"),
+            ReadError::Unreadable(reason) => write!(f, "unreadable stored data: {reason}"),
+        }
+    }
+}
+
+impl std::error::Error for ReadError {}
+
+impl From<PortError> for ReadError {
+    fn from(error: PortError) -> Self {
+        ReadError::Failed(error)
+    }
+}
+
+/// `LabelingRulePort`: the rules that label transactions, the reading half.
+pub trait LabelingRulePort: Debug {
+    /// `get_all(enabled_only=False)`: every rule, by creation and id.
+    fn get_all(&self) -> Result<Vec<LabelingRule>, ReadError>;
 }

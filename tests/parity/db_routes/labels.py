@@ -7,6 +7,10 @@ but does not write, and transactions that carry labels, so that the usage counts
 differ per label. The invalid database holds a label whose id Python cannot read.
 `functions` records `UUID()` and the label enums for many more stored values than
 rows can show.
+
+The labeling rules slice (labeling_rules.py) shares these databases: the labels
+database also holds labeling rules, and the invalid one a rule whose conditions
+only Python reads.
 """
 
 import uuid
@@ -99,7 +103,24 @@ async def _carry(cursor, label_id, count, prefix):
         )
 
 
+async def _insert_rules(cursor, rules):
+    for rule_id, name, enabled, kind, conditions, created_at, label_ids in rules:
+        await cursor.execute(
+            "INSERT INTO labeling_rules (id, name, enabled, kind, conditions, "
+            "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (rule_id, name, enabled, kind, conditions, created_at, created_at),
+        )
+        for label_id in label_ids:
+            await cursor.execute(
+                "INSERT INTO labeling_rule_labels (rule_id, label_id) VALUES (?, ?)",
+                (rule_id, label_id),
+            )
+
+
 async def fill(client):
+    # Imported here: labeling_rules imports this module for its scenarios.
+    from db_routes.labeling_rules import RULES
+
     async with client.tx() as cursor:
         await _insert_labels(cursor, LABELS)
         for index, (which, count) in enumerate(USAGE):
@@ -109,6 +130,7 @@ async def fill(client):
             (label_id,) = await cursor.fetchone()
             await _carry(cursor, label_id, count, f"{index:04x}")
         await _carry(cursor, LABELS[2][0], 1, "00aa")
+        await _insert_rules(cursor, RULES)
 
 
 INVALID_LABELS = [
@@ -127,8 +149,17 @@ OWN_IDS = {label[0] for label in LABELS + INVALID_LABELS}
 
 
 async def fill_invalid(client):
+    from db_routes.labeling_rules import UNREADABLE_RULES
+
     async with client.tx() as cursor:
         await _insert_labels(cursor, INVALID_LABELS)
+        await _insert_rules(cursor, UNREADABLE_RULES)
+
+
+def _own_rule_ids():
+    from db_routes.labeling_rules import RULES, UNREADABLE_RULES
+
+    return {rule[0] for rule in RULES + UNREADABLE_RULES}
 
 
 def normalize(connection, table, columns, rows):
@@ -145,6 +176,14 @@ def normalize(connection, table, columns, rows):
         row[0]: f"label {row[1] or row[2]}"
         for row in connection.execute("SELECT id, key, name FROM labels")
     }
+    # The migrations seed rules with new ids and creation times as well; such a
+    # rule is named by its kind and conditions.
+    own_rules = _own_rule_ids()
+    rules = {
+        row[0]: f"seeded rule {row[1]} {row[2]}"
+        for row in connection.execute("SELECT id, kind, conditions FROM labeling_rules")
+        if row[0] not in own_rules
+    }
     if table == "labels":
         index_id, index_created = columns.index("id"), columns.index("created_at")
         for row in rows:
@@ -155,12 +194,33 @@ def normalize(connection, table, columns, rows):
         index = columns.index("label_id")
         for row in rows:
             row[index] = names.get(row[index], row[index])
+    elif table == "labeling_rules":
+        index_id = columns.index("id")
+        times = (columns.index("created_at"), columns.index("updated_at"))
+        for row in rows:
+            if row[index_id] in rules:
+                row[index_id] = rules[row[index_id]]
+                for index in times:
+                    row[index] = "<seeded>"
+    elif table == "labeling_rule_labels":
+        index_rule, index_label = columns.index("rule_id"), columns.index("label_id")
+        for row in rows:
+            row[index_rule] = rules.get(row[index_rule], row[index_rule])
+            row[index_label] = names.get(row[index_label], row[index_label])
     return rows
 
 
-TABLES = {"labels": (), "account_transactions": (), "account_transaction_labels": ()}
+RULE_TABLES = {"labeling_rules": (), "labeling_rule_labels": ()}
+TABLES = {
+    "labels": (),
+    "account_transactions": (),
+    "account_transaction_labels": (),
+    **RULE_TABLES,
+}
 LABELS_DB = Scenario("labels", fill, TABLES, normalize)
-INVALID = Scenario("labels_invalid", fill_invalid, {"labels": ()}, normalize)
+INVALID = Scenario(
+    "labels_invalid", fill_invalid, {"labels": (), **RULE_TABLES}, normalize
+)
 
 
 def register(app, client):

@@ -8,6 +8,7 @@
 //! (docs/roadmap.md, section 5), so Rust only reads.
 
 pub mod labeling;
+pub mod labeling_rules;
 pub mod settings;
 
 use std::path::Path;
