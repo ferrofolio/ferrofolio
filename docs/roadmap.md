@@ -16,7 +16,7 @@ need an issue of its own.
 | Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning and workflow lint | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
 | Phase 2 – Server mode and PWA | Capacitor, Pyodide and the desktop app are removed. Open: hardening, PWA, API contract | [#85](https://github.com/ferrofolio/ferrofolio/issues/85), [#86](https://github.com/ferrofolio/ferrofolio/issues/86), [#87](https://github.com/ferrofolio/ferrofolio/issues/87) |
 | Phase 3 – Rust foundation | Started ahead of phase 2: the Rust server is the entry point, holds the sessions and opens the database. Open: web app in Rust, end-to-end tests, spikes | [#88](https://github.com/ferrofolio/ferrofolio/issues/88) |
-| Phase 4 – Porting | Started: 4 of 118 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
+| Phase 4 – Porting | Started: 5 of 118 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
 | Scalable Capital | Not started | [#89](https://github.com/ferrofolio/ferrofolio/issues/89) |
 | Trade Republic sign-in on the server | Not started | [#90](https://github.com/ferrofolio/ferrofolio/issues/90) |
 | Phase 5, iOS stages A and B, Android | Not started; an issue is opened when the track becomes current | – |
@@ -480,7 +480,7 @@ Started; tracked in [#91](https://github.com/ferrofolio/ferrofolio/issues/91), w
 | # | Slice | Note | Status |
 |---|---|---|---|
 | 1 | Status, login, settings | Small; rehearses the process | Settings, sessions and unlocking done (#76, #77, #79). The status and the login move together, once Rust is the authority on the unlock state (section 5) |
-| 2 | Read paths: positions, transactions, timelines, history, cash flow, and the other routes that only read the database | High value, no external access; also what the iOS app needs first | Labels done (#81) |
+| 2 | Read paths: positions, transactions, timelines, history, cash flow, and the other routes that only read the database | High value, no external access; also what the iOS app needs first | Labels and labeling rules done (#81, #82) |
 | 3 | **Scalable Capital** (new) | First Rust connector, not a port; needs the write paths for positions and transactions | #89 |
 | 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7) | #90 |
 | 5 | **Enable Banking** | Proven connector, official interface, ~1,100 lines | |
@@ -659,7 +659,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 
 In order of priority; each step names the issue that tracks it.
 
-1. Continue the read paths: the labeling rules, the periodic and pending flows, then positions, transactions and the timelines ([#91](https://github.com/ferrofolio/ferrofolio/issues/91)).
+1. Continue the read paths: the periodic and pending flows, then positions, transactions and the timelines ([#91](https://github.com/ferrofolio/ferrofolio/issues/91)).
 2. Turn the end-to-end tests back on against the image with the Rust entry point and make them a required check, so that the port has its acceptance test ([#84](https://github.com/ferrofolio/ferrofolio/issues/84)).
 3. Harden the sessions in Rust: cookie for the web app, devices, rate limit, CORS, TLS example ([#85](https://github.com/ferrofolio/ferrofolio/issues/85)). Then serve the web app from the Rust binary ([#88](https://github.com/ferrofolio/ferrofolio/issues/88)) and add the PWA ([#86](https://github.com/ferrofolio/ferrofolio/issues/86)).
 4. In parallel: enable "Agentic Investing" in a Scalable account, clarify the terms of use and start the `connectors-scalable` crate ([#89](https://github.com/ferrofolio/ferrofolio/issues/89)); try the Trade Republic v2 sign-in without the WAF token ([#90](https://github.com/ferrofolio/ferrofolio/issues/90)).
