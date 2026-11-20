@@ -157,6 +157,12 @@ impl UserDatabase {
         })
     }
 
+    /// Whether these are the credentials the database was opened with.
+    pub fn opened_with(&self, credentials: &Credentials) -> bool {
+        self.credentials.username == credentials.username
+            && self.credentials.password == credentials.password
+    }
+
     /// Closes the connection; `current` opens it again.
     pub fn close(&mut self) {
         self.connection = None;

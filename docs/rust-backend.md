@@ -165,8 +165,9 @@ sequenceDiagram
   user they name. With API sessions Rust therefore ignores a `204`, after which the overtaking login's `200` unlocks
   the database; without them, after a `204` or `409`, it opens the database only if `GET /api/v1/status` names the
   login's user as the one Python unlocked, so that it never holds another user's database than the one Python serves.
-  The logout that ends the sessions closes it, and a login that a logout overtakes keeps it closed. If Rust cannot
-  open it, for example because the profile is missing, the login still succeeds. Rust keeps the credentials while the
+  A further login of the user whose database Rust holds, from another client for example, keeps the open connection
+  instead of deriving the key again. The logout that ends the sessions closes it, and a login that a logout overtakes
+  keeps it closed. If Rust cannot open it, for example because the profile is missing, the login still succeeds. Rust keeps the credentials while the
   database is open, as Python's `DBManager` keeps the password, so that it can open it again: a backup import
   (`POST /api/v1/cloud/backup/import`) deletes `data.db` and writes a new one, and a change of the password
   (`POST /api/v1/change-password`) rewrites it with a new key. SQLite names the WAL and shared-memory files after the

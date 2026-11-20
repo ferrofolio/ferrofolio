@@ -194,6 +194,8 @@ pub struct Sessions {
     /// for one to reach the lock instead of guessing at a delay.
     opening: Arc<AtomicUsize>,
     replacing: Arc<AtomicUsize>,
+    /// How many times a login has opened the database.
+    opened: Arc<AtomicUsize>,
 }
 
 /// Counts a waiter of the replacement lock while it lives.
@@ -230,6 +232,7 @@ impl Sessions {
             replacement: Arc::default(),
             opening: Arc::default(),
             replacing: Arc::default(),
+            opened: Arc::default(),
         }
     }
 
@@ -321,6 +324,18 @@ impl Sessions {
         Ok(())
     }
 
+    /// Whether Rust holds the database these credentials open: a login has
+    /// unlocked it with them since the last logout.
+    pub fn holds_database_of(&self, credentials: &Credentials) -> bool {
+        let Some(database) = self.lock().database.clone() else {
+            return false;
+        };
+        database
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .opened_with(credentials)
+    }
+
     /// Whether a login has unlocked the data for Rust since the last logout.
     pub fn is_unlocked(&self) -> bool {
         self.lock().database.is_some()
@@ -337,6 +352,7 @@ impl Sessions {
         let _waiting = Waiting::start(&self.opening);
         let _opening = self.replacement.blocking_read();
         let database = open().map_err(UnlockFailure::Open)?;
+        self.opened.fetch_add(1, Ordering::SeqCst);
         self.unlock(attempt, database)
             .map_err(UnlockFailure::Session)
     }
@@ -383,6 +399,13 @@ impl Sessions {
     #[doc(hidden)]
     pub fn waiting_openings(&self) -> usize {
         self.opening.load(Ordering::SeqCst)
+    }
+
+    /// How many times a login has opened the database. Tests use it to tell a
+    /// login that opened it from one that kept the open connection.
+    #[doc(hidden)]
+    pub fn database_openings(&self) -> usize {
+        self.opened.load(Ordering::SeqCst)
     }
 
     /// How many requests wait for the replacement lock before Python replaces the
