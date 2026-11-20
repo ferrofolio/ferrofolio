@@ -302,6 +302,7 @@ export interface StatusResponse {
     platform_type?: string | null
     platform_version?: string | null
     publicUrl?: string | null
+    capabilities?: string[]
   }
   features: FeatureFlags
 }

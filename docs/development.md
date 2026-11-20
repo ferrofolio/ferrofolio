@@ -109,6 +109,17 @@ cd e2e/standard
 pnpm test                # End-to-end tests in the browser
 ```
 
+## API capabilities
+
+`GET /api/v1/status` lists in `server.capabilities` the API features the running server offers, next to
+`server.version`. A client checks this list, not the version, to tell whether a server is too old for it. A feature
+that a client may need to detect gets a value in `Capability` (`finanze/domain/status.py`). Values are only added,
+never renamed or removed, like everything else under `/api/v1`.
+
+| Capability | Listed when |
+|---|---|
+| `apiSessions` | Login and signup return a bearer token that the other routes require; off with `FINANZE_API_SESSION=false` |
+
 ## CI checks
 
 The checks are the jobs of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Run them on your machine before
