@@ -26,6 +26,16 @@ const STATUS_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Deserialize)]
 struct Status {
     status: String,
+    /// The user whose data is unlocked, present when the request is authorised.
+    /// Read leniently, so that an unexpected shape fails only `unlocked_username`.
+    #[serde(default)]
+    user: Option<serde_json::Value>,
+}
+
+impl Status {
+    fn unlocked(&self) -> bool {
+        self.status == "UNLOCKED"
+    }
 }
 
 /// Whether the backend would accept this request on a route that needs a session.
@@ -37,12 +47,33 @@ pub async fn backend_authorizes(
     backend: &Backend,
     headers: &HeaderMap,
 ) -> Result<bool, BackendError> {
+    Ok(status(backend, headers).await?.unlocked())
+}
+
+/// The name of the user whose data the backend has unlocked, or `None` while it
+/// is locked. Without API sessions every request is authorised, so the status
+/// names the user (`finanze/infrastructure/controller/routes/get_status.py`);
+/// with them it names none without a backend token, and this answers `None`.
+pub async fn unlocked_username(backend: &Backend) -> Result<Option<String>, BackendError> {
+    let status = status(backend, &HeaderMap::new()).await?;
+    if !status.unlocked() {
+        return Ok(None);
+    }
+    Ok(status
+        .user
+        .as_ref()
+        .and_then(|user| user.get("username"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned))
+}
+
+async fn status(backend: &Backend, headers: &HeaderMap) -> Result<Status, BackendError> {
     tokio::time::timeout(STATUS_TIMEOUT, ask_backend(backend, headers))
         .await
         .map_err(|_| BackendError::Timeout)?
 }
 
-async fn ask_backend(backend: &Backend, headers: &HeaderMap) -> Result<bool, BackendError> {
+async fn ask_backend(backend: &Backend, headers: &HeaderMap) -> Result<Status, BackendError> {
     let mut request = Request::get("/api/v1/status")
         .body(Body::empty())
         .map_err(|_| BackendError::Request)?;
@@ -61,6 +92,5 @@ async fn ask_backend(backend: &Backend, headers: &HeaderMap) -> Result<bool, Bac
         .await
         .map_err(|_| BackendError::Response)?;
     // A status that cannot be read is a failure of the backend, not a denial.
-    let status: Status = serde_json::from_slice(&body).map_err(|_| BackendError::Response)?;
-    Ok(status.status == "UNLOCKED")
+    serde_json::from_slice(&body).map_err(|_| BackendError::Response)
 }

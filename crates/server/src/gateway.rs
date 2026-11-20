@@ -22,6 +22,7 @@ use serde_json::{Value, json};
 use tokio::sync::OwnedSemaphorePermit;
 
 use crate::app::AppState;
+use crate::auth;
 use crate::error::ApiError;
 use crate::routes::{apply_cors, budgeted_body, is_json};
 use crate::sessions::{Credentials, LoginAttempt, LoginBody, SessionError};
@@ -96,20 +97,29 @@ async fn login(
     // backend accepts has unlocked it.
     let unlocks = !(signup && login.guest);
     match response.status() {
+        // With API sessions Python answers a login it accepts with a token, also
+        // while the data is unlocked, once it has checked that the login names the
+        // unlocked user and has its password (`UserLoginImpl._start_session`).
         StatusCode::OK if state.sessions.enabled() => {}
-        // Without a token: the backend runs without API sessions, a login running
-        // at the same time has unlocked the data already, or a guest signed up.
-        // Without API sessions Python refuses a login while the data is unlocked
-        // with 409; it may have been unlocked without a login Rust saw, by the
-        // automatic login at startup or a guest's backup import. The password is
-        // checked by opening the database.
+        // With API sessions a `204` is a guest's signup, or a login that another
+        // one running at the same time overtook: Python raised
+        // `AlreadyUnlockedError` without checking the credentials, possibly of
+        // another user, and the other login's `200` unlocks the database for Rust.
+        StatusCode::NO_CONTENT if state.sessions.enabled() => return response,
+        // Without API sessions Python answers an accepted login with `204`, but
+        // also one that a concurrent login overtook, and it refuses every login
+        // with `409` while the data is unlocked, whoever it names; the data may
+        // have been unlocked without a login Rust saw, by the automatic login at
+        // startup or a guest's backup import. Rust opens the database only if
+        // Python reports the login's user as the one it unlocked, and the
+        // password is checked by opening it.
         StatusCode::CONFLICT if !state.sessions.enabled() && !signup => {
-            unlock(state, attempt, login.credentials).await;
+            unlock_reported_user(state, attempt, login.credentials).await;
             return response;
         }
         StatusCode::OK | StatusCode::NO_CONTENT => {
             if unlocks {
-                unlock(state, attempt, login.credentials).await;
+                unlock_reported_user(state, attempt, login.credentials).await;
             }
             let mut response = response;
             if response.status() == StatusCode::OK {
@@ -189,6 +199,33 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
         Ok(Ok(())) => tracing::info!("unlocked the database read-only"),
         Ok(Err(error)) => tracing::warn!(%error, "a login did not unlock the database for Rust"),
         Err(error) => tracing::error!(%error, "opening the database did not complete"),
+    }
+}
+
+/// Unlocks the database as `unlock` does, after a login Python answered without
+/// checking that it names the user whose data is unlocked: only if Python's status
+/// reports that user. Otherwise Rust would hold another user's database than the
+/// one Python serves. A logout between the status and the unlock ends the
+/// sessions, and `Sessions::open_and_unlock` then keeps the database closed.
+async fn unlock_reported_user(
+    state: &AppState,
+    attempt: LoginAttempt,
+    credentials: Option<Credentials>,
+) {
+    let Some(credentials) = credentials.filter(|_| state.data_dir.is_some()) else {
+        return;
+    };
+    match auth::unlocked_username(&state.backend).await {
+        Ok(Some(username)) if username == credentials.username => {
+            unlock(state, attempt, Some(credentials)).await;
+        }
+        // The usernames stay out of the log.
+        Ok(_) => tracing::warn!(
+            "a login did not unlock the database for Rust: the backend reports another user or locked data"
+        ),
+        Err(error) => {
+            tracing::warn!(%error, "a login did not unlock the database for Rust: the backend status failed");
+        }
     }
 }
 
