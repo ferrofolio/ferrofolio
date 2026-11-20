@@ -9,6 +9,7 @@ import {
   setAutoRefreshSettings,
   renderDropdown,
   renderContextOnly,
+  rerenderView,
   getContext,
   resetAllMocks,
 } from "./setup"
@@ -407,5 +408,121 @@ describe("EntityRefreshDropdown UI", () => {
     expect(
       screen.queryByText(/Auto-update in|About to update/),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe("re-evaluation when entities change", () => {
+  async function expireCountdown() {
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+    }
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0))
+    })
+  }
+
+  it("drops candidates that became fresh and scrapes only the stale ones", async () => {
+    setEntities([
+      buildEntity({ id: "e1", name: "Bank A" }),
+      buildEntity({ id: "e2", name: "Bank B" }),
+    ])
+    setAutoRefreshSettings({ mode: AutoRefreshMode.NO_2FA })
+    mockGetAutoRefreshCandidates.mockReturnValue([
+      buildCandidate({ id: "e1", name: "Bank A" }),
+      buildCandidate({ id: "e2", name: "Bank B" }),
+    ])
+
+    await act(async () => {
+      renderContextOnly()
+    })
+    expect(getContext().pendingAutoRefreshCandidates).toHaveLength(2)
+
+    mockGetAutoRefreshCandidates.mockReturnValue([
+      buildCandidate({ id: "e2", name: "Bank B" }),
+    ])
+    setEntities([
+      buildEntity({ id: "e1", name: "Bank A" }),
+      buildEntity({ id: "e2", name: "Bank B" }),
+    ])
+    await act(async () => {
+      rerenderView()
+    })
+
+    expect(
+      getContext().pendingAutoRefreshCandidates.map(c => c.entity.id),
+    ).toEqual(["e2"])
+
+    await expireCountdown()
+
+    expect(mockFetchFinancialEntity).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps an individually cancelled entity out when it is still stale", async () => {
+    const all = () => [
+      buildCandidate({ id: "e1", name: "Bank A" }),
+      buildCandidate({ id: "e2", name: "Bank B" }),
+      buildCandidate({ id: "e3", name: "Bank C" }),
+    ]
+    const entities = () => [
+      buildEntity({ id: "e1", name: "Bank A" }),
+      buildEntity({ id: "e2", name: "Bank B" }),
+      buildEntity({ id: "e3", name: "Bank C" }),
+    ]
+    setEntities(entities())
+    setAutoRefreshSettings({ mode: AutoRefreshMode.NO_2FA })
+    mockGetAutoRefreshCandidates.mockReturnValue(all())
+
+    await act(async () => {
+      renderContextOnly()
+    })
+    await act(async () => {
+      getContext().cancelAutoRefresh("e1")
+    })
+
+    mockGetAutoRefreshCandidates.mockReturnValue(all())
+    setEntities(entities())
+    await act(async () => {
+      rerenderView()
+    })
+
+    expect(
+      getContext().pendingAutoRefreshCandidates.map(c => c.entity.id),
+    ).toEqual(["e2", "e3"])
+
+    await expireCountdown()
+
+    expect(mockFetchFinancialEntity).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps cancel-all in effect when the entities change", async () => {
+    const candidates = () => [
+      buildCandidate({ id: "e1" }),
+      buildCandidate({ id: "e2" }),
+    ]
+    setEntities([buildEntity({ id: "e1" }), buildEntity({ id: "e2" })])
+    setAutoRefreshSettings({ mode: AutoRefreshMode.NO_2FA })
+    mockGetAutoRefreshCandidates.mockReturnValue(candidates())
+
+    await act(async () => {
+      renderContextOnly()
+    })
+    await act(async () => {
+      getContext().cancelAutoRefresh()
+    })
+
+    mockGetAutoRefreshCandidates.mockReturnValue(candidates())
+    setEntities([buildEntity({ id: "e1" }), buildEntity({ id: "e2" })])
+    await act(async () => {
+      rerenderView()
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    expect(getContext().pendingAutoRefreshCandidates).toHaveLength(0)
+    expect(getContext().autoRefreshCountdown).toBeNull()
+    expect(mockFetchFinancialEntity).not.toHaveBeenCalled()
   })
 })

@@ -9,11 +9,13 @@ export const mockSetOnTrackedUpdateCompleted = vi.fn()
 export const mockSetOnScrapeCompleted = vi.fn()
 export const mockSetOnEntityDisconnected = vi.fn()
 export const mockUpdateEntityLastFetch = vi.fn()
+const hoisted = vi.hoisted(() => ({ mockGetPositions: vi.fn() }))
+export const mockGetPositions = hoisted.mockGetPositions
 
 vi.mock("@/context/AppContext", () => ({
   useAppContext: () => ({
     entities: [],
-    entitiesLoaded: false,
+    entitiesLoaded: true,
     updateEntityLastFetch: mockUpdateEntityLastFetch,
     exchangeRates: {},
     exchangeRatesLoading: false,
@@ -30,7 +32,7 @@ vi.mock("@/context/EntityWorkflowContext", () => ({
 }))
 
 vi.mock("@/services/api", () => ({
-  getPositions: vi.fn().mockResolvedValue({ positions: {} }),
+  getPositions: hoisted.mockGetPositions,
   getContributions: vi.fn().mockResolvedValue({ contributions: {} }),
   getAllPeriodicFlows: vi.fn().mockResolvedValue([]),
   getAllPendingFlows: vi.fn().mockResolvedValue([]),
@@ -66,4 +68,5 @@ export function resetAllMocks() {
   mockSetOnScrapeCompleted.mockClear()
   mockSetOnEntityDisconnected.mockClear()
   mockUpdateEntityLastFetch.mockClear()
+  mockGetPositions.mockReset().mockResolvedValue({ positions: {} })
 }

@@ -438,13 +438,15 @@ export function FinancialDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshEntitiesPositions, setOnTrackedUpdateCompleted])
 
-  // Trigger the throttled tracked quotes/loans updates once
+  // Trigger the throttled tracked quotes/loans updates once, after the initial
+  // positions load has settled, so that its older snapshot cannot replace the
+  // positions a tracked update refreshes
   useEffect(() => {
-    if (trackedUpdatesTriggeredRef.current) return
+    if (trackedUpdatesTriggeredRef.current || isInitialLoading) return
 
     trackedUpdatesTriggeredRef.current = true
     void runTrackedUpdatesIfNeeded()
-  }, [runTrackedUpdatesIfNeeded])
+  }, [isInitialLoading, runTrackedUpdatesIfNeeded])
 
   return (
     <FinancialDataContext.Provider
