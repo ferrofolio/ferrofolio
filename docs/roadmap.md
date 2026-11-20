@@ -2,7 +2,24 @@
 
 Rust backend, web app as a PWA, native iOS app, an open licence and an agent-driven workflow.
 
-Last updated: 2026-11-18 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
+Last updated: 2026-11-20 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
+
+This document holds the plan. Progress is tracked in one GitHub issue per workstream, labelled
+[`roadmap`](https://github.com/ferrofolio/ferrofolio/issues?q=is%3Aissue+label%3Aroadmap); a pull request does not
+need an issue of its own.
+
+## Status
+
+| Track | State | Tracking |
+|---|---|---|
+| Phase 0 – Independence | Nearly done: upstream services are off by default and a test fails on new references to `finanze.me`. Left: the data directory and three decisions | [#83](https://github.com/ferrofolio/ferrofolio/issues/83) |
+| Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning, workflow lint, and the Rust and Docker jobs as required checks | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
+| Phase 2 – Server mode and PWA | Capacitor, Pyodide and the desktop app are removed. Open: hardening, PWA, API contract | [#85](https://github.com/ferrofolio/ferrofolio/issues/85), [#86](https://github.com/ferrofolio/ferrofolio/issues/86), [#87](https://github.com/ferrofolio/ferrofolio/issues/87) |
+| Phase 3 – Rust foundation | Started ahead of phase 2: the Rust server is the entry point, holds the sessions and opens the database. Open: web app in Rust, end-to-end tests, spikes | [#88](https://github.com/ferrofolio/ferrofolio/issues/88) |
+| Phase 4 – Porting | Started: 4 of 118 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
+| Scalable Capital | Not started | [#89](https://github.com/ferrofolio/ferrofolio/issues/89) |
+| Trade Republic sign-in on the server | Not started | [#90](https://github.com/ferrofolio/ferrofolio/issues/90) |
+| Phase 5, iOS stages A and B, Android | Not started; an issue is opened when the track becomes current | – |
 
 ---
 
@@ -28,10 +45,13 @@ Last updated: 2026-11-18 · Fork point: Finanze `develop` at `d9761ed6` · Code 
 | Bank connectivity | Enable Banking is proven with German banks in Docker operation and is the reference connector |
 | Scalable Capital | New connector as a goal of its own, prioritised **before Trade Republic** (section 4.6) |
 | Trade Republic | Must keep working, also without the desktop app (section 4.7) |
+| Tracking | One GitHub issue per workstream with the label `roadmap`, not one per task |
 
 ---
 
 ## 2. Starting point
+
+This section describes the code at the fork point; the [status](#status) shows what has changed since.
 
 | Area | Size | Note |
 |---|---|---|
@@ -66,14 +86,14 @@ About the PWA: a web manifest with `display: standalone` and the iOS meta tags a
 - The fork **cannot change the licence**, because the copyright in the existing code belongs to the upstream authors. The Rust port stays under AGPL as well: a translation of the Python code is a derivative work.
 - This is the protection the project wants. Without a CLA **nobody**, including the Ferrofolio maintainers, holds the right to take the project proprietary later.
 
-| Step | Content |
-|---|---|
-| Remove `CLA.md` | And the CLA section in `.github/CONTRIBUTING.md` |
-| README licence section | Remove the paragraph offering a commercial licence; only upstream can make that offer |
-| Copyright notices | Keep the upstream copyright; add a `NOTICE` file with the origin (upstream repository, fork commit) and a statement of modification (AGPL section 5) |
-| Source link in the web UI | Link to the Ferrofolio repository in the "About" dialog (AGPL section 13, network use) |
-| New files | SPDX header `AGPL-3.0-only` |
-| `cargo deny` | Licence check of all Rust dependencies for AGPL compatibility as a CI gate |
+| Step | Content | Status |
+|---|---|---|
+| Remove `CLA.md` | And the CLA section in `.github/CONTRIBUTING.md` | Done |
+| README licence section | Remove the paragraph offering a commercial licence; only upstream can make that offer | Done |
+| Copyright notices | Keep the upstream copyright; add a `NOTICE` file with the origin (upstream repository, fork commit) and a statement of modification (AGPL section 5) | Done |
+| Source link in the web UI | Link to the Ferrofolio repository in the "About" dialog (AGPL section 13, network use) | Done (#24) |
+| New files | SPDX header `AGPL-3.0-only` | Ongoing rule |
+| `cargo deny` | Licence check of all Rust dependencies for AGPL compatibility as a CI gate | Done (#65) |
 
 **Trademark.** The AGPL grants no trademark rights. The name, icons and identifiers of "Finanze" are planned to be replaced. The name "Ferrofolio" has been checked against GitHub, crates.io, npm, Docker Hub and domain registries, and the domain `ferrofolio.app` is registered for the project. A check against trademark registers is not planned.
 
@@ -96,6 +116,8 @@ A GitHub fork stays technically tied to upstream (pull requests target upstream 
 | `ferrofolio/ios` | Native iOS app in Swift | New |
 | `ferrofolio/android` | Native Android app in Kotlin | Later, once someone can test it |
 | `ferrofolio/.github` | Shared files: CONTRIBUTING, SECURITY, issue templates, reusable workflows | New |
+
+So far only `ferrofolio/ferrofolio` exists; the others are created when their work starts.
 
 With native apps the split is clean. Server and apps share **no UI code**, only two things:
 
@@ -151,7 +173,7 @@ flowchart LR
   A -.-> API
 ```
 
-**One container instead of two.** Today: a Python server plus an nginx frontend. Target: one statically linked Rust binary that serves the API, the web app and sync.
+**One container instead of two.** Today: the server container, in which the Rust binary serves the ported routes and forwards the rest to Python, plus an nginx frontend. Target: one statically linked Rust binary that serves the API, the web app and sync.
 
 **The React frontend stays** and becomes a PWA. The `/api/v1` contract stays stable, which turns the existing Playwright specs into the acceptance test for the Rust backend.
 
@@ -170,6 +192,9 @@ flowchart LR
 | `sync` | `infrastructure/cloud` | Sync protocol, server and client side |
 | `mcp` | `infrastructure/mcp` | MCP server |
 | `ffi` | – | UniFFI bindings for Swift and Kotlin |
+
+`core-domain`, `core-app`, `infra-db` and `server` exist; every other crate is created with the slice that needs it.
+Domain types move into `core-domain` as ported routes need them, not ahead of them.
 
 ### 4.2 Dependency mapping
 
@@ -211,18 +236,18 @@ Crate names reflect the state of knowledge when this roadmap was written and are
 - A service worker that caches only the app shell. API responses containing financial data are **not** stored in the browser for now.
 - Installable on the iOS home screen; this needs HTTPS, which server operation needs anyway.
 - A prompt to reload when a new version is available, instead of a silent update.
-- The mobile layout must depend on screen width, not on the native shell. Today there are 80 call sites of `isNativeMobile()` and 34 of `__MOBILE__`. Each one is reviewed: layout stays and becomes width-dependent, native functions are removed.
+- The mobile layout must depend on screen width, not on the native shell. The 80 call sites of `isNativeMobile()` and 34 of `__MOBILE__` are gone with Capacitor and the desktop app; what remains is to check every view at phone width.
 - Limits on iOS: no Face ID without passkeys, no background sync, storage can be cleared by the system. Because the data lives on the server, this is not critical.
 
-**Capacitor and Pyodide are removed.** With the decision for native apps, `src/lib/pyodide`, `src/lib/capacitor`, `src/lib/mobile`, `src/python`, the folders `ios`, `android` and `native`, the Python bundling, the mobile end-to-end tests and their workflows all go. That is about 16,600 lines and 19 dependencies fewer.
+**Capacitor and Pyodide are removed** (done, #38 to #42, #44, #45 and #49). With the decision for native apps, `src/lib/pyodide`, `src/lib/capacitor`, `src/lib/mobile`, `src/python`, the folders `ios`, `android` and `native`, the Python bundling, the mobile end-to-end tests and their workflows all went. That is about 16,600 lines and 19 dependencies fewer.
 
-**The desktop app is removed.** This drops the `electron` folder (about 3,700 lines), the 73 Electron branches in UI code, the PyInstaller packaging (`package.py`, `package_llama.py`, `finanze.spec`), the auto-updater and the build matrix for three operating systems including signing. Afterwards the frontend knows exactly one environment, the browser, and the server ships only as a container.
+**The desktop app is removed** (done, #55). This dropped the `electron` folder (about 3,700 lines), the 73 Electron branches in UI code, the PyInstaller packaging (`package.py`, `package_llama.py`, `finanze.spec`), the auto-updater and the build matrix for three operating systems including signing. The frontend now knows exactly one environment, the browser, and the server ships only as a container.
 
 One consequence: five connectors signed in to the bank through their own Electron windows, namely IBKR, ING, Mintos, Trade Republic and Unicaja (`frontend/app/electron/main/loginHandlers`, last at `890f604e`). According to the upstream README, Trade Republic, ING and IBKR therefore do not work in Docker operation at all today. A replacement path exists for Trade Republic (section 4.7); the other four have not been investigated. Enable Banking is not affected.
 
 **Ferrofolio does not build or ship the desktop app, and its code has been removed from the repository.** The Electron login windows remain in the Git history (last at `890f604e`) and in upstream Finanze as a reference for the server-side sign-in.
 
-This leaves a known gap. Until the server-side sign-in exists (phase 4, slice 4), no Ferrofolio build offers Trade Republic sign-in, just as the upstream Docker image does not today. In the interim the connector can only be used through the upstream desktop app. The gap is accepted because Scalable Capital has priority. The server-side sign-in is still Python work with no dependency on the Rust foundation, so it can be pulled forward into phase 2 if the gap becomes a problem.
+This leaves a known gap. Until the server-side sign-in exists (phase 4, slice 4), no Ferrofolio build offers Trade Republic sign-in, just as the upstream Docker image does not today. In the interim the connector can only be used through the upstream desktop app. The gap is accepted because Scalable Capital has priority. The server-side sign-in is still Python work with no dependency on the Rust foundation, so it can be pulled forward into phase 2 if the gap becomes a problem (#90).
 
 **Native iOS app.**
 
@@ -238,7 +263,7 @@ Prerequisite: a **Mac with Xcode**. An iOS app cannot be built or run in the sim
 
 ### 4.4 Server security
 
-Per-client API sessions with bearer tokens already exist (upstream change #238). Required before any device connects from outside:
+Per-client API sessions with bearer tokens already exist (upstream change #238). Since #76 the Rust server holds them and keeps Python's session guard as a second line of defence ([rust-backend.md](rust-backend.md#sessions)), so the hardening below is built in Rust. Required before any device connects from outside (#85):
 
 - Sessions per device: a session cookie (HttpOnly, Secure, SameSite) for the web app, tokens for native apps; a device list and per-device revocation
 - Rate limit and lockout on the login
@@ -254,14 +279,14 @@ A known property that stays: the database is encrypted with the user's password.
 
 Each user already registers their own Enable Banking application (the application ID and private key are entered in the settings). Only the redirect runs through `finanze.me`.
 
-- The redirect points to the user's own instance in future, for example `https://<instance>/api/v1/…/callback`.
+- The redirect points to the user's own instance, for example `https://<instance>/api/v1/…/callback`.
 - That address must be added as an allowed redirect URL in the user's Enable Banking application.
-- The instance should not need to be publicly reachable for this, only reachable from the user's browser, because the redirect happens in the browser. This is the expected behaviour and is verified against a real connection in phase 0.
-- Existing bank consents should not be revoked before the switch; after the switch one new consent is run through end to end.
+- The instance does not need to be publicly reachable for this, only reachable from the user's browser, because the redirect happens in the browser.
+- Status: done (#5). Open banking through Enable Banking is the one connection verified since the fork; the setup guide documents the redirect URL.
 
 ### 4.6 Scalable Capital
 
-The codebase has no connector for Scalable Capital; it is built new. No browser automation is needed: **Scalable Capital publishes its own command-line client**, [`ScalableCapital/scalable-cli`](https://github.com/ScalableCapital/scalable-cli), written in Rust and licensed under Apache-2.0.
+Tracked in #89. The codebase has no connector for Scalable Capital; it is built new. No browser automation is needed: **Scalable Capital publishes its own command-line client**, [`ScalableCapital/scalable-cli`](https://github.com/ScalableCapital/scalable-cli), written in Rust and licensed under Apache-2.0.
 
 The details below come from the documentation of the open-source project GiroCrab, which built a Scalable connector in Rust on that basis and reports having verified it against a live account on 2026-11-11. They have not been verified independently for this roadmap.
 
@@ -286,7 +311,7 @@ What follows for Ferrofolio:
 
 ### 4.7 Trade Republic without the desktop app
 
-Trade Republic has no public interface. The connector (about 3,700 lines, built on the MIT-licensed `pytr`) reproduces the interface of the Trade Republic app.
+Tracked in #90. Trade Republic has no public interface. The connector (about 3,700 lines, built on the MIT-licensed `pytr`) reproduces the interface of the Trade Republic app.
 
 **What Electron actually does here.** Fetching and processing run entirely in the backend, over HTTP and WebSocket. Electron only opened `app.traderepublic.com/login` in a real browser window once per sign-in and captured a bot-protection token there (AWS WAF, the response from `token.awswaf.com`). That token is passed to the backend as `awsWafToken`. Phone number, PIN and confirmation code are entered in the normal UI.
 
@@ -300,8 +325,8 @@ So no scraping process has to be replaced, only the acquisition of this one toke
 
 Further points:
 
-- **Upstream currently steers the choice between the old and the new sign-in remotely** through the feature flag `TR_V2_AUTH_API` served by `features.api.finanze.me`. When decoupling, this becomes a local setting.
-- According to `pytr`, Trade Republic is retiring the old web sign-in together with the SMS code. That speaks for making v2 the default.
+- **The choice between the old and the new sign-in is a local setting** since #31: the feature flag `TR_V2_AUTH_API` is no longer served by `features.api.finanze.me`, and v2 is the default (`FF_TR_V2_AUTH_API=OFF` selects the old sign-in).
+- According to `pytr`, Trade Republic is retiring the old web sign-in together with the SMS code, which is why v2 is the default.
 - The connector stays on Python as long as possible and is the last of the core connectors to be ported. While Python runs, fixes from upstream and from `pytr` can be taken directly; this interface changes without notice.
 - GiroCrab (section 4.6) already has a Trade Republic connector in Rust, which may shorten the later port.
 - In the order of work, Trade Republic comes after Scalable Capital.
@@ -353,19 +378,21 @@ What this needs:
 - **Migration ownership** stays with Python until cutover. Rust then starts with a schema baseline and continues the numbering.
 - **In-memory state** (bank sessions, caches). A route always moves together with the state it needs. Connectors are therefore ported as a whole, never in halves.
 
+**State.** The Rust binary has been the entry point since #66. It holds the API sessions (#76) and, at a login, opens the user's database read-only next to Python's connection (#77). The browser still uses a bearer token; the cookie comes with the hardening (#85). One lesson from the first slice: Python can lock and unlock the data without a request Rust sees, so Python stays the authority on the unlock state until the login moves to Rust. Routes that read the database ask Python's status before Rust answers, and the status moves to Rust together with the login, not before it (#80 was closed for this reason). Details: [rust-backend.md](rust-backend.md).
+
 ### 5.1 Parity harness
 
 Agents write a lot of code quickly. Without machine acceptance that is worthless. Before the first route is ported, the following exists:
 
-| Building block | Purpose |
-|---|---|
-| OpenAPI specification of `/api/v1` | Generated from the 119 routes and mappers; the contract for both backends and the source of the Swift client |
-| Differential tests | The same request sent to Python and Rust, JSON responses normalised and compared |
-| Existing controller integration tests | The 39 files in `tests/integration/controller` are reworked to run against a URL instead of the Quart app |
-| Playwright end-to-end tests | `e2e/standard` against the Rust container |
-| Database fixtures | Anonymised real databases per schema version for migration and read tests |
-| Recorded HTTP responses | Per connector, replayed with `wiremock` |
-| Property tests | Money arithmetic (`proptest`): the Rust result equals the Python result |
+| Building block | Purpose | Status |
+|---|---|---|
+| OpenAPI specification of `/api/v1` | Generated from the routes and mappers; the contract for both backends and the source of the Swift client | Open (#87) |
+| Differential tests | The same request answered by Python and Rust, JSON responses normalised and compared | In place: Python's answers are recorded as fixtures that the Rust tests replay, and CI checks the fixtures against Python (#67, #78) |
+| Existing controller integration tests | The 39 files in `tests/integration/controller` are reworked to run against a URL instead of the Quart app | Open |
+| Playwright end-to-end tests | `e2e/standard` against the Rust container | Open; the tests are off during the rewrite (#84) |
+| Database fixtures | Databases per schema version for migration and read tests | In place with synthetic data written by the Python backend per scenario (#78); anonymised real databases are open |
+| Recorded HTTP responses | Per connector, replayed with `wiremock` | Open; comes with the first connector |
+| Property tests | Money arithmetic: the Rust result equals the Python result | In place as thousands of recorded `decimal` operations (`tests/parity/generate_decimal_fixtures.py`, #65) |
 
 A connector only counts as ported once a **fetch against a real account** has also succeeded.
 
@@ -373,11 +400,15 @@ A connector only counts as ported once a **fetch against a real account** has al
 
 ## 6. Phases
 
-Sizes are relative estimates (S/M/L/XL), not dates. The main track covers server and web app; the iOS track runs in parallel from phase 2.
+Sizes are relative estimates (S/M/L/XL), not dates. The main track covers server and web app; the iOS track runs in parallel from phase 2. Each phase names the issue that tracks it.
+
+Phase 3 started before phase 2 was finished. Once the Rust server was the entry point and held the API sessions, hardening the Python sessions first would have meant building the same thing twice, so phases 2 and 3 run side by side and the hardening is built in Rust.
 
 ```mermaid
 flowchart LR
-  P0[0 Independence] --> P1[1 Workflow] --> P2[2 Server mode and PWA] --> P3[3 Rust foundation] --> P4[4 Porting] --> P5[5 Cutover]
+  P0[0 Independence] --> P1[1 Workflow]
+  P1 --> P2[2 Server mode and PWA]
+  P1 --> P3[3 Rust foundation] --> P4[4 Porting] --> P5[5 Cutover]
   P2 --> IA[iOS A: native client]
   P4 --> IB[iOS B: offline and sync]
   IA --> IB
@@ -385,84 +416,85 @@ flowchart LR
 
 ### Phase 0 – Independence · S
 
+Nearly done; the rest is tracked in [#83](https://github.com/ferrofolio/ferrofolio/issues/83).
+
 - Set up the `ferrofolio` organisation (section 3.1) and register the domain `ferrofolio.app` (done)
-- Repository `ferrofolio/ferrofolio` with the full history, `upstream` as a fetch-only remote
-- Licence steps from section 3 (CLA, README, `NOTICE` done; source link in the web UI in review, #24)
-- Rename: name, icons, image names, the URL scheme `finanze://`, and the default data directory `Finanze` in `finanze/args.py` with a migration of existing data (in review: data directory #25, web app #26, backend texts #27, images #28, URL scheme #29; icons still need new artwork)
+- Repository `ferrofolio/ferrofolio` with the full history, `upstream` as a fetch-only remote (done)
+- Licence steps from section 3 (done)
+- Rename: name and icons (#54), web app (#26), backend texts (#27), images (#28) and the URL scheme `ferrofolio://` (#29) are done. Open: the default data directory `Finanze` in `finanze/args.py`, with a migration of existing data (#25 was closed without merging)
 - Replace, self-host or remove upstream services:
 
 | Service | Action | Status |
 |---|---|---|
-| Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5); verification with a real consent outstanding |
-| Google Sheets redirect | Same | In review (#30) |
-| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | In review: off by default after #31 and #32; removing the code needs a decision, because it deletes `/api/v1` routes |
-| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | In review (#31); the upstream host is still the default until it is merged. After #31 the public keychain for four scraping connectors is opt-in as well |
-| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | In review (#32); the icon URLs are still hard-coded until it is merged. After #32 the source is configurable and off by default; the crypto snapshot and historic metal prices as well |
+| Enable Banking redirect | Point it to the user's own instance (section 4.5); **first**, because working bank connections depend on it | Done (#5) |
+| Google Sheets redirect | Same | Done (#30) |
+| `api.finanze.me` and Supabase | Remove; Ferrofolio's own sync arrives with iOS stage B | Off by default (#31, #32). Deleting the code needs a decision, because it removes `/api/v1` routes; the upstream guard test still lists the cloud UI |
+| `features.api.finanze.me` | Remove; feature flags become local configuration. This also affects the Trade Republic sign-in (section 4.7) | Done (#31); a remote source can still be configured with `FEATURE_FLAG_URL`. The public keychain for four scraping connectors is opt-in |
+| `static.finanze.me/icons/ticker` | Bundle the icons or make the source configurable | Done (#32): the source is configurable and off by default, as are the crypto snapshot and historic metal prices. Where they come from in future is open |
 | Telemetry DSNs | Off by default, DSN freely configurable | Already the case; no change needed |
 | Electron auto-updater, `adp.finanze.me` | Goes away with the desktop app and Capacitor in phase 2 | Done: removed with the desktop app |
 
-- Set up CI secrets anew; clean up workflows that expect upstream secrets
+- Set up CI secrets anew; clean up workflows that expect upstream secrets (done, #2)
 
-**Done when:** a fresh build runs without a single request to `*.finanze.me` (enforced by a test, #34) and a bank consent through Enable Banking works with the instance's own redirect.
+**Done when:** a fresh build runs without a single request to `*.finanze.me` (enforced by a test, #34; its `PENDING` list must be empty) and a bank consent through Enable Banking works with the instance's own redirect.
 
 ### Phase 1 – Agent-driven workflow and quality gates · S
 
-See section 7. This has to be in place before agents deliver code at scale.
+See section 7. This has to be in place before agents deliver code at scale. Mostly in place; the missing gates are tracked in [#84](https://github.com/ferrofolio/ferrofolio/issues/84).
 
 **Done when:** a test pull request is reviewed automatically by CodeRabbit, all gates run, and direct pushes to `develop` are blocked.
 
 ### Phase 2 – Server mode and PWA · M
 
-Still on Python. Delivers the goal "the container is the backend, the web app runs on the phone".
+Delivers the goal "the container is the backend, the web app runs on the phone".
 
-- Harden authentication, rate limiting and CORS (section 4.4), building on the existing API sessions
-- Web app and API in one container
-- PWA: service worker, installability, width-dependent mobile layout (section 4.3)
+- Harden authentication, rate limiting and CORS (section 4.4), building on the API sessions the Rust server holds ([#85](https://github.com/ferrofolio/ferrofolio/issues/85))
+- PWA: service worker, installability, width-dependent mobile layout (section 4.3, [#86](https://github.com/ferrofolio/ferrofolio/issues/86))
+- Extend `GET /api/v1/status` with the server capabilities, generate the OpenAPI specification and publish it as a release artifact ([#87](https://github.com/ferrofolio/ferrofolio/issues/87))
+- Compose example with a reverse proxy and TLS (#85)
 - Remove Capacitor, Pyodide and the native shells (done)
 - Remove the desktop app: Electron code, desktop build, auto-updater and PyInstaller packaging (done); Trade Republic sign-in remains unavailable in Ferrofolio builds until phase 4 (section 4.3)
-- In parallel: start the `connectors-scalable` crate and test it from the command line against a real account (section 4.6)
-- Extend `GET /api/v1/status` with the server version and capabilities
-- Generate the OpenAPI specification and publish it as a release artifact
-- Compose example with a reverse proxy and TLS
+- In parallel: start the `connectors-scalable` crate and test it from the command line against a real account (section 4.6, [#89](https://github.com/ferrofolio/ferrofolio/issues/89))
+
+Web app and API in one container moved to phase 3: the Rust binary that is already the entry point serves the web app.
 
 **Done when:** the PWA is installed on an iPhone home screen, serves all core views over TLS, and a request without a session returns 401.
 
 ### Phase 3 – Rust foundation · L
 
-Status: started. The Rust server is the entry point of the server image and forwards to Python; the calculators are
-the first ported routes, ahead of their slice because they need no database. `infra-db` opens existing databases
-read-only. Rust holds the API sessions, opens the database at a login and serves the settings, the labels and the labeling rules from it (phase 4, slices 1 and 2, started early). Details and the list of ported routes:
-[rust-backend.md](rust-backend.md).
+Started; the rest is tracked in [#88](https://github.com/ferrofolio/ferrofolio/issues/88). The Rust server is the entry point of the server image and forwards to Python; the calculators were the first ported routes, ahead of their slice because they need no database. Rust holds the API sessions, opens the database at a login and serves the settings, the labels and the labeling rules from it (phase 4, slices 1 and 2, started early). Details and the list of ported routes: [rust-backend.md](rust-backend.md).
 
-- Workspace, CI, `cargo deny`
-- Parity harness from section 5.1
-- `core-domain` complete
-- `infra-db`: open SQLCipher, read existing databases
-- `server`: axum with forwarding to Python; auth and web app in Rust
+- Workspace, CI, `cargo deny` (done, #65)
+- Parity harness from section 5.1 (in place for calculations and routes that read the database; the rest is open)
+- `core-domain`: `Dezimal` with Python's arithmetic (done); domain types as the ported routes need them
+- `infra-db`: open SQLCipher, read existing databases (done, #71)
+- `server`: axum with forwarding to Python (done, #66) and the API sessions (done, #76); the web app in Rust, so that one container replaces the server and the nginx front
 - Spikes for the riskiest dependencies: PDF and, if needed, TLS impersonation
 
 **Done when:** the container runs with Rust as the entry point, all end-to-end tests pass, and every domain route and method that has not been ported is still forwarded.
 
 ### Phase 4 – Vertical porting · XL
 
-| # | Slice | Note |
-|---|---|---|
-| 1 | Status, login, settings | Small; rehearses the process |
-| 2 | Read paths: positions, transactions, timelines, history, cash flow | High value, no external access; also what the iOS app needs first |
-| 3 | **Scalable Capital** (new) | First Rust connector, not a port; needs the write paths for positions and transactions |
-| 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7) |
-| 5 | **Enable Banking** | Proven connector, official interface, ~1,100 lines |
-| 6 | Manual data: transactions, positions, flows, real estate, commodities | Plain CRUD |
-| 7 | Labels, rules, recurring movements | |
-| 8 | Calculators and forecasts | Property tests against Python |
-| 9 | Quotes, instruments, exchange rates, Euribor | External but public APIs |
-| 10 | Import, export, templating (XLSX, CSV, PDF) | |
-| 11 | Crypto: wallets, chains, exchanges | |
-| 12 | **Trade Republic to Rust** | Deliberately late, so that fixes can be taken directly for as long as possible; ~3,700 lines, WebSocket |
-| 13 | Further financial connectors, one at a time | Only with a test account, see below; ING, IBKR, Mintos and Unicaja additionally need a replacement for the Electron login window |
-| 14 | AI providers, local models, AI import | |
-| 15 | MCP server | |
-| 16 | Google Sheets | |
+Started; tracked in [#91](https://github.com/ferrofolio/ferrofolio/issues/91), which counts the routes served by Rust. Each porting pull request updates the list in [rust-backend.md](rust-backend.md#ported-routes) and the count in the issue; it does not need an issue of its own.
+
+| # | Slice | Note | Status |
+|---|---|---|---|
+| 1 | Status, login, settings | Small; rehearses the process | Settings, sessions and unlocking done (#76, #77, #79). The status and the login move together, once Rust is the authority on the unlock state (section 5) |
+| 2 | Read paths: positions, transactions, timelines, history, cash flow, and the other routes that only read the database | High value, no external access; also what the iOS app needs first | Labels done (#81) |
+| 3 | **Scalable Capital** (new) | First Rust connector, not a port; needs the write paths for positions and transactions | #89 |
+| 4 | **Trade Republic in server operation** | Still on Python: sign-in without the desktop app (section 4.7) | #90 |
+| 5 | **Enable Banking** | Proven connector, official interface, ~1,100 lines | |
+| 6 | Manual data: transactions, positions, flows, real estate, commodities | Plain CRUD | |
+| 7 | Labels, rules, recurring movements: the writes | | |
+| 8 | Calculators and forecasts | Property tests against Python | Loan and savings calculators done (#67) |
+| 9 | Quotes, instruments, exchange rates, Euribor | External but public APIs | |
+| 10 | Import, export, templating (XLSX, CSV, PDF) | | |
+| 11 | Crypto: wallets, chains, exchanges | | |
+| 12 | **Trade Republic to Rust** | Deliberately late, so that fixes can be taken directly for as long as possible; ~3,700 lines, WebSocket | |
+| 13 | Further financial connectors, one at a time | Only with a test account, see below; ING, IBKR, Mintos and Unicaja additionally need a replacement for the Electron login window | |
+| 14 | AI providers, local models, AI import | | |
+| 15 | MCP server | | |
+| 16 | Google Sheets | | |
 
 **The remaining connectors are the largest cost item and the largest ongoing risk.** They reproduce unofficial bank interfaces and break regularly. While Python runs, upstream fixes can be merged directly; after the port every fix has to be carried over by hand.
 
@@ -510,7 +542,7 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 
 ### 7.1 Life of a pull request
 
-1. **Issue.** One clearly scoped task, for example "Port route `GET /api/v1/transactions`". The porting tracker is generated from the route list.
+1. **Issue.** Issues track workstreams, not tasks: one per phase or larger goal, labelled `roadmap`, with a short list of milestones. A pull request does not need an issue of its own; it names the tracking issue it advances and ticks the item it completes. Bugs and feature requests get issues as usual.
 2. **Agent** works on a feature branch following the recipe in `AGENTS.md`.
 3. **Local pre-check** by the agent: formatting, lint, tests, parity harness, its own review pass.
 4. **Pull request** against `develop`, kept small (guideline: under 500 changed lines, not counting tests and fixtures).
@@ -522,45 +554,8 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 ### 7.2 CodeRabbit
 
 - Installed as a GitHub App across the organisation. According to the vendor it is free for public open-source repositories; the rate limits of the open-source tier should be checked early, because agent-driven workflows produce many pull requests.
-- Configuration lives in `.coderabbit.yaml` per repository, so that it is versioned and reviewable itself. Starting point for the server repository:
-
-```yaml
-# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-language: en-US
-reviews:
-  profile: assertive
-  request_changes_workflow: true
-  high_level_summary: true
-  auto_review:
-    enabled: true
-    drafts: false
-    base_branches: [develop, main]
-  path_instructions:
-    - path: "crates/**/*.rs"
-      instructions: |
-        Money is never computed, stored or compared as f32/f64, always as core_domain::Dezimal;
-        converting it to f64 only to serialise an API response is allowed.
-        No unwrap/expect/panic outside tests.
-        SQL only with bound parameters.
-        No credentials, tokens or IBANs in logs.
-    - path: "crates/server/**"
-      instructions: |
-        Every route except login and status must use the auth extractor.
-        Changes to /api/v1 must be additive and reflected in the OpenAPI spec.
-    - path: "crates/infra-db/migrations/**"
-      instructions: |
-        Migrations are immutable once merged.
-        Every migration needs a test against a fixture of the previous version.
-    - path: "crates/connectors-*/**"
-      instructions: |
-        Treat remote responses as untrusted.
-        Parsing failures are typed errors, never panics.
-    - path: "**/tests/**"
-      instructions: |
-        Flag deleted or weakened assertions explicitly.
-```
-
-- The schema, and whether CodeRabbit supports a central configuration for a whole organisation, should be checked against the current CodeRabbit documentation before first use.
+- The configuration is [`.coderabbit.yaml`](../.coderabbit.yaml), versioned and reviewable itself. CodeRabbit reviews every pull request, requests changes for blocking findings and approves only when every thread is resolved and the merge risk is low. It never approves changes in the risk areas of section 7.4 automatically; there a maintainer decides. Its pre-merge checks and path instructions carry the hard rules of `AGENTS.md` (money as `Dezimal`, no panics, bound SQL parameters, no secrets in logs, additive API changes).
+- Its first sections are not specific to this repository and can move to a shared configuration when a second repository is added.
 
 ### 7.3 CI gates (all required checks)
 
@@ -576,6 +571,8 @@ reviews:
 
 The server repository additionally runs coverage (`cargo llvm-cov`), actionlint and hadolint. Occasionally, not per pull request: mutation tests (`cargo mutants`) for money arithmetic and auth.
 
+State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run on every pull request, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. The end-to-end tests are off during the rewrite; gitleaks, coverage, actionlint and hadolint are not set up; and the `Rust` and `Docker Image` jobs run but are not yet required checks.
+
 iOS builds run on macOS runners; the standard runners are free for public repositories. They have no Docker, so the server is started as a native binary for the tests.
 
 ### 7.4 Where a human has to look
@@ -587,16 +584,16 @@ iOS builds run on macOS runners; the standard runners are free for public reposi
 - Money arithmetic and rounding
 - Anything that touches bank credentials, in particular the Scalable connector, whose access could also trade
 
-`CODEOWNERS` enforces a human approval for these paths.
+CodeRabbit never approves changes to these paths automatically (section 7.2), and `AGENTS.md` asks agents to stop and ask before changing behaviour there. A `CODEOWNERS` file that requires a human approval follows once the project has more than one maintainer; a single maintainer cannot approve their own pull requests, so it would only block them.
 
 ### 7.5 Guard rails against typical agent failures
 
 - **Port the tests first**, then the implementation. A pull request that deletes tests or weakens assertions is not merged.
 - **`AGENTS.md`** per repository with the recipe, a list of prohibitions (no `unsafe`, no `f64` for money, no new dependencies without justification) and a definition of done. Shared rules live in the `.github` repository.
-- **An agent never merges by itself.** The rulesets enforce this technically.
+- **An agent never merges by itself** (`AGENTS.md`). The ruleset on `develop` and `main` requires a pull request, the required checks and resolved review threads.
 - **A second, independent reviewer** for risk areas: a different model from the one that wrote the code.
 - **Agents working on the iOS app need macOS.** On Linux an agent can write Swift code but can neither build it nor check it in the simulator; CI is then the only control.
-- **Make progress visible**: the number of routes still forwarded is a figure in the README.
+- **Make progress visible**: the [status](#status) above and the `roadmap` issues show where each track stands; the routes served by Rust are listed in [rust-backend.md](rust-backend.md#ported-routes) and counted in #91.
 
 ### 7.6 Working across two repositories
 
@@ -605,7 +602,7 @@ iOS builds run on macOS runners; the standard runners are free for public reposi
 
 ### 7.7 Watching upstream
 
-A weekly agent run: `git fetch upstream`, review the new commits, report "relevant / to take / ignore". While Python runs, changes are taken by merge or cherry-pick; afterwards they become porting issues.
+A weekly agent run: `git fetch upstream`, review the new commits, report "relevant / to take / ignore". While Python runs, changes are taken by merge or cherry-pick; afterwards they are carried over by hand. Not set up yet (#84).
 
 ---
 
@@ -614,7 +611,8 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Risk | Countermeasure |
 |---|---|
 | The rewrite stalls before it is usable | Strangler: every intermediate state runs in production |
-| Bank connections break when decoupling from `finanze.me` | Switch the redirect first and test it with a real consent |
+| Rust and Python disagree about whether the data is unlocked, or whose it is | Python stays the authority until the login moves to Rust; Rust asks Python's status before it reads and passes the request on otherwise (section 5) |
+| Bank connections break when decoupling from `finanze.me` | Switch the redirect first and test it with a real consent (done for Enable Banking) |
 | Two large efforts at once (rewrite and iOS app) | The iOS app covers everyday tasks only; the desktop app is dropped |
 | Scalable changes or blocks the CLI interface | Watch the official CLI; as a way out, invoke the CLI itself in the container |
 | The Scalable access can trade | Fixed allow-list of read queries, human approval for this code |
@@ -625,7 +623,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | Amounts differ because of rounding | `Dezimal` follows Python's decimal context; differential tests against Python |
 | Data loss during migration or sync | Fixtures per schema version, automatic backup before every migration |
 | Server exposed on the network | Hardened auth and TLS in phase 2, before any external access |
-| Agents produce plausible but wrong code | Parity harness as a hard gate, human approval in risk areas |
+| Agents produce plausible but wrong code | Parity harness as a hard gate, human approval in risk areas; end-to-end tests back on against the Rust image (#84) |
 | Server and app run different versions | Additive API changes only, version reported by the status endpoint |
 | AGPL code in the App Store | Not relevant for now, sideloading only; additional permission in the iOS repository from the start anyway |
 | Sideloading is cumbersome: refresh every 7 days, at most 3 apps | Set up automatic refresh; a paid account as a later way out |
@@ -650,15 +648,20 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 | 7 | Record-level sync | Decide only when the simple reconciliation proves insufficient in daily use |
 | 8 | Scalable: talk to the interface directly or invoke the official CLI | Directly; clarify the terms of use first |
 | 9 | Reuse code from GiroCrab or contribute there | Read its connector code first, then decide |
+| 10 | The upstream cloud sign-in and backup code: delete it, although that removes `/api/v1` routes | Delete it. The routes cannot work without the upstream service, so their removal is recorded as a deliberate exception to additive API changes, and they need no port. Ferrofolio's own sync comes with iOS stage B |
+| 11 | The default data directory `Finanze` | Rename it to `Ferrofolio` and move an existing directory once, in Python and the Rust server together |
+| 12 | Where the public keychain, ticker icons, crypto snapshot and historic metal prices come from | Keep them configurable and off; host nothing until a feature needs it |
+| 13 | Own GitHub, OpenAI and OpenRouter app identities | Register own identities where users grant access through them, so the consent names Ferrofolio |
 
 ---
 
 ## 10. Next steps
 
-1. Done: organisation set up with two-factor requirement, ruleset with required checks and CodeRabbit; domain `ferrofolio.app` registered.
-2. Done: the first Phase 0 and Phase 1 pull requests (roadmap, CI cleanup, review policy, Dependabot, Enable Banking redirect).
-3. Verify the Enable Banking redirect with a real bank consent.
-4. In review: the remaining phase 0 pull requests (#24 to #34). Once they are merged, trim the `PENDING` list of the upstream guard test.
-5. Open phase 0 decisions: new icons; whether to delete the upstream cloud code (removes `/api/v1` routes); where the public keychain, ticker icons and crypto snapshot come from in future, if at all; whether Ferrofolio registers its own GitHub, OpenAI and OpenRouter app identities.
-6. Phase 2: hardening auth is the first functional pull request, followed by the PWA and the removal of Capacitor. In parallel, enable "Agentic Investing" in a Scalable account and start the `connectors-scalable` crate.
-7. Once a Mac is available and phase 2 delivers the OpenAPI specification: start iOS stage A.
+In order of priority; each step names the issue that tracks it.
+
+1. Continue the read paths: the labeling rules, the periodic and pending flows, then positions, transactions and the timelines ([#91](https://github.com/ferrofolio/ferrofolio/issues/91)).
+2. Turn the end-to-end tests back on against the image with the Rust entry point, and make the `Rust` and `Docker Image` jobs required checks, so that the port has its acceptance test ([#84](https://github.com/ferrofolio/ferrofolio/issues/84)).
+3. Harden the sessions in Rust: cookie for the web app, devices, rate limit, CORS, TLS example ([#85](https://github.com/ferrofolio/ferrofolio/issues/85)). Then serve the web app from the Rust binary ([#88](https://github.com/ferrofolio/ferrofolio/issues/88)) and add the PWA ([#86](https://github.com/ferrofolio/ferrofolio/issues/86)).
+4. In parallel: enable "Agentic Investing" in a Scalable account, clarify the terms of use and start the `connectors-scalable` crate ([#89](https://github.com/ferrofolio/ferrofolio/issues/89)); try the Trade Republic v2 sign-in without the WAF token ([#90](https://github.com/ferrofolio/ferrofolio/issues/90)).
+5. Settle the open phase 0 decisions, rows 10 to 13 of section 9 ([#83](https://github.com/ferrofolio/ferrofolio/issues/83)).
+6. Generate and publish the OpenAPI specification ([#87](https://github.com/ferrofolio/ferrofolio/issues/87)); once a Mac is available, start iOS stage A.

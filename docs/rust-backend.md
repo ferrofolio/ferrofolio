@@ -79,6 +79,10 @@ target in both. The amount of a target that is kept is parsed exactly.
 
 ## Ported routes
 
+These routes are served by Rust; every other route under `/api/v1` is forwarded to Python. The progress of the port
+is tracked in [#91](https://github.com/ferrofolio/ferrofolio/issues/91), which a pull request that ports a route
+updates together with this table.
+
 | Route | Python origin | Since |
 |---|---|---|
 | `POST /api/v1/calculation/loan` | `routes/calculate_loan.py`, `calculations/loan_calculator.py` | Calculators (phase 4, slice 8, pulled forward) |
@@ -454,10 +458,17 @@ virtual environment if needed.
 
 ## Next steps
 
+The order across all tracks is in the [roadmap](roadmap.md#10-next-steps). For the port itself:
+
 1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings, the labels
    and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): next the periodic and
    pending flows, then positions, transactions and the timelines.
 2. Rust's first write access to the database (the settings, the labels), with the writes Python makes to the same
    tables until the cutover.
 3. The status and the login move to Rust together, once Rust is the authority on the unlock state rather than an
-   observer of it; until then Python answers the status, which already decides whether Rust may read.
+   observer of it; until then Python answers the status, which already decides whether Rust may read. A first port of
+   the status alone (#80) was closed for this reason; its path resolution, server details and fixture generator can
+   be taken from its branch `feat/rust-status` then.
+4. The hardening of the sessions for access from other networks, built on the sessions Rust holds
+   ([#85](https://github.com/ferrofolio/ferrofolio/issues/85)), and the web app served by the Rust binary
+   ([#88](https://github.com/ferrofolio/ferrofolio/issues/88)).
