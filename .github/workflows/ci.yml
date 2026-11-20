@@ -162,7 +162,9 @@ jobs:
 
       # The checked-out tree catches every secret that would reach the target branch,
       # and in a local run also uncommitted ones; the commits of the pull request catch
-      # a secret that was added and removed again, which stays in the history.
+      # a secret that was added and removed again, which stays in the history. Without
+      # --diff-merges, git log shows no diff for a merge commit, so a secret written
+      # while resolving a conflict would go unseen.
       # --redact keeps what was found out of the log.
       - name: Scan for secrets with gitleaks
         env:
@@ -174,7 +176,7 @@ jobs:
           # A local run without a base commit (scripts/ci-local.sh with uncommitted
           # changes or --all) has only the tree to scan.
           if git cat-file -e "$BASE_SHA^{commit}" 2> /dev/null && git cat-file -e "$HEAD_SHA^{commit}" 2> /dev/null; then
-            gitleaks git . --no-banner --redact --log-opts="$BASE_SHA..$HEAD_SHA"
+            gitleaks git . --no-banner --redact --log-opts="--diff-merges=separate $BASE_SHA..$HEAD_SHA"
           else
             echo "The base or head commit is not available; scanned the tree only."
           fi
@@ -186,7 +188,8 @@ jobs:
       - name: Lint the Dockerfiles with hadolint
         run: |
           set -euo pipefail
-          mapfile -t dockerfiles < <(git ls-files ':(glob)**/Dockerfile' ':(glob)**/*.Containerfile')
+          # -z keeps Git from quoting paths with special characters.
+          mapfile -d '' -t dockerfiles < <(git ls-files -z ':(glob)**/Dockerfile' ':(glob)**/*.Containerfile')
           printf '%s\n' "${dockerfiles[@]}"
           hadolint "${dockerfiles[@]}"
 
