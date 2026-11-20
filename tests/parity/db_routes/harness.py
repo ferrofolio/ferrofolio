@@ -78,6 +78,11 @@ class Scenario:
     name: str
     fill: Optional[Callable[[DBClient], Awaitable[None]]] = None
     tables: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # Rewrites a table's rows before the dump compares them, given the open
+    # connection, the table name, its columns and its rows: for values that differ
+    # between runs only in some rows, such as the ids the migrations generate,
+    # which a fixed value then replaces while the scenario's own stay as they are.
+    normalize: Optional[Callable[[Any, str, list[str], list[list]], list[list]]] = None
 
 
 @dataclass(frozen=True)
@@ -215,12 +220,15 @@ def dump(path: Path, scenario: Scenario) -> dict:
                 cursor = connection.execute(f"SELECT * FROM {identifier}")
                 columns = [description[0] for description in cursor.description]
                 volatile = scenario.tables[name]
+                rows = [list(row) for row in cursor.fetchall()]
+                if scenario.normalize is not None:
+                    rows = scenario.normalize(connection, name, columns, rows)
                 rows = [
                     [
                         "<volatile>" if column in volatile else _value(value)
                         for column, value in zip(columns, row)
                     ]
-                    for row in cursor.fetchall()
+                    for row in rows
                 ]
                 rows.sort(key=lambda row: json.dumps(row, sort_keys=True))
                 tables[name] = {"columns": columns, "rows": rows}
@@ -230,6 +238,15 @@ def dump(path: Path, scenario: Scenario) -> dict:
     if unknown:
         raise SystemExit(f"{scenario.name}: no tables {sorted(unknown)}")
     return {"migrations": migrations, "tables": tables}
+
+
+def _dump_or_none(path: Path, scenario: Scenario) -> Optional[dict]:
+    """The dump of a committed database, or None when it cannot hold the scenario,
+    for example because a migration since has added a table the scenario fills."""
+    try:
+        return dump(path, scenario)
+    except SystemExit:
+        return None
 
 
 class DataState:
@@ -368,7 +385,7 @@ async def output(slices: list[Slice], directory: Path) -> None:
             created = await create(Path(scratch), scenario)
             # SQLCipher salts every file, so a database that still holds what its
             # scenario defines is kept rather than replaced by an equal one.
-            if committed.exists() and dump(committed, scenario) == dump(
+            if committed.exists() and _dump_or_none(committed, scenario) == dump(
                 created, scenario
             ):
                 continue

@@ -314,13 +314,16 @@ python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/f
 ```
 
 SQLCipher salts every file, so `--output` keeps a committed database that still holds what its scenario defines and
-writes only new or changed ones; the binary files change only when their data does. A slice's parity test replays its
+writes only new or changed ones, and those whose schema lacks a table the scenario fills; the binary files change only
+when their data does. A scenario's `normalize` replaces values the migrations generate anew in every database, such as
+the ids of the seeded labels, with fixed ones, so that the comparison still sees every change to the scenario's own
+rows. A slice's parity test replays its
 cases with `common::database::replay`, which logs in once per database and lock state, and checks the functions it
 records under `functions` against the Rust functions they describe (the labels record `uuid.UUID()` and the label
 enums for inputs no database row could show).
 
 The ids of rows are read with `core_domain::pyuuid::parse`, which follows `uuid.UUID(text)` exactly: it removes every
-`urn:`, `uuid:` and hyphen, strips braces, and reads the 32 remaining characters with `int(text, 16)`, which accepts
+`urn:` and `uuid:`, strips braces from both ends, removes every hyphen, and reads the 32 remaining characters with `int(text, 16)`, which accepts
 surrounding whitespace, a `+`, a `0x` prefix, single underscores and decimal digits of any script, and answers with
 Python's messages otherwise. A route that maps an id Python cannot read answers `500 UNEXPECTED_ERROR` with the same
 message as Python.

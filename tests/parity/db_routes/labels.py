@@ -111,36 +111,56 @@ async def fill(client):
         await _carry(cursor, LABELS[2][0], 1, "00aa")
 
 
+INVALID_LABELS = [
+    ("not-a-uuid", "broken", None, "EXPENSE", "NEED", CREATED),
+    (
+        "3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a",
+        None,
+        "Wrong case",
+        "expense",
+        "NEED",
+        CREATED,
+    ),
+]
+# The ids of the labels the scenarios add; every other label is seeded.
+OWN_IDS = {label[0] for label in LABELS + INVALID_LABELS}
+
+
 async def fill_invalid(client):
     async with client.tx() as cursor:
-        await _insert_labels(
-            cursor,
-            [
-                ("not-a-uuid", "broken", None, "EXPENSE", "NEED", CREATED),
-                (
-                    "3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a",
-                    None,
-                    "Wrong case",
-                    "expense",
-                    "NEED",
-                    CREATED,
-                ),
-            ],
-        )
+        await _insert_labels(cursor, INVALID_LABELS)
 
 
-# The seeded labels get a new id and creation time in every database.
-SEEDED = ("id", "created_at")
-LABELS_DB = Scenario(
-    "labels",
-    fill,
-    {
-        "labels": SEEDED,
-        "account_transactions": (),
-        "account_transaction_labels": ("label_id",),
-    },
-)
-INVALID = Scenario("labels_invalid", fill_invalid, {"labels": SEEDED})
+def normalize(connection, table, columns, rows):
+    """The labels the migrations seed get a new id and creation time in every
+    database: those become fixed values, and a transaction's label is named by the
+    label's key or name. The scenario's own labels keep their stored values, so
+    that a change to them makes the committed database outdated."""
+    seeded = {
+        row[0]
+        for row in connection.execute("SELECT id FROM labels")
+        if row[0] not in OWN_IDS
+    }
+    names = {
+        row[0]: f"label {row[1] or row[2]}"
+        for row in connection.execute("SELECT id, key, name FROM labels")
+    }
+    if table == "labels":
+        index_id, index_created = columns.index("id"), columns.index("created_at")
+        for row in rows:
+            if row[index_id] in seeded:
+                row[index_id] = "<seeded>"
+                row[index_created] = "<seeded>"
+    elif table == "account_transaction_labels":
+        index = columns.index("label_id")
+        for row in rows:
+            row[index] = names.get(row[index], row[index])
+    return rows
+
+
+TABLES = {"labels": (), "account_transactions": (), "account_transaction_labels": ()}
+LABELS_DB = Scenario("labels", fill, TABLES, normalize)
+INVALID = Scenario("labels_invalid", fill_invalid, {"labels": ()}, normalize)
 
 
 def register(app, client):
