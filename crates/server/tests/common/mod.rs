@@ -108,9 +108,12 @@ pub fn difference(case: &Value, status: StatusCode, body: &Option<Value>) -> Opt
     let (matches, expectation) = match case["compare"].as_str().unwrap() {
         "full" => (
             status_code == response["status"].as_u64().unwrap()
-                && body
-                    .as_ref()
-                    .is_some_and(|body| same_json(body, &response["body"])),
+                // Both harnesses record a body that is not JSON, an empty one
+                // included, as none: `null` in the fixture.
+                && match body {
+                    Some(body) => same_json(body, &response["body"]),
+                    None => response["body"].is_null(),
+                },
             format!("{} {}", response["status"], response["body"]),
         ),
         "status_code" => (

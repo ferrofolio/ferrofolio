@@ -6,8 +6,9 @@
 //! the Python backend and records the routes against them. Here each database is
 //! copied into a data directory of its own, as the backend lays one out, and Rust
 //! unlocks it through a login as a client sends it, with a stand-in for Python
-//! that accepts the login, reports the lock state on `GET /api/v1/status` and
-//! answers every other request it gets with a mark that it was passed on.
+//! that accepts the login, reports the lock state and the unlocked user on
+//! `GET /api/v1/status` and answers every other request it gets with a mark that
+//! it was passed on.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -43,9 +44,22 @@ pub fn fixture(name: &str) -> Value {
     serde_json::from_str(&text).unwrap()
 }
 
+/// A temporary directory, removed with everything in it when dropped.
+#[derive(Debug)]
+pub struct TempDirectory(PathBuf);
+
+impl Drop for TempDirectory {
+    fn drop(&mut self) {
+        // A file that is still open goes when it is closed; a failure leaves
+        // only a stray directory in the temporary directory.
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// A data directory with the fixture database `file` as the database of
 /// `USERNAME`, in a directory of its own: opening a database adds WAL files.
-pub fn data_dir(file: &str) -> DataDir {
+/// The directory goes when the returned guard is dropped.
+pub fn data_dir(file: &str) -> (DataDir, TempDirectory) {
     static NEXT: AtomicU32 = AtomicU32::new(0);
     let directory: PathBuf = std::env::temp_dir().join(format!(
         "ferrofolio-db-parity-{}-{}",
@@ -57,7 +71,7 @@ pub fn data_dir(file: &str) -> DataDir {
     std::fs::copy(Path::new(FIXTURES).join(file), profile.join("data.db")).unwrap();
     let profiles = json!({"profiles": [{"id": PROFILE_ID, "name": USERNAME}]});
     std::fs::write(directory.join("profiles.json"), profiles.to_string()).unwrap();
-    DataDir::new(directory)
+    (DataDir::new(directory.clone()), TempDirectory(directory))
 }
 
 /// The stand-in for Python: whether its data is unlocked.
@@ -101,7 +115,13 @@ impl Python {
                         value.as_bytes() == format!("Bearer {BACKEND_TOKEN}").as_bytes()
                     });
                 let unlocked = python.unlocked.load(Ordering::SeqCst) && authorized;
-                axum::Json(json!({ "status": if unlocked { "UNLOCKED" } else { "LOCKED" } }))
+                // Python names the user whose data it unlocked, which Rust checks
+                // without API sessions before it opens the database.
+                if unlocked {
+                    axum::Json(json!({ "status": "UNLOCKED", "user": { "username": USERNAME } }))
+                } else {
+                    axum::Json(json!({ "status": "LOCKED" }))
+                }
             }
         };
         let app = axum::Router::new()
@@ -133,6 +153,8 @@ pub struct Harness {
     pub app: axum::Router,
     pub state: AppState,
     pub python: Python,
+    /// Declared last, so that it goes after the state with the open database.
+    _directory: TempDirectory,
 }
 
 impl Harness {
@@ -150,12 +172,14 @@ impl Harness {
             Arc::new(server::clock::SystemClock),
             Sessions::new(settings, Arc::new(SystemSessionClock)),
         );
-        state.data_dir = Some(data_dir(file));
+        let (data_dir, directory) = data_dir(file);
+        state.data_dir = Some(data_dir);
         configure(&mut state);
         Harness {
             app: router(state.clone()),
             state,
             python,
+            _directory: directory,
         }
     }
 
