@@ -65,9 +65,10 @@ where
         Err(_) => return answer(ApiError::Busy.into_response()),
     };
     let sessions = state.sessions.clone();
+    let headers = parts.headers.clone();
     let read = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        sessions.with_database(work)
+        sessions.with_database_of(&headers, work)
     })
     .await;
     match read {

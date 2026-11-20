@@ -236,7 +236,8 @@ sequenceDiagram
 Rust learns of an unlock and a lock only through the login, signup and logout it passes on, and the automatic login.
 Python can also lock the data on its own, when a backup import fails after it has closed the database, and unlock it,
 when a guest imports a backup from the cloud. In the first case the sessions stay valid in both processes, as they
-did in Python, and ported routes keep accepting them; in the second the client has no session in either, and logs in.
+did in Python, and ported routes keep accepting them until a login of another user opens that user's database, which
+ends them in Rust, so that no session reads the data of a user it does not belong to; in the second the client has no session in either, and logs in.
 Without API sessions such a login is refused with `409`, and Rust opens the database with its password if Python's
 status names its user. A route that reads the database answers from Rust's database only while Python reports the
 data unlocked for the request, and passes it on to Python otherwise, so it neither reads a database Python has closed
@@ -341,6 +342,8 @@ python tests/parity/generate_db_route_fixtures.py --output crates/server/tests/f
 | `lastUpdate` of the settings when no section asked for has a stored time | The time Python started | The time the Rust server started, after Python is ready, so a few seconds later |
 | A stored settings section that Python's `json` module reads but serde_json does not: `NaN`, `Infinity`, a lone surrogate escape, nesting deeper than 128 levels, bytes in UTF-16 or UTF-32 (fixture deviation cases) | Read; a value its validation rejects leaves the section's defaults as in Rust, but one in a field it ignores does not | The section's defaults |
 | An integer in a settings section beyond 64 bits (fixture deviation case) | Kept | The section's defaults |
+| A template's `params` with a nested object whose first key is `$serde_json::private::Number`, serde_json's private token for exact numbers | Returned as the object | Read as the number it names, or the section's defaults if it names none; only the user can store such a key in their own settings |
+| A session of one user after Python locked the data on its own and another user logged in | Valid, and reads the other user's data | Ended when the other user's login opens that user's database; a read already admitted with it is refused and passed on to Python |
 | A number in the `params` of a sheet template that a float cannot hold exactly | Read as a float, so its digits are rounded and `1e400` is answered as `Infinity`, which is not JSON | Answered as stored; Python itself only stores numbers it wrote from floats, which read back the same |
 
 ### Weaknesses of the Python reference

@@ -35,7 +35,8 @@ impl UtcOffset {
 
     /// The offset, or `None` outside the range Python's `timezone` accepts.
     pub fn from_microseconds(microseconds: i64) -> Option<Self> {
-        (microseconds.abs() < SECONDS_PER_DAY * MICROSECONDS_PER_SECOND)
+        // `unsigned_abs`, as `abs` overflows for `i64::MIN`.
+        (microseconds.unsigned_abs() < (SECONDS_PER_DAY * MICROSECONDS_PER_SECOND).unsigned_abs())
             .then_some(UtcOffset { microseconds })
     }
 
@@ -672,6 +673,18 @@ impl Local<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_offset_is_less_than_a_day_either_way() {
+        let day = SECONDS_PER_DAY * MICROSECONDS_PER_SECOND;
+        assert!(UtcOffset::from_microseconds(0).is_some());
+        assert!(UtcOffset::from_microseconds(day - 1).is_some());
+        assert!(UtcOffset::from_microseconds(1 - day).is_some());
+        assert!(UtcOffset::from_microseconds(day).is_none());
+        assert!(UtcOffset::from_microseconds(-day).is_none());
+        assert!(UtcOffset::from_microseconds(i64::MAX).is_none());
+        assert!(UtcOffset::from_microseconds(i64::MIN).is_none());
+    }
 
     fn parse(text: &str) -> Option<String> {
         DateTime::from_isoformat(text)

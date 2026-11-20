@@ -157,6 +157,11 @@ impl UserDatabase {
         })
     }
 
+    /// The user whose database this is.
+    pub fn username(&self) -> &str {
+        &self.credentials.username
+    }
+
     /// Whether these are the credentials the database was opened with.
     pub fn opened_with(&self, credentials: &Credentials) -> bool {
         self.credentials.username == credentials.username

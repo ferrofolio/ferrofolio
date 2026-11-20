@@ -184,6 +184,9 @@ struct State {
     forgets: u64,
     /// The database of the last login, while the data is unlocked.
     database: Option<OpenDatabase>,
+    /// The user whose database a login unlocked last since the last logout, kept
+    /// while Rust has forgotten the database.
+    database_user: Option<String>,
 }
 
 /// The sessions of the API. Clones share them.
@@ -311,9 +314,18 @@ impl Sessions {
             return None;
         }
         let token = bearer_token(headers)?;
-        let token_digest = digest(&token);
         let now = self.clock.now();
-        let mut state = self.lock();
+        Self::session_authorization(&mut self.lock(), &token, now)
+    }
+
+    /// The backend's `Authorization` of the session with `token`, if it is valid
+    /// at `now`; an expired one is removed.
+    fn session_authorization(
+        state: &mut State,
+        token: &str,
+        now: SystemTime,
+    ) -> Option<HeaderValue> {
+        let token_digest = digest(token);
         let session = state.sessions.get(&token_digest)?;
         if session.expires.is_some_and(|expires| now >= expires) {
             state.sessions.remove(&token_digest);
@@ -337,9 +349,24 @@ impl Sessions {
     }
 
     /// Keeps the database a login opened, if the login still may (`may_unlock`).
+    ///
+    /// Python can lock the data on its own, when a backup import fails, and a
+    /// login of another user then unlocks that user's data without a logout Rust
+    /// saw. The sessions that came before belong to the other user, so they end
+    /// here, before the login's own session starts, and no read with one of them
+    /// reaches the new database (`with_database_of`).
     fn unlock(&self, attempt: LoginAttempt, database: UserDatabase) -> Result<(), SessionError> {
         let mut state = self.lock();
         Self::may_unlock(&state, attempt)?;
+        let username = database.username().to_owned();
+        if state
+            .database_user
+            .as_deref()
+            .is_some_and(|user| user != username)
+        {
+            state.sessions.clear();
+        }
+        state.database_user = Some(username);
         state.database = Some(Arc::new(Mutex::new(database)));
         Ok(())
     }
@@ -391,11 +418,45 @@ impl Sessions {
     /// Rust or a request that replaces the database is with Python, rather than
     /// wait for it. Opening and reading block, so it runs on the blocking pool.
     pub fn with_database<T>(&self, read: impl FnOnce(&Database) -> T) -> Result<T, UnlockError> {
+        self.read_database(None, read)
+    }
+
+    /// Reads the database as `with_database` does, for a request: with API
+    /// sessions only while the request's session is still valid, checked together
+    /// with taking the database, so that a session another user's login has ended
+    /// never reads that user's database. A request without one fails as for
+    /// locked data.
+    pub fn with_database_of<T>(
+        &self,
+        headers: &HeaderMap,
+        read: impl FnOnce(&Database) -> T,
+    ) -> Result<T, UnlockError> {
+        if !self.settings.enabled {
+            return self.read_database(None, read);
+        }
+        let token = bearer_token(headers).ok_or(UnlockError::Locked)?;
+        self.read_database(Some(&token), read)
+    }
+
+    fn read_database<T>(
+        &self,
+        token: Option<&str>,
+        read: impl FnOnce(&Database) -> T,
+    ) -> Result<T, UnlockError> {
         let _reading = self
             .replacement
             .try_read()
             .map_err(|_| UnlockError::Replacing)?;
-        let database = self.lock().database.clone().ok_or(UnlockError::Locked)?;
+        let database = {
+            let now = self.clock.now();
+            let mut state = self.lock();
+            if let Some(token) = token
+                && Self::session_authorization(&mut state, token, now).is_none()
+            {
+                return Err(UnlockError::Locked);
+            }
+            state.database.clone().ok_or(UnlockError::Locked)?
+        };
         let mut database = database.lock().unwrap_or_else(PoisonError::into_inner);
         Ok(read(database.current()?))
     }
@@ -454,6 +515,7 @@ impl Sessions {
         let mut state = self.lock();
         state.sessions.clear();
         state.database = None;
+        state.database_user = None;
         state.logouts = state.logouts.wrapping_add(1);
     }
 
