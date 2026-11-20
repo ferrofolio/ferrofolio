@@ -72,6 +72,17 @@ class UserDataManager(DataManager):
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, self._profiles_json_path)
+            # The rename lasts through a power loss only once its directory is
+            # synced; Windows cannot open a directory for that.
+            if os.name != "nt":
+                dir_fd = os.open(
+                    os.path.dirname(os.path.abspath(self._profiles_json_path)),
+                    os.O_RDONLY,
+                )
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
         except IOError as e:
             try:
                 os.remove(tmp_path)

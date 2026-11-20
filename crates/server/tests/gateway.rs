@@ -709,7 +709,12 @@ fn holds_other_users_database(data: &TempDataDir) -> Option<bool> {
 }
 
 fn assert_holds_other_users_database(data: &TempDataDir, expected: bool) {
-    if let Some(holds) = holds_other_users_database(data) {
+    let holds = holds_other_users_database(data);
+    // On Linux, where CI runs, procfs must answer, so the check is never skipped.
+    if cfg!(target_os = "linux") {
+        assert!(holds.is_some(), "/proc/self/fd cannot be read");
+    }
+    if let Some(holds) = holds {
         assert_eq!(
             holds, expected,
             "Rust's connection to the other user's data.db"
