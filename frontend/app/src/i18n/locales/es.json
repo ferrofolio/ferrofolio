@@ -104,8 +104,7 @@
     "unpinAsset": "Quitar activo",
     "continueInBackground": "Continuar por detrás",
     "connectingToServer": "Conectando con el servidor...",
-    "serverCannotReach":
-      "No se pudo conectar con el servidor. Verifique la dirección del servidor en la configuración y asegúrese de que esté en ejecución.",
+    "serverCannotReach": "No se pudo conectar con el servidor. Verifique la dirección del servidor en la configuración y asegúrese de que esté en ejecución.",
     "details": "Detalles",
     "optional": "Opcional",
     "clear": "Limpiar",

@@ -106,8 +106,7 @@
     "unpinAsset": "Anlage lösen",
     "continueInBackground": "Im Hintergrund fortsetzen",
     "connectingToServer": "Verbindung zum Server wird hergestellt...",
-    "serverCannotReach":
-      "Der Server konnte nicht erreicht werden. Bitte überprüfen Sie die Backend-Adresse in den Einstellungen und stellen Sie sicher, dass der Server ausgeführt wird.",
+    "serverCannotReach": "Der Server konnte nicht erreicht werden. Bitte überprüfen Sie die Backend-Adresse in den Einstellungen und stellen Sie sicher, dass der Server ausgeführt wird.",
     "details": "Details",
     "optional": "Optional",
     "clear": "Leeren",
