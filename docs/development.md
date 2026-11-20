@@ -118,7 +118,7 @@ never renamed or removed, like everything else under `/api/v1`.
 
 | Capability | Listed when |
 |---|---|
-| `apiSessions` | Login and non-guest signup return a bearer token, which every request outside the public paths must carry once the data is unlocked; not listed with `FINANZE_API_SESSION=false` |
+| `apiSessions` | Login and non-guest signup return a bearer token, which the session guard (`finanze/infrastructure/controller/api_session_guard.py`) requires once the data is unlocked, except on the paths and methods it exempts; not listed with `FINANZE_API_SESSION=false` |
 
 ## CI checks
 
