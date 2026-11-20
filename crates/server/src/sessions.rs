@@ -128,6 +128,8 @@ pub enum SessionError {
     BackendToken,
     #[error("a logout ended the sessions while the login was running")]
     LoggedOut,
+    #[error("the database was replaced or rekeyed without Rust while the login was running")]
+    Forgotten,
 }
 
 /// Why a login did not unlock the database for Rust.
@@ -152,6 +154,8 @@ pub struct LoginAttempt {
     started: SystemTime,
     /// The logouts that had ended the sessions by then.
     logouts: u64,
+    /// The times Rust had forgotten the database by then.
+    forgets: u64,
 }
 
 type TokenDigest = [u8; 32];
@@ -175,6 +179,9 @@ struct State {
     sessions: HashMap<TokenDigest, Session>,
     /// How many times a logout has ended the sessions.
     logouts: u64,
+    /// How many times Rust has dropped the database because Python may still
+    /// write it or has rekeyed it (`forget_database`).
+    forgets: u64,
     /// The database of the last login, while the data is unlocked.
     database: Option<OpenDatabase>,
 }
@@ -244,9 +251,11 @@ impl Sessions {
 
     /// Notes a login before it goes to the backend.
     pub fn login_attempt(&self) -> LoginAttempt {
+        let state = self.lock();
         LoginAttempt {
             started: self.clock.now(),
-            logouts: self.lock().logouts,
+            logouts: state.logouts,
+            forgets: state.forgets,
         }
     }
 
@@ -313,13 +322,24 @@ impl Sessions {
         Some(session.backend.clone())
     }
 
-    /// Keeps the database a login opened, unless a logout has ended the sessions
-    /// since the login reached Rust, which may have locked the data again.
-    fn unlock(&self, attempt: LoginAttempt, database: UserDatabase) -> Result<(), SessionError> {
-        let mut state = self.lock();
+    /// Whether a login may still open and keep the database: no logout has ended
+    /// the sessions since it reached Rust, which may have locked the data again,
+    /// and Rust has not forgotten the database since, which Python may still be
+    /// writing or has rekeyed.
+    fn may_unlock(state: &State, attempt: LoginAttempt) -> Result<(), SessionError> {
         if state.logouts != attempt.logouts {
             return Err(SessionError::LoggedOut);
         }
+        if state.forgets != attempt.forgets {
+            return Err(SessionError::Forgotten);
+        }
+        Ok(())
+    }
+
+    /// Keeps the database a login opened, if the login still may (`may_unlock`).
+    fn unlock(&self, attempt: LoginAttempt, database: UserDatabase) -> Result<(), SessionError> {
+        let mut state = self.lock();
+        Self::may_unlock(&state, attempt)?;
         state.database = Some(Arc::new(Mutex::new(database)));
         Ok(())
     }
@@ -351,6 +371,9 @@ impl Sessions {
     ) -> Result<(), UnlockFailure> {
         let _waiting = Waiting::start(&self.opening);
         let _opening = self.replacement.blocking_read();
+        // A replacement that held the lock meanwhile and failed, or rekeyed the
+        // database, leaves it closed until the next login.
+        Self::may_unlock(&self.lock(), attempt).map_err(UnlockFailure::Session)?;
         let database = open().map_err(UnlockFailure::Open)?;
         self.opened.fetch_add(1, Ordering::SeqCst);
         self.unlock(attempt, database)
@@ -389,9 +412,12 @@ impl Sessions {
     /// Drops Rust's connection and the credentials a login left, without ending
     /// the sessions. Python rekeys the database at a change of the password and
     /// locks it, and a replacement whose answer did not arrive may still write
-    /// it; the next login opens the database again.
+    /// it; the next login opens the database again. Logins that reached Rust
+    /// before keep it closed.
     pub fn forget_database(&self) {
-        self.lock().database = None;
+        let mut state = self.lock();
+        state.database = None;
+        state.forgets = state.forgets.wrapping_add(1);
     }
 
     /// How many logins wait for the replacement lock before they open the
@@ -795,6 +821,35 @@ mod tests {
             sessions.backend_authorization(&bearer(&later)).unwrap(),
             "Bearer third"
         );
+    }
+
+    #[test]
+    fn a_login_that_a_forgotten_database_overtook_opens_nothing() {
+        let (sessions, _) = sessions(None);
+        let attempt = sessions.login_attempt();
+        sessions.forget_database();
+        let mut opened = false;
+        let unlocked = sessions.open_and_unlock(attempt, || {
+            opened = true;
+            Err(UnlockError::Locked)
+        });
+        assert!(matches!(
+            unlocked,
+            Err(UnlockFailure::Session(SessionError::Forgotten))
+        ));
+        assert!(
+            !opened,
+            "the database was opened after it had been forgotten"
+        );
+        assert!(!sessions.is_unlocked());
+        // Forgetting the database ends no session: the login still gets one.
+        assert!(sessions.start(attempt, false, "backend").is_ok());
+        // A later login opens the database again.
+        let later = sessions.open_and_unlock(sessions.login_attempt(), || Err(UnlockError::Locked));
+        assert!(matches!(
+            later,
+            Err(UnlockFailure::Open(UnlockError::Locked))
+        ));
     }
 
     #[test]
