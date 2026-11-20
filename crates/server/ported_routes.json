@@ -3,5 +3,6 @@
   {"method": "POST", "path": "/api/v1/calculations/savings"},
   {"method": "GET", "path": "/api/v1/settings"},
   {"method": "GET", "path": "/api/v1/labels"},
-  {"method": "GET", "path": "/api/v1/labeling/rules"}
+  {"method": "GET", "path": "/api/v1/labeling/rules"},
+  {"method": "GET", "path": "/api/v1/flows/periodic"}
 ]

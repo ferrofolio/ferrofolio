@@ -90,6 +90,7 @@ updates together with this table.
 | `GET /api/v1/settings` | `routes/get_settings.py`, `use_cases/get_settings.py`, `repository/settings` | Status, login, settings (phase 4, slice 1); reads the database |
 | `GET /api/v1/labels` | `routes/get_labels.py`, `use_cases/get_labels.py`, `repository/labeling/label_repository.py` | Read paths (phase 4, slice 2); reads the database |
 | `GET /api/v1/labeling/rules` | `routes/get_labeling_rules.py`, `use_cases/get_labeling_rules.py`, `repository/labeling/labeling_rule_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored conditions on |
+| `GET /api/v1/flows/periodic` | `routes/get_periodic_flows.py`, `use_cases/get_periodic_flows.py`, `repository/earnings_expenses/periodic_flow_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values on |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -155,6 +156,14 @@ values as Python's truth tests read them, unknown keys ignored, and leaves every
 from the same data as it always has: with the rule, or with `500` where it fails. Rust therefore needs no copy of
 those coercions and never answers where Python would not. The pass-on is logged with the field, never with the stored
 value.
+
+The periodic flows are columns, which Python maps into a pydantic dataclass that reads `"true"` as a flag and a
+number as an amount. Rust reads the forms `PeriodicFlowRepository.save` stores (a flag as `0`
+or `1`, a date as `YYYY-MM-DD`, an amount as the text of a `Dezimal`), reads the alternate forms the parity fixtures
+record as "other" (such as braced UUIDs and `" 1_000.5 "`), and passes the remaining forms on. It computes each
+flow's next date with the server's clock, as `date.today()` does in Python, and passes the request on where Python's
+date arithmetic leaves the range of `date`, which Python answers with `500`. The query has no `ORDER BY`, as in
+Python, so Rust sends the same statement and gets the flows in the same order.
 
 Python reads the settings from the database on every request and keeps no copy, and Rust's read-only connection reads
 what Python has committed with every new statement (WAL mode), so a change Python writes with `POST
@@ -336,9 +345,11 @@ the ids of the seeded labels, with fixed ones, so that the comparison still sees
 rows. A slice's parity test replays its
 cases with `common::database::replay`, which logs in once per database and lock state, and checks the functions it
 records under `functions` against the Rust functions they describe (the labels record `uuid.UUID()` and the label
-enums for inputs no database row could show; the labeling rules record how Python reads stored conditions, in the forms
-its writer produces, which Rust must read identically, and in many it does not, where Rust may only pass the request
-on). A case with a valid session on unlocked data that Rust passes on because of the data it finds is marked
+enums for inputs no database row could show; the labeling rules record how Python reads stored conditions, and the
+periodic flows how Python maps stored rows, in the forms its writer produces, which Rust must read identically, and in
+many it does not, where Rust may only pass the request on; the periodic flows also record the next date for every
+frequency over starts and days around month ends, leap days and the end of the range). A slice whose route reads the
+date records with a fixed day, which it names in its `context` and the Rust test sets as the server's clock. A case with a valid session on unlocked data that Rust passes on because of the data it finds is marked
 `passed_on` and compares as `forwarded`, with the backend token of the session.
 
 The ids of rows are read with `core_domain::pyuuid::parse`, which follows `uuid.UUID(text)` exactly: it removes every
@@ -461,8 +472,8 @@ virtual environment if needed.
 The order across all tracks is in the [roadmap](roadmap.md#10-next-steps). For the port itself:
 
 1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings, the labels
-   and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): next the periodic and
-   pending flows, then positions, transactions and the timelines.
+   and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): the periodic flows
+   are done; next the pending flows, then positions, transactions and the timelines.
 2. Rust's first write access to the database (the settings, the labels), with the writes Python makes to the same
    tables until the cutover.
 3. The status and the login move to Rust together, once Rust is the authority on the unlock state rather than an

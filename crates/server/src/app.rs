@@ -24,7 +24,7 @@ use tower::ServiceExt;
 
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
-use crate::routes::{self, calculations, labeling_rules, labels, settings};
+use crate::routes::{self, calculations, labeling_rules, labels, periodic_flows, settings};
 use crate::sessions::Sessions;
 use crate::user_data::DataDir;
 
@@ -84,6 +84,16 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
                 .on(MethodFilter::HEAD, forward)
         },
     },
+    PortedRoute {
+        method: Method::GET,
+        path: periodic_flows::PATH,
+        // `POST` and `PUT` on the same path, and `HEAD`, go to the backend.
+        mount: |filter| {
+            any(forward)
+                .on(filter, periodic_flows::get_periodic_flows)
+                .on(MethodFilter::HEAD, forward)
+        },
+    },
 ];
 
 /// Shared state of all handlers.
@@ -94,6 +104,8 @@ pub struct AppState {
     /// The data directory, where a login finds the user's database. Without it,
     /// logins unlock no database for Rust.
     pub data_dir: Option<DataDir>,
+    /// Today, for the routes that need the date, as Python's `date.today()`.
+    pub clock: Arc<dyn Clock>,
     pub calculate_loan: CalculateLoan,
     pub calculate_savings: CalculateSavings,
     /// The default settings, with the time the server started as the last change
@@ -129,7 +141,8 @@ impl AppState {
             backend,
             sessions,
             data_dir: None,
-            calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock))),
+            calculate_loan: CalculateLoan::new(Arc::new(LoanCalculator::new(clock.clone()))),
+            clock,
             calculate_savings: CalculateSavings,
             settings_base: Arc::new(BaseConfig::new(started)),
             time_zone,
