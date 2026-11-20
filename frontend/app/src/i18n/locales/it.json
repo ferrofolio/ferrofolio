@@ -11,6 +11,8 @@
     "saving": "Salvataggio...",
     "refresh": "Aggiorna",
     "update": "Aggiorna",
+    "reload": "Ricarica",
+    "newVersionReady": "È pronta una nuova versione di Ferrofolio.",
     "export": "Esporta",
     "success": "Successo",
     "error": "Errore",

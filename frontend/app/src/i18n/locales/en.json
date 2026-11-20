@@ -11,6 +11,8 @@
     "saving": "Saving...",
     "refresh": "Refresh",
     "update": "Update",
+    "reload": "Reload",
+    "newVersionReady": "A new version of Ferrofolio is ready.",
     "export": "Export",
     "success": "Success",
     "error": "Error",
