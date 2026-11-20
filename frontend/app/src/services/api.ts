@@ -58,15 +58,6 @@ import {
   SavingsCalculationRequest,
   SavingsCalculationResult,
   EuriborHistory,
-  CloudAuthRequest,
-  CloudAuthResponse,
-  CloudAuthData,
-  FullBackupsInfo,
-  BackupSyncResult,
-  UploadBackupRequest,
-  ImportBackupRequest,
-  BackupSettings,
-  GetBackupsInfoRequest,
   CryptoAssetDetails,
   AvailableCryptoAssetsResult,
   WalletAddressesResponse,
@@ -1196,59 +1187,4 @@ export async function calculateSavings(
   request: SavingsCalculationRequest,
 ): Promise<SavingsCalculationResult> {
   return (await getApiClient()).post("/calculations/savings", request)
-}
-
-export async function cloudAuth(
-  request: CloudAuthRequest,
-): Promise<CloudAuthResponse> {
-  return (await getApiClient()).post("/cloud/auth", request)
-}
-
-export async function getCloudAuthToken(): Promise<CloudAuthData | null> {
-  try {
-    return await (await getApiClient()).get<CloudAuthData>("/cloud/auth")
-  } catch (error: any) {
-    if (error.status === 404) return null
-    throw error
-  }
-}
-
-export async function getBackupsInfo(
-  request?: GetBackupsInfoRequest,
-): Promise<FullBackupsInfo> {
-  const params = new URLSearchParams()
-  if (request?.only_local) {
-    params.set("only_local", "true")
-  }
-  return (await getApiClient()).get(`/cloud/backup?${params.toString()}`)
-}
-
-export async function getBackupsInfoWithCloudAuth(
-  cloudAccessToken: string,
-): Promise<FullBackupsInfo> {
-  return (await getApiClient()).get("/cloud/backup", {
-    headers: { "Cloud-Authorization": `Bearer ${cloudAccessToken}` },
-  })
-}
-
-export async function uploadBackup(
-  request: UploadBackupRequest,
-): Promise<BackupSyncResult> {
-  return (await getApiClient()).post("/cloud/backup/upload", request)
-}
-
-export async function importBackup(
-  request: ImportBackupRequest,
-): Promise<BackupSyncResult> {
-  return (await getApiClient()).post("/cloud/backup/import", request)
-}
-
-export async function getBackupSettings(): Promise<BackupSettings> {
-  return (await getApiClient()).get("/cloud/backup/settings")
-}
-
-export async function updateBackupSettings(
-  settings: BackupSettings,
-): Promise<void> {
-  return (await getApiClient()).post("/cloud/backup/settings", settings)
 }

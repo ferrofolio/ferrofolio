@@ -13,7 +13,6 @@ import en from "@/i18n/locales/en.json"
 import es from "@/i18n/locales/es.json"
 import itTranslations from "@/i18n/locales/it.json"
 import de from "@/i18n/locales/de.json"
-import { FFStatus } from "@/types"
 
 const { state, setupIntegration, disableIntegration } = vi.hoisted(() => ({
   state: {
@@ -51,15 +50,10 @@ vi.mock("@/hooks/useModalBackHandler", () => ({ useModalBackHandler: vi.fn() }))
 vi.mock("@/context/ThemeContext", () => ({
   useTheme: () => ({ theme: "light", setThemeMode: vi.fn() }),
 }))
-vi.mock("@/context/CloudContext", () => ({ useCloud: () => ({ role: null }) }))
-vi.mock("@/context/BackupAlertContext", () => ({
-  useBackupAlert: () => ({ alertColor: null }),
-}))
 vi.mock("@/context/DataDisplayModeContext", () => ({
   useDataDisplayMode: () => ({ mode: "normal", setMode: vi.fn() }),
 }))
 vi.mock("@/components/settings/GeneralTab", () => ({ GeneralTab: () => null }))
-vi.mock("@/components/settings/CloudTab", () => ({ CloudTab: () => null }))
 vi.mock("@/components/settings/McpTab", () => ({ McpTab: () => null }))
 vi.mock("@/services/api", async importOriginal => ({
   ...(await importOriginal<typeof import("@/services/api")>()),
@@ -112,7 +106,7 @@ beforeEach(() => {
     showToast: vi.fn(),
     fetchSettings: vi.fn(),
     isLoadingSettings: false,
-    featureFlags: { CLOUD: FFStatus.OFF },
+    featureFlags: {},
   }
   setupIntegration.mockResolvedValue(undefined)
   disableIntegration.mockResolvedValue(undefined)
@@ -319,28 +313,22 @@ describe("Settings integration migration", () => {
     },
   )
 
-  it.each([
-    { cloud: false, count: 3, aiTab: en.settings.aiTab.title },
-    { cloud: true, count: 4, aiTab: en.settings.aiTab.title },
-  ])(
-    "keeps $count settings tabs with cloud=$cloud",
-    ({ cloud, count, aiTab }) => {
-      state.app.featureFlags = { CLOUD: cloud ? FFStatus.ON : FFStatus.OFF }
-      renderRoute("/settings")
-      expect(screen.getAllByRole("tab")).toHaveLength(count)
-      expect(screen.getByRole("tablist")).toHaveClass(`sm:grid-cols-${count}`)
-      expect(screen.getByRole("tab", { name: aiTab })).toBeInTheDocument()
-      expect(
-        screen.queryByRole("tab", { name: en.settings.integrations }),
-      ).not.toBeInTheDocument()
-      expect(
-        screen.getByRole("tab", { name: en.settings.general }),
-      ).toHaveAttribute("aria-selected", "true")
-    },
-  )
+  it("keeps three settings tabs", () => {
+    renderRoute("/settings")
+    expect(screen.getAllByRole("tab")).toHaveLength(3)
+    expect(screen.getByRole("tablist")).toHaveClass("sm:grid-cols-3")
+    expect(
+      screen.getByRole("tab", { name: en.settings.aiTab.title }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("tab", { name: en.settings.integrations }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("tab", { name: en.settings.general }),
+    ).toHaveAttribute("aria-selected", "true")
+  })
 
   it("opens the AI & MCP settings tab from the legacy MCP link", () => {
-    state.app.featureFlags = { CLOUD: FFStatus.OFF }
     renderRoute("/settings?tab=mcp")
     expect(
       screen.getByRole("tab", { name: en.settings.aiTab.title }),

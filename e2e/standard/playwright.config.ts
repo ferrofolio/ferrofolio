@@ -2,8 +2,6 @@ import { defineConfig, devices } from '@playwright/test'
 
 const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT || 7692)
 const FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT || 5273)
-const FRESH_BACKEND_PORT = 7693
-const FRESH_FRONTEND_PORT = 5274
 
 export default defineConfig<{}, { backendPort: number }>({
     testDir: './tests',
@@ -26,18 +24,9 @@ export default defineConfig<{}, { backendPort: number }>({
         },
         {
             name: 'main',
-            testIgnore: /signup\.spec\.ts|cloud-restore\.spec\.ts/,
+            testIgnore: /signup\.spec\.ts/,
             dependencies: ['setup'],
             use: { ...devices['Desktop Chrome'] },
-        },
-        {
-            name: 'cloud-restore',
-            testMatch: /cloud-restore\.spec\.ts/,
-            use: {
-                ...devices['Desktop Chrome'],
-                backendPort: FRESH_BACKEND_PORT,
-                baseURL: `http://localhost:${FRESH_FRONTEND_PORT}`,
-            },
         },
     ],
 
@@ -45,12 +34,6 @@ export default defineConfig<{}, { backendPort: number }>({
         {
             command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${BACKEND_PORT} VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRONTEND_PORT}`,
             port: FRONTEND_PORT,
-            reuseExistingServer: !process.env.CI,
-            timeout: 30_000,
-        },
-        {
-            command: `cd ../../frontend/app && VITE_BASE_URL=http://localhost:${FRESH_BACKEND_PORT} VITE_SUPABASE_URL=https://e2e-mock.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=e2e-mock-key VITE_E2E_MOCK_LOGIN=1 pnpm dev --port ${FRESH_FRONTEND_PORT}`,
-            port: FRESH_FRONTEND_PORT,
             reuseExistingServer: !process.env.CI,
             timeout: 30_000,
         },

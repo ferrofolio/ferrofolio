@@ -13,7 +13,6 @@ import { MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/i18n"
 import { useLayoutScroll } from "@/context/LayoutScrollContext"
-import { useBackupAlert } from "@/context/BackupAlertContext"
 import { createPortal } from "react-dom"
 import {
   Popover,
@@ -57,7 +56,6 @@ export function FloatingBottomNav() {
   const navigate = useNavigate()
   const location = useLocation()
   const { scrolling, atTop, atBottom } = useLayoutScroll()
-  const { alertColor } = useBackupAlert()
   const { bar, menu, isCustomizing } = useBottomNav()
   const catalog = useBottomNavCatalog()
 
@@ -200,19 +198,6 @@ export function FloatingBottomNav() {
   )
   const activeId = bar.some(id => id === activePageId) ? activePageId : "more"
   const activeIndex = navItems.findIndex(item => item.key === activeId)
-
-  const backupDot = alertColor ? (
-    <span
-      className={cn(
-        "inline-block h-1.5 w-1.5 rounded-full shrink-0",
-        alertColor === "dark-red"
-          ? "bg-red-700"
-          : alertColor === "red"
-            ? "bg-red-500"
-            : "bg-amber-500",
-      )}
-    />
-  ) : null
 
   const tabsContainerRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -409,11 +394,6 @@ export function FloatingBottomNav() {
                           }
                         >
                           {item.icon}
-                          {menu.includes("settings") && (
-                            <span className="absolute top-1.5 right-1.5">
-                              {backupDot}
-                            </span>
-                          )}
                         </button>
                       </PopoverTrigger>
                       <PopoverContent
@@ -443,9 +423,6 @@ export function FloatingBottomNav() {
                             >
                               {catalog[id].renderIcon("mr-2 h-4 w-4 shrink-0")}
                               {catalog[id].label}
-                              {id === "settings" && (
-                                <span className="ml-2">{backupDot}</span>
-                              )}
                             </Button>
                           ))}
                         </div>
@@ -477,11 +454,6 @@ export function FloatingBottomNav() {
                       aria-current={index === activeIndex ? "page" : undefined}
                     >
                       {item.icon}
-                      {item.key === "settings" && (
-                        <span className="absolute top-1.5 right-1.5">
-                          {backupDot}
-                        </span>
-                      )}
                     </button>
                   ),
                 )}

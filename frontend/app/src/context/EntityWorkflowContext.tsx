@@ -40,8 +40,7 @@ import {
   getAutoRefreshCandidates,
   type AutoRefreshCandidate,
 } from "@/services/autoRefreshService"
-import { AutoRefreshMode, BackupMode } from "@/types"
-import { useCloud } from "@/context/CloudContext"
+import { AutoRefreshMode } from "@/types"
 import { getExternalLoginAPI } from "@/lib/externalLogin"
 import { getChallengeWindowAPI } from "@/lib/challengeWindow"
 import { getConnectedAccountIds } from "@/utils/entityUtils"
@@ -229,7 +228,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
     entities,
     entitiesLoaded,
   } = useAppContext()
-  const { backupMode, isInitialized: cloudInitialized } = useCloud()
 
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
@@ -2101,23 +2099,6 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
     setAutoRefreshCountdown(3)
   }, [])
 
-  const [backupSyncCompleted, setBackupSyncCompleted] = useState(false)
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      if ((e as CustomEvent).detail?.conflict === true) {
-        cancelAutoRefresh()
-        return
-      }
-      setBackupSyncCompleted(true)
-    }
-    window.addEventListener("backup-auto-sync-complete", handler, {
-      once: true,
-    })
-    return () =>
-      window.removeEventListener("backup-auto-sync-complete", handler)
-  }, [cancelAutoRefresh])
-
   useEffect(() => {
     if (autoRefreshCountdown === null || autoRefreshCountdown < 0) return
 
@@ -2180,24 +2161,8 @@ export function EntityWorkflowProvider({ children }: { children: ReactNode }) {
     setPendingAutoRefreshCandidates(candidates)
     autoRefreshCancelledRef.current = false
 
-    if (!cloudInitialized) {
-      return
-    }
-
-    if (backupMode === BackupMode.AUTO && !backupSyncCompleted) {
-      return
-    }
-
     startAutoRefreshCountdown()
-  }, [
-    entitiesLoaded,
-    entities,
-    settings,
-    backupMode,
-    cloudInitialized,
-    backupSyncCompleted,
-    startAutoRefreshCountdown,
-  ])
+  }, [entitiesLoaded, entities, settings, startAutoRefreshCountdown])
 
   const disconnectEntityHandler = useCallback(
     async (entityId: string, entityAccountId: string) => {

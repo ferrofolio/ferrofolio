@@ -1,6 +1,5 @@
 import { vi } from "vitest"
 import { render } from "@testing-library/react"
-import { BackupMode } from "@/types"
 import { FinancialDataProvider } from "@/context/FinancialDataContext"
 
 export const mockRunTrackedUpdatesIfNeeded = vi
@@ -10,17 +9,6 @@ export const mockSetOnTrackedUpdateCompleted = vi.fn()
 export const mockSetOnScrapeCompleted = vi.fn()
 export const mockSetOnEntityDisconnected = vi.fn()
 export const mockUpdateEntityLastFetch = vi.fn()
-
-let currentBackupMode: BackupMode = BackupMode.OFF
-let currentCloudInitialized = true
-
-export function setBackupMode(mode: BackupMode) {
-  currentBackupMode = mode
-}
-
-export function setCloudInitialized(initialized: boolean) {
-  currentCloudInitialized = initialized
-}
 
 vi.mock("@/context/AppContext", () => ({
   useAppContext: () => ({
@@ -38,13 +26,6 @@ vi.mock("@/context/EntityWorkflowContext", () => ({
   useEntityWorkflow: () => ({
     setOnScrapeCompleted: mockSetOnScrapeCompleted,
     setOnEntityDisconnected: mockSetOnEntityDisconnected,
-  }),
-}))
-
-vi.mock("@/context/CloudContext", () => ({
-  useCloud: () => ({
-    backupMode: currentBackupMode,
-    isInitialized: currentCloudInitialized,
   }),
 }))
 
@@ -79,8 +60,6 @@ export function rerenderProvider() {
 }
 
 export function resetAllMocks() {
-  currentBackupMode = BackupMode.OFF
-  currentCloudInitialized = true
   lastRenderResult = null
   mockRunTrackedUpdatesIfNeeded.mockClear().mockResolvedValue(undefined)
   mockSetOnTrackedUpdateCompleted.mockClear()

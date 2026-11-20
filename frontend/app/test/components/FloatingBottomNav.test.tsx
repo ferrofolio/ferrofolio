@@ -20,9 +20,6 @@ vi.mock("@/context/LayoutScrollContext", () => ({
     atBottom: false,
   }),
 }))
-vi.mock("@/context/BackupAlertContext", () => ({
-  useBackupAlert: () => ({ alertColor: "red" }),
-}))
 
 function Location() {
   return <output>{useLocation().pathname}</output>
@@ -155,22 +152,6 @@ describe("FloatingBottomNav", () => {
       "aria-current",
       "page",
     )
-  })
-
-  it("moves the backup alert dot to Settings when it is in the bar", () => {
-    renderNav(
-      "/settings",
-      ["settings", "dashboard", "investments", "transactions"],
-      ["export", "calculations", "management", "entities"],
-    )
-    expect(
-      screen
-        .getByRole("button", { name: "Settings" })
-        .querySelector(".bg-red-500"),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "More" }).querySelector(".bg-red-500"),
-    ).not.toBeInTheDocument()
   })
 
   it("marks only the most specific current page inside the menu", async () => {
