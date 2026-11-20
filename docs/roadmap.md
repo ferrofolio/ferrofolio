@@ -382,7 +382,7 @@ What this needs:
 
 ### 5.1 Parity harness
 
-Agents write a lot of code quickly. Without machine acceptance that is worthless. Before the first route is ported, the following exists:
+Agents write a lot of code quickly. Without machine acceptance that is worthless. The harness grows with the port: a route moves to Rust only with parity fixtures recorded from Python (`AGENTS.md`), and the status column shows which building blocks exist:
 
 | Building block | Purpose | Status |
 |---|---|---|
@@ -557,7 +557,7 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 - The configuration is [`.coderabbit.yaml`](../.coderabbit.yaml), versioned and reviewable itself. CodeRabbit reviews every pull request, requests changes for blocking findings and approves only when every thread is resolved and the merge risk is low. It never approves changes in the risk areas of section 7.4 automatically; there a maintainer decides. Its pre-merge checks and path instructions carry the hard rules of `AGENTS.md` (money as `Dezimal`, no panics, bound SQL parameters, no secrets in logs, additive API changes).
 - Its first sections are not specific to this repository and can move to a shared configuration when a second repository is added.
 
-### 7.3 CI gates (all required checks)
+### 7.3 CI gates
 
 | Gate | Server repository | iOS repository |
 |---|---|---|
@@ -569,7 +569,7 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 | Secrets | gitleaks | gitleaks |
 | Dependencies | Dependabot, grouped and on a weekly schedule | Dependabot, grouped and on a weekly schedule |
 
-The server repository additionally runs coverage (`cargo llvm-cov`), actionlint and hadolint. Occasionally, not per pull request: mutation tests (`cargo mutants`) for money arithmetic and auth.
+Planned in addition for the server repository: coverage (`cargo llvm-cov`), actionlint and hadolint, and occasionally, not per pull request, mutation tests (`cargo mutants`) for money arithmetic and auth.
 
 State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run in CI, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. Each job runs only for pull requests that change the paths it covers (the `Rust` job for `crates/` and the Cargo and toolchain files, `Tests` and `Parity` for the Python backend, its tests and the fixtures), and every job runs when the workflow changes or the change detection fails. The required checks are `Rust`, `Docker Image`, `Parity`, `Format Check` and `Frontend Tests`; a job that its paths do not concern is skipped and counts as passed. `Parity` checks that the fixtures the Rust tests replay still match what Python answers (#94); the Python `Tests` job still runs for changes to the backend but is not required. The end-to-end tests are off during the rewrite and become a required check again when they are back; gitleaks, coverage, actionlint and hadolint are not set up.
 
