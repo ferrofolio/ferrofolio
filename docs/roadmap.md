@@ -13,7 +13,7 @@ need an issue of its own.
 | Track | State | Tracking |
 |---|---|---|
 | Phase 0 – Independence | Nearly done: upstream services are off by default and a test fails on new references to `finanze.me`. Left: the data directory and three decisions | [#83](https://github.com/ferrofolio/ferrofolio/issues/83) |
-| Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning, workflow lint, and the Rust and Docker jobs as required checks | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
+| Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning and workflow lint | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
 | Phase 2 – Server mode and PWA | Capacitor, Pyodide and the desktop app are removed. Open: hardening, PWA, API contract | [#85](https://github.com/ferrofolio/ferrofolio/issues/85), [#86](https://github.com/ferrofolio/ferrofolio/issues/86), [#87](https://github.com/ferrofolio/ferrofolio/issues/87) |
 | Phase 3 – Rust foundation | Started ahead of phase 2: the Rust server is the entry point, holds the sessions and opens the database. Open: web app in Rust, end-to-end tests, spikes | [#88](https://github.com/ferrofolio/ferrofolio/issues/88) |
 | Phase 4 – Porting | Started: 4 of 118 routes under `/api/v1` are served by Rust | [#91](https://github.com/ferrofolio/ferrofolio/issues/91) |
@@ -571,7 +571,7 @@ Guiding idea: **few human eyes are replaced by many machine checks, not by trust
 
 The server repository additionally runs coverage (`cargo llvm-cov`), actionlint and hadolint. Occasionally, not per pull request: mutation tests (`cargo mutants`) for money arithmetic and auth.
 
-State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run on every pull request, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. The end-to-end tests are off during the rewrite; gitleaks, coverage, actionlint and hadolint are not set up; and the `Rust` and `Docker Image` jobs run but are not yet required checks.
+State of the server repository (#84): formatting, lint, tests (`cargo test` rather than `cargo nextest`), the parity fixtures and `cargo deny`, which also covers the advisories of `cargo audit`, run on every pull request, and Dependabot proposes grouped updates weekly. The jobs live in `.github/workflows/ci.yml` and run locally with `scripts/ci-local.sh`. The required checks are `Rust`, `Docker Image`, `Format Check` and `Frontend Tests`; a job that its paths do not concern is skipped and counts as passed. The Python `Tests` job still runs for changes to the backend but is not required: the Rust side of the parity fixtures runs in the `Rust` job, while the check that the fixtures still match Python is in `Tests`. The end-to-end tests are off during the rewrite and become a required check again when they are back; gitleaks, coverage, actionlint and hadolint are not set up.
 
 iOS builds run on macOS runners; the standard runners are free for public repositories. They have no Docker, so the server is started as a native binary for the tests.
 
@@ -660,7 +660,7 @@ A weekly agent run: `git fetch upstream`, review the new commits, report "releva
 In order of priority; each step names the issue that tracks it.
 
 1. Continue the read paths: the labeling rules, the periodic and pending flows, then positions, transactions and the timelines ([#91](https://github.com/ferrofolio/ferrofolio/issues/91)).
-2. Turn the end-to-end tests back on against the image with the Rust entry point, and make the `Rust` and `Docker Image` jobs required checks, so that the port has its acceptance test ([#84](https://github.com/ferrofolio/ferrofolio/issues/84)).
+2. Turn the end-to-end tests back on against the image with the Rust entry point and make them a required check, so that the port has its acceptance test ([#84](https://github.com/ferrofolio/ferrofolio/issues/84)).
 3. Harden the sessions in Rust: cookie for the web app, devices, rate limit, CORS, TLS example ([#85](https://github.com/ferrofolio/ferrofolio/issues/85)). Then serve the web app from the Rust binary ([#88](https://github.com/ferrofolio/ferrofolio/issues/88)) and add the PWA ([#86](https://github.com/ferrofolio/ferrofolio/issues/86)).
 4. In parallel: enable "Agentic Investing" in a Scalable account, clarify the terms of use and start the `connectors-scalable` crate ([#89](https://github.com/ferrofolio/ferrofolio/issues/89)); try the Trade Republic v2 sign-in without the WAF token ([#90](https://github.com/ferrofolio/ferrofolio/issues/90)).
 5. Settle the open phase 0 decisions, rows 10 to 13 of section 9 ([#83](https://github.com/ferrofolio/ferrofolio/issues/83)).
