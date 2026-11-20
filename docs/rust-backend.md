@@ -267,8 +267,9 @@ A route moves to Rust together with fixtures recorded from the Python route.
 `tests/parity/generate_calculation_fixtures.py` sends hand-written and seeded random requests through the real Quart
 routes and the production session guard, with a fixed date, and writes the responses to
 `crates/server/tests/fixtures/calculations_parity.json`.
-`crates/server/tests/parity_calculations.rs` replays every case against the Rust router. CI runs the generator with
-`--check` in the Python job, so the fixtures cannot drift from the Python code.
+`crates/server/tests/parity_calculations.rs` replays every case against the Rust router. CI runs every generator
+with `--check` in the `Parity` job, a required check, so the fixtures cannot drift from the Python code; the Rust
+tests that replay them run in the `Rust` job.
 
 Every generator under `tests/parity` runs only on the CPython version CI uses, which it reads from
 `.github/workflows/ci.yml`, and stops with a message on any other: error messages and the Unicode database differ
