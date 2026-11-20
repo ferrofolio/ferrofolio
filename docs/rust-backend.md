@@ -358,7 +358,7 @@ message as Python.
 | An integer field beyond the float range, such as `"years": 1e400` | Read as infinity, fails with `500` | `400 INVALID_REQUEST` with Python's message |
 | `fixed_years` beyond 64 bits | Accepted; the fixed period never ends | `400 INVALID_REQUEST` |
 | `withdrawal_years` beyond 64 bits | Computed; without a `withdrawal_amount` the withdrawal loop runs for that many periods and does not finish in practice | `400 INVALID_REQUEST` |
-| An amount whose exponent is beyond 32 bits, such as `"1e-2147483649"` | Accepted by `Decimal`, which takes any exponent | `400 INVALID_REQUEST` |
+| An amount whose exponent is beyond 32 bits, such as `"1e-2147483649"` or `"0e999999999999999999"` | Accepted by `Decimal` up to its own limits (it rejects `"0e1000000000000000000"`) | `400 INVALID_REQUEST`; a stored labeling rule condition with such an amount is passed on to Python |
 | A number in the response beyond the float range, such as a rate of `1e400` echoed back when no amount has to be rounded | `200` with `Infinity`, which is not JSON | `500 UNEXPECTED_ERROR` |
 | Messages of pydantic validation errors | Full pydantic text | The first lines of it |
 | More than 200 years of accumulation or retirement, or more than 50 scenarios (savings) | Computed, however long it takes and however much memory it needs | `400 INVALID_REQUEST` |

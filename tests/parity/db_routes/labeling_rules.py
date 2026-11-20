@@ -106,6 +106,7 @@ OTHER_FORMS = [
     " [{}] ",
     '[{"min_amount": "1E+2", "max_amount": " 1_000.5 "}, {"text": {}}]',
     '[{"min_amount": "-0", "max_amount": "0.1", "day_from": -3, "max_days": 0}]',
+    '[{"min_amount": "0e0", "max_amount": "0e-500"}]',
     '[{"entities": ["{E0000000-0000-0000-0000-000000000001}",'
     ' "urn:uuid:e0000000000000000000000000000002"]}]',
 ]
@@ -255,6 +256,8 @@ LEFT_TO_PYTHON = [
     '[{"min_amount": "NaN"}]',
     '[{"min_amount": "Infinity"}]',
     '[{"min_amount": "1e400"}]',
+    '[{"min_amount": "0e1000000000000000000"}]',
+    '[{"min_amount": "0e999999999999999999"}]',
     '[{"min_amount": ""}]',
     '[{"min_amount": "1.5.0"}]',
     '[{"min_amount": "' + "1" * 40 + '"}]',
