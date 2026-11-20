@@ -57,14 +57,21 @@ struct TempDataDir(std::path::PathBuf);
 impl TempDataDir {
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let directory = std::env::temp_dir().join(format!(
-            "ferrofolio-gateway-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        // Fails if the directory exists, so that no test shares one.
-        std::fs::create_dir(&directory).unwrap();
-        let data_dir = TempDataDir(directory);
+        // A directory that exists already, left by a run that stopped before it
+        // cleaned up for example, is skipped, so that no test shares one; the
+        // guard owns the directory before anything is written to it.
+        let data_dir = loop {
+            let directory = std::env::temp_dir().join(format!(
+                "ferrofolio-gateway-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match std::fs::create_dir(&directory) {
+                Ok(()) => break TempDataDir(directory),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => panic!("cannot create {}: {error}", directory.display()),
+            }
+        };
         for id in [FIXTURE_USER_ID, OTHER_USER_ID] {
             let database = data_dir.0.join("profiles").join(id).join("data.db");
             std::fs::create_dir_all(database.parent().unwrap()).unwrap();
@@ -153,6 +160,11 @@ struct Recorded {
     replacement_waits: AtomicBool,
     replacement_started: Arc<tokio::sync::Notify>,
     release_replacement: Arc<tokio::sync::Notify>,
+    /// The handlers that replace the database refuse a request without a token
+    /// they issued with `401`, as Python's session guard does while unlocked.
+    replacement_guarded: AtomicBool,
+    /// The backup import fails with `500` once it has run.
+    replacement_fails: AtomicBool,
     /// Logins so far, and the tokens the backend accepts.
     logins: AtomicUsize,
     accepted: Mutex<HashSet<String>>,
@@ -287,11 +299,19 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 }
             }
             (Method::POST, path @ ("/api/v1/cloud/backup/import" | "/api/v1/change-password")) => {
+                if recorded.replacement_guarded.load(Ordering::SeqCst)
+                    && !recorded.accepts(&parts.headers)
+                {
+                    let body = json!({"code": "NOT_LOGGED", "message": "Session required"});
+                    return (StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
+                }
                 if recorded.replacement_waits.load(Ordering::SeqCst) {
                     recorded.replacement_started.notify_one();
                     recorded.release_replacement.notified().await;
                 }
-                if path == "/api/v1/change-password" {
+                if recorded.replacement_fails.load(Ordering::SeqCst) {
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                } else if path == "/api/v1/change-password" {
                     // Python rekeys the database, locks it and answers without a
                     // body.
                     StatusCode::NO_CONTENT.into_response()
@@ -674,15 +694,27 @@ fn other_login() -> String {
 }
 
 /// Whether Rust holds the database of `OTHER_USER`: it reads the same data as
-/// `FIXTURE_USER`'s, so the test looks at the files Rust has open.
-fn holds_other_users_database(data: &TempDataDir) -> bool {
+/// `FIXTURE_USER`'s, so the test looks at the files Rust has open. `None` where
+/// the process cannot be asked, as outside Linux or without procfs: the test then
+/// checks only what Rust reports. The directory is compared by its canonical
+/// path, which the links in procfs name, also when the temporary directory is
+/// reached through a symbolic link.
+fn holds_other_users_database(data: &TempDataDir) -> Option<bool> {
     let directory = data.0.join("profiles").join(OTHER_USER_ID);
-    std::fs::read_dir("/proc/self/fd").unwrap().any(|entry| {
-        entry
-            .ok()
-            .and_then(|entry| std::fs::read_link(entry.path()).ok())
-            .is_some_and(|target| target.starts_with(&directory))
-    })
+    let directory = std::fs::canonicalize(&directory).unwrap_or(directory);
+    let handles = std::fs::read_dir("/proc/self/fd").ok()?;
+    Some(handles.filter_map(Result::ok).any(|entry| {
+        std::fs::read_link(entry.path()).is_ok_and(|target| target.starts_with(&directory))
+    }))
+}
+
+fn assert_holds_other_users_database(data: &TempDataDir, expected: bool) {
+    if let Some(holds) = holds_other_users_database(data) {
+        assert_eq!(
+            holds, expected,
+            "Rust's connection to the other user's data.db"
+        );
+    }
 }
 
 #[tokio::test]
@@ -715,7 +747,7 @@ async fn without_sessions_a_login_of_another_user_does_not_unlock_the_database()
     let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(reads(&state));
-    assert!(!holds_other_users_database(&data));
+    assert_holds_other_users_database(&data, false);
 
     // A login that another one overtook gets 204 from Python, also unchecked.
     recorded.already_unlocked.store(false, Ordering::SeqCst);
@@ -723,7 +755,7 @@ async fn without_sessions_a_login_of_another_user_does_not_unlock_the_database()
     let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert!(reads(&state));
-    assert!(!holds_other_users_database(&data));
+    assert_holds_other_users_database(&data, false);
 
     // Once Python reports that user, its login opens its database.
     recorded.overtaken.store(false, Ordering::SeqCst);
@@ -732,7 +764,7 @@ async fn without_sessions_a_login_of_another_user_does_not_unlock_the_database()
     let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(reads(&state));
-    assert!(holds_other_users_database(&data));
+    assert_holds_other_users_database(&data, true);
     drop(app);
 }
 
@@ -900,6 +932,44 @@ async fn requests_that_replace_the_database_close_rusts_connection_until_python_
 }
 
 #[tokio::test]
+async fn a_failed_replacement_with_a_session_leaves_rust_without_a_connection() {
+    let (url, recorded) = fake_backend().await;
+    recorded.replacement_guarded.store(true, Ordering::SeqCst);
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    let (status, _, body) = send(&app, request).await;
+    assert_eq!(status, StatusCode::OK);
+    let token: Value = serde_json::from_slice(&body).unwrap();
+    let token = token["token"].as_str().unwrap().to_owned();
+    assert!(reads(&state));
+
+    // Python's guard refuses an import without a session before it touches the
+    // database: Rust keeps its connection.
+    let request = login_request("/api/v1/cloud/backup/import", "{}");
+    assert_eq!(send(&app, request).await.0, StatusCode::UNAUTHORIZED);
+    assert!(reads(&state), "after an import the guard refused");
+
+    // An import that fails may have replaced the file first: Rust keeps no
+    // connection until the next login.
+    recorded.replacement_fails.store(true, Ordering::SeqCst);
+    let mut request = login_request("/api/v1/cloud/backup/import", "{}");
+    request.headers_mut().insert(
+        header::AUTHORIZATION,
+        format!("Bearer {token}").parse().unwrap(),
+    );
+    assert_eq!(
+        send(&app, request).await.0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert!(!state.sessions.is_unlocked());
+    assert!(!reads(&state), "after a failed import");
+    assert_holds_connection(&data, false);
+}
+
+#[tokio::test]
 async fn a_client_that_goes_away_does_not_reopen_the_database() {
     let (url, recorded) = fake_backend().await;
     recorded.replacement_waits.store(true, Ordering::SeqCst);
@@ -958,7 +1028,7 @@ async fn a_replacement_waits_for_a_reader_of_the_database() {
 
     // A reader holds the database until it is told to finish.
     let (finish, finished) = std::sync::mpsc::channel::<()>();
-    let (reading, started) = std::sync::mpsc::channel::<()>();
+    let (reading, started) = tokio::sync::oneshot::channel::<()>();
     let reader = tokio::task::spawn_blocking({
         let sessions = state.sessions.clone();
         move || {
@@ -968,7 +1038,10 @@ async fn a_replacement_waits_for_a_reader_of_the_database() {
             })
         }
     });
-    started.recv().unwrap();
+    tokio::time::timeout(Duration::from_secs(10), started)
+        .await
+        .expect("the reader never started")
+        .unwrap();
 
     let replacement = tokio::spawn({
         let app = app.clone();

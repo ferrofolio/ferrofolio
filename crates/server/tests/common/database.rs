@@ -48,6 +48,27 @@ pub fn fixture(name: &str) -> Value {
 #[derive(Debug)]
 pub struct TempDirectory(PathBuf);
 
+impl TempDirectory {
+    /// Creates a new, empty directory that belongs to this test alone: a name
+    /// already taken, by a run that stopped before it cleaned up for example, is
+    /// skipped rather than reused.
+    pub fn create(prefix: &str) -> Self {
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        loop {
+            let directory: PathBuf = std::env::temp_dir().join(format!(
+                "{prefix}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match std::fs::create_dir(&directory) {
+                Ok(()) => return Self(directory),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => panic!("cannot create {}: {error}", directory.display()),
+            }
+        }
+    }
+}
+
 impl Drop for TempDirectory {
     fn drop(&mut self) {
         // A file that is still open goes when it is closed; a failure leaves
@@ -60,18 +81,14 @@ impl Drop for TempDirectory {
 /// `USERNAME`, in a directory of its own: opening a database adds WAL files.
 /// The directory goes when the returned guard is dropped.
 pub fn data_dir(file: &str) -> (DataDir, TempDirectory) {
-    static NEXT: AtomicU32 = AtomicU32::new(0);
-    let directory: PathBuf = std::env::temp_dir().join(format!(
-        "ferrofolio-db-parity-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let guard = TempDirectory::create("ferrofolio-db-parity");
+    let directory = guard.0.clone();
     let profile = directory.join("profiles").join(PROFILE_ID);
     std::fs::create_dir_all(&profile).unwrap();
     std::fs::copy(Path::new(FIXTURES).join(file), profile.join("data.db")).unwrap();
     let profiles = json!({"profiles": [{"id": PROFILE_ID, "name": USERNAME}]});
     std::fs::write(directory.join("profiles.json"), profiles.to_string()).unwrap();
-    (DataDir::new(directory.clone()), TempDirectory(directory))
+    (DataDir::new(directory), guard)
 }
 
 /// The stand-in for Python: whether its data is unlocked.

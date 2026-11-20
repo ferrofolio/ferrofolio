@@ -285,9 +285,26 @@ mod tests {
 
     #[test]
     fn finds_the_database_of_the_first_profile_with_the_name() {
-        let directory =
-            std::env::temp_dir().join(format!("ferrofolio-user-data-{}", std::process::id()));
-        std::fs::create_dir_all(&directory).unwrap();
+        /// Removes the directory also when an assertion fails.
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        // A directory left by an earlier run is skipped rather than reused.
+        let cleanup = (0..1000)
+            .map(|n| {
+                std::env::temp_dir()
+                    .join(format!("ferrofolio-user-data-{}-{n}", std::process::id()))
+            })
+            .find_map(|directory| {
+                std::fs::create_dir(&directory)
+                    .ok()
+                    .map(|()| Cleanup(directory))
+            })
+            .unwrap();
+        let directory = cleanup.0.clone();
         std::fs::write(
             directory.join("profiles.json"),
             r#"{"last_logged": null, "profiles": [
@@ -311,5 +328,6 @@ mod tests {
         assert_eq!(data_dir.database_path("anna"), None);
         std::fs::remove_dir_all(&directory).unwrap();
         assert_eq!(data_dir.database_path("anna"), None);
+        drop(cleanup);
     }
 }
