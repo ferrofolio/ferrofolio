@@ -169,6 +169,10 @@ struct Session {
     /// of a later login: one that Python has ended stays ended there even while
     /// Rust has not yet learnt of the logout.
     backend: HeaderValue,
+    /// The user its login named. It reads the database only while that user's is
+    /// the one Rust holds, so that it never reads another user's data, whichever
+    /// order logins, unlocks and failed openings come in.
+    user: Option<String>,
 }
 
 /// A user's database, open read-only while the data is unlocked.
@@ -273,6 +277,7 @@ impl Sessions {
         attempt: LoginAttempt,
         remember: bool,
         backend_token: &str,
+        user: Option<&str>,
     ) -> Result<String, SessionError> {
         let mut authorization = HeaderValue::try_from(format!("Bearer {backend_token}"))
             .map_err(|_| SessionError::BackendToken)?;
@@ -296,6 +301,7 @@ impl Sessions {
             Session {
                 expires,
                 backend: authorization,
+                user: user.map(str::to_owned),
             },
         );
         Ok(token)
@@ -438,6 +444,34 @@ impl Sessions {
         self.read_database(Some(&token), read)
     }
 
+    /// Whether the session with `token` is valid at `now` and may read the
+    /// database Rust holds: only that of the user its login named.
+    fn session_reads(state: &mut State, token: &str, now: SystemTime) -> bool {
+        if Self::session_authorization(state, token, now).is_none() {
+            return false;
+        }
+        let user = state
+            .sessions
+            .get(&digest(token))
+            .and_then(|session| session.user.as_deref());
+        user.is_some() && user == state.database_user.as_deref()
+    }
+
+    /// Whether a read for this request would find a database, as far as can be told
+    /// without waiting: Rust holds one and, with API sessions, the request's
+    /// session may read it. `with_database_of` checks again when it reads.
+    pub fn may_read(&self, headers: &HeaderMap) -> bool {
+        let now = self.clock.now();
+        let mut state = self.lock();
+        if state.database.is_none() {
+            return false;
+        }
+        if !self.settings.enabled {
+            return true;
+        }
+        bearer_token(headers).is_some_and(|token| Self::session_reads(&mut state, &token, now))
+    }
+
     fn read_database<T>(
         &self,
         token: Option<&str>,
@@ -451,7 +485,7 @@ impl Sessions {
             let now = self.clock.now();
             let mut state = self.lock();
             if let Some(token) = token
-                && Self::session_authorization(&mut state, token, now).is_none()
+                && !Self::session_reads(&mut state, token, now)
             {
                 return Err(UnlockError::Locked);
             }
@@ -788,7 +822,7 @@ mod tests {
     fn a_session_lasts_until_the_logout() {
         let (sessions, clock) = sessions(Some(Duration::from_secs(60)));
         let token = sessions
-            .start(sessions.login_attempt(), false, "backend")
+            .start(sessions.login_attempt(), false, "backend", None)
             .unwrap();
         *clock.0.lock().unwrap() += Duration::from_secs(365 * 86_400);
         assert_eq!(
@@ -808,7 +842,7 @@ mod tests {
         let started = clock.now();
         let attempt = sessions.login_attempt();
         *clock.0.lock().unwrap() += Duration::from_secs(1);
-        let token = sessions.start(attempt, true, "backend").unwrap();
+        let token = sessions.start(attempt, true, "backend", None).unwrap();
         *clock.0.lock().unwrap() = started + Duration::from_secs(59);
         assert!(sessions.is_valid(&bearer(&token)));
         *clock.0.lock().unwrap() = started + Duration::from_secs(60);
@@ -822,7 +856,7 @@ mod tests {
     fn without_a_period_a_remembered_session_does_not_expire() {
         let (sessions, clock) = sessions(None);
         let token = sessions
-            .start(sessions.login_attempt(), true, "backend")
+            .start(sessions.login_attempt(), true, "backend", None)
             .unwrap();
         *clock.0.lock().unwrap() += Duration::from_secs(3650 * 86_400);
         assert!(sessions.is_valid(&bearer(&token)));
@@ -832,10 +866,10 @@ mod tests {
     fn every_session_reaches_the_backend_with_its_own_backend_token() {
         let (sessions, _) = sessions(None);
         let first = sessions
-            .start(sessions.login_attempt(), false, "first")
+            .start(sessions.login_attempt(), false, "first", None)
             .unwrap();
         let second = sessions
-            .start(sessions.login_attempt(), false, "second")
+            .start(sessions.login_attempt(), false, "second", None)
             .unwrap();
         assert_eq!(
             sessions.backend_authorization(&bearer(&first)).unwrap(),
@@ -851,7 +885,7 @@ mod tests {
     fn refuses_a_backend_token_that_is_not_a_header_value() {
         let (sessions, _) = sessions(None);
         assert!(matches!(
-            sessions.start(sessions.login_attempt(), false, "a\nb"),
+            sessions.start(sessions.login_attempt(), false, "a\nb", None),
             Err(SessionError::BackendToken)
         ));
     }
@@ -865,7 +899,7 @@ mod tests {
         };
         let sessions = Sessions::new(settings, clock);
         let token = sessions
-            .start(sessions.login_attempt(), false, "backend")
+            .start(sessions.login_attempt(), false, "backend", None)
             .unwrap();
         assert!(!sessions.is_valid(&bearer(&token)));
     }
@@ -874,17 +908,17 @@ mod tests {
     fn a_login_that_a_logout_overtook_starts_no_session() {
         let (sessions, _) = sessions(None);
         let earlier = sessions
-            .start(sessions.login_attempt(), false, "first")
+            .start(sessions.login_attempt(), false, "first", None)
             .unwrap();
         let attempt = sessions.login_attempt();
         sessions.revoke_all();
         assert!(matches!(
-            sessions.start(attempt, false, "second"),
+            sessions.start(attempt, false, "second", None),
             Err(SessionError::LoggedOut)
         ));
         assert!(!sessions.is_valid(&bearer(&earlier)));
         let later = sessions
-            .start(sessions.login_attempt(), false, "third")
+            .start(sessions.login_attempt(), false, "third", None)
             .unwrap();
         assert_eq!(
             sessions.backend_authorization(&bearer(&later)).unwrap(),
@@ -912,7 +946,7 @@ mod tests {
         );
         assert!(!sessions.is_unlocked());
         // Forgetting the database ends no session: the login still gets one.
-        assert!(sessions.start(attempt, false, "backend").is_ok());
+        assert!(sessions.start(attempt, false, "backend", None).is_ok());
         // A later login opens the database again.
         let later = sessions.open_and_unlock(sessions.login_attempt(), || Err(UnlockError::Locked));
         assert!(matches!(

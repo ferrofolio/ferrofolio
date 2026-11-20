@@ -158,13 +158,21 @@ async fn login(
         let message = "Failed to decode JSON object";
         return refuse(ApiError::InvalidRequest(message.to_owned()).into_response());
     };
+    // The session reads only the database of the user its login named.
+    let user = login
+        .credentials
+        .as_ref()
+        .map(|credentials| credentials.username.clone());
     // Best effort, and before the session starts: a logout that overtakes the
     // login ends the sessions, and `start` then refuses the login instead of
     // answering with a token the logout has revoked already.
     if unlocks {
         unlock(state, attempt, login.credentials).await;
     }
-    let token = match state.sessions.start(attempt, remember, &backend_token) {
+    let token = match state
+        .sessions
+        .start(attempt, remember, &backend_token, user.as_deref())
+    {
         Ok(token) => token,
         Err(error @ SessionError::LoggedOut) => {
             tracing::warn!(%error, "a login ended without a session");

@@ -243,6 +243,12 @@ status names its user. A route that reads the database answers from Rust's datab
 data unlocked for the request, and passes it on to Python otherwise, so it neither reads a database Python has closed
 nor answers as locked while Rust has none open.
 
+Each session also remembers the user its login named, and reads Rust's database only while that user's is the one
+Rust holds. A login Python accepts but whose database Rust cannot open, or a session that starts only after another
+user's login has opened that user's database, therefore never reads another user's data; its requests go to Python.
+A request Rust cannot read for in this way goes to Python before it waits for a permit for blocking work, so it is
+never refused as busy where Python would answer.
+
 ## Parity tests
 
 A route moves to Rust together with fixtures recorded from the Python route.

@@ -50,6 +50,10 @@ where
         Ok(false) => return forward(State(state.clone()), request).await,
         Err(error) => return answer(error.into_response()),
     }
+    // A request Rust cannot read for goes to Python without waiting for a permit.
+    if !state.sessions.may_read(request.headers()) {
+        return forward(State(state.clone()), request).await;
+    }
     let (parts, body) = request.into_parts();
     let work = match prepare(state, &parts) {
         Ok(work) => work,
