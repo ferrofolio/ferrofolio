@@ -7,6 +7,7 @@
 //! does; until the cutover the Python backend owns the schema and its migrations
 //! (docs/roadmap.md, section 5), so Rust only reads.
 
+pub mod labeling;
 pub mod settings;
 
 use std::path::Path;

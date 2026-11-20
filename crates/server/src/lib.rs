@@ -15,7 +15,6 @@ pub mod error;
 pub mod gateway;
 pub mod proxy;
 pub mod pycompat;
-pub mod python_printable;
 pub mod routes;
 pub mod sessions;
 pub mod user_data;

@@ -22,9 +22,9 @@ import sys
 from pathlib import Path
 
 from ci_python import require_ci_python
-from db_routes import harness, settings
+from db_routes import harness, labels, settings
 
-SLICES = [settings.SLICE]
+SLICES = [settings.SLICE, labels.SLICE]
 
 
 def main() -> int:

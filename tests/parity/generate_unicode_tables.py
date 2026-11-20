@@ -90,7 +90,7 @@ def printable_table():
 
 TABLES = {
     ROOT / "crates/core-domain/src/unicode_digits.rs": digits_table,
-    ROOT / "crates/server/src/python_printable.rs": printable_table,
+    ROOT / "crates/core-domain/src/python_printable.rs": printable_table,
 }
 
 

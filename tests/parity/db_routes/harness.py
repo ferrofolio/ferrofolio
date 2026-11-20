@@ -363,9 +363,16 @@ async def output(slices: list[Slice], directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     all_scenarios = scenarios(slices)
     for name, scenario in all_scenarios.items():
+        committed = directory / f"{name}.db"
         with tempfile.TemporaryDirectory() as scratch:
             created = await create(Path(scratch), scenario)
-            shutil.copyfile(created, directory / f"{name}.db")
+            # SQLCipher salts every file, so a database that still holds what its
+            # scenario defines is kept rather than replaced by an equal one.
+            if committed.exists() and dump(committed, scenario) == dump(
+                created, scenario
+            ):
+                continue
+            shutil.copyfile(created, committed)
     (directory / DATABASES).write_text(
         render_databases(directory, all_scenarios), encoding="utf-8"
     )

@@ -14,14 +14,13 @@
 
 mod common;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::header::AUTHORIZATION;
 use axum::http::{Request, StatusCode};
-use common::database::{BACKEND_TOKEN, Harness, UNKNOWN_TOKEN, fixture};
-use common::{answer, difference, same_json};
+use common::database::{BACKEND_TOKEN, Harness, fixture};
+use common::{answer, same_json};
 use core_domain::settings::SettingsSection;
 use infra_db::settings::base_config::BaseConfig;
 use infra_db::settings::{last_update, mapper, parse_timestamp, resolve_section};
@@ -51,81 +50,16 @@ async fn harness(fixtures: &Value, file: &str, sessions: bool) -> Harness {
     .await
 }
 
-/// The request of a case; `token` is the client's token of a valid session, if
-/// API sessions issue one.
-fn request(case: &Value, token: Option<&str>) -> Request<Body> {
-    let mut uri = case["path"].as_str().unwrap().to_owned();
-    if let Some(query) = case.get("query").and_then(Value::as_str) {
-        uri = format!("{uri}?{query}");
-    }
-    let mut builder = Request::builder()
-        .method(case["method"].as_str().unwrap())
-        .uri(uri);
-    let authorization = match case.get("session").and_then(Value::as_str) {
-        None => token.map(str::to_owned),
-        Some("unknown") => Some(UNKNOWN_TOKEN.to_owned()),
-        Some(_) => None,
-    };
-    if let Some(token) = authorization {
-        builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
-    }
-    builder.body(Body::empty()).unwrap()
-}
-
-/// What the stand-in for Python answers to the request of a case Rust passed on
-/// as the client sent it.
-fn forwarded_as_sent(request: &Request<Body>) -> Value {
-    common::database::forwarded(request)
-}
-
 /// Replays every case with API sessions, and those with a valid session on
 /// unlocked data, and those on locked data, also without them.
 async fn replay(sessions: bool) -> (usize, Vec<String>) {
     let fixtures = fixtures();
-    let cases = fixtures["cases"].as_array().unwrap();
-    let mut harnesses: HashMap<(String, bool), (Harness, Option<String>)> = HashMap::new();
-    let mut failures = Vec::new();
-    let mut replayed = 0;
-    for case in cases {
-        let database = case["database"].as_str().unwrap().to_owned();
-        let unlocked = case.get("unlocked") != Some(&Value::Bool(false));
-        let valid = case.get("session").is_none();
-        // Without API sessions Python lets every request through on unlocked data.
-        if !sessions && unlocked && !valid {
-            continue;
-        }
-        let key = (database.clone(), unlocked);
-        if !harnesses.contains_key(&key) {
-            let harness = harness(&fixtures, &format!("{database}.db"), sessions).await;
-            let token = if unlocked {
-                harness.login().await
-            } else {
-                None
-            };
-            harnesses.insert(key.clone(), (harness, token));
-        }
-        let (harness, token) = &harnesses[&key];
-        let sent = request(case, token.as_deref());
-        let expected_forward = forwarded_as_sent(&sent);
-        let (status, body) = answer(&harness.app, sent).await;
-        replayed += 1;
-        if case["compare"] == "forwarded" {
-            let passed_on = status == StatusCode::OK
-                && body
-                    .as_ref()
-                    .is_some_and(|body| same_json(body, &expected_forward));
-            if !passed_on {
-                failures.push(format!(
-                    "{}\n  expected the request to be passed on to Python\n  got      {status} {}",
-                    case["name"],
-                    body.unwrap_or_default()
-                ));
-            }
-        } else if let Some(message) = difference(case, status, &body) {
-            failures.push(message);
-        }
-    }
-    (replayed, failures)
+    let (base, time_zone) = (base(&fixtures), time_zone(&fixtures));
+    common::database::replay(&fixtures, sessions, move |state| {
+        state.settings_base = Arc::new(base.clone());
+        state.time_zone = time_zone.clone();
+    })
+    .await
 }
 
 #[tokio::test]
