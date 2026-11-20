@@ -14,7 +14,7 @@ from infrastructure.client.http.http_response import HttpResponse
 REQUEST_DATE_FORMAT = "%Y-%m-%d"
 
 # Public client id of the Univia web app
-OAUTH_CLIENT_ID = "47e23c03c68ab335aabfabfdeba946ea"
+OAUTH_CLIENT_ID = "47e23c03c68ab335aabfabfdeba946ea"  # gitleaks:allow
 OAUTH_SCOPE = "BD"
 TOKEN_EXPIRY_MARGIN_SECONDS = 60
 

@@ -86,6 +86,12 @@ pnpm format
 pnpm lint
 ```
 
+The `Lint` job of CI also scans every pull request for secrets with gitleaks, lints the workflows with actionlint
+(including shellcheck on their scripts) and the Dockerfiles with hadolint; `scripts/ci-local.sh --job lint` runs it
+alone. A value that gitleaks takes for a secret but that is none, such as a public client identifier of a web app,
+gets a `# gitleaks:allow` comment at the end of its line with a word on why. The rules that hadolint and actionlint
+skip, and why, are in `.hadolint.yaml` and `.github/actionlint.yaml`.
+
 ## Test
 
 ```sh

@@ -103,6 +103,93 @@ jobs:
             echo "e2e=$(match "^(finanze|frontend/app|e2e/standard)/|$python_config")"
           } | tee -a "$GITHUB_OUTPUT"
 
+  # Runs on every pull request, whatever changed: a secret can be added in any file,
+  # and the linters take seconds. The tools are release binaries pinned by version and
+  # SHA-256 digest; Dependabot does not raise them, so they are updated by hand.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks, actionlint, shellcheck and hadolint
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64)
+              gitleaks=(linux_x64 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb)
+              actionlint=(linux_amd64 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8)
+              shellcheck=(x86_64 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198)
+              hadolint=(x86_64 c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507)
+              ;;
+            aarch64)
+              gitleaks=(linux_arm64 e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080)
+              actionlint=(linux_arm64 325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6)
+              shellcheck=(aarch64 12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588)
+              hadolint=(arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d)
+              ;;
+            *)
+              echo "::error::No linter binaries are pinned for $(uname -m)."
+              exit 1
+              ;;
+          esac
+          bin="$RUNNER_TEMP/lint-bin"
+          mkdir -p "$bin"
+          # Downloads a file and checks it against its pinned digest.
+          fetch() {
+            local url="$1" sha256="$2" file="$3"
+            curl --fail --silent --show-error --location --max-time 120 --output "$file" "$url"
+            echo "$sha256  $file" | sha256sum --check --quiet
+          }
+          fetch "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_${gitleaks[0]}.tar.gz" \
+            "${gitleaks[1]}" "$RUNNER_TEMP/gitleaks.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$bin" gitleaks
+          fetch "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_${actionlint[0]}.tar.gz" \
+            "${actionlint[1]}" "$RUNNER_TEMP/actionlint.tar.gz"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$bin" actionlint
+          fetch "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.${shellcheck[0]}.tar.xz" \
+            "${shellcheck[1]}" "$RUNNER_TEMP/shellcheck.tar.xz"
+          tar -xJf "$RUNNER_TEMP/shellcheck.tar.xz" -C "$bin" --strip-components=1 shellcheck-v0.11.0/shellcheck
+          fetch "https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-${hadolint[0]}" \
+            "${hadolint[1]}" "$bin/hadolint"
+          chmod +x "$bin"/*
+          echo "$bin" >> "$GITHUB_PATH"
+
+      # The checked-out tree catches every secret that would reach the target branch,
+      # and in a local run also uncommitted ones; the commits of the pull request catch
+      # a secret that was added and removed again, which stays in the history.
+      # --redact keeps what was found out of the log.
+      - name: Scan for secrets with gitleaks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          gitleaks dir . --no-banner --redact
+          # A local run without a base commit (scripts/ci-local.sh with uncommitted
+          # changes or --all) has only the tree to scan.
+          if git cat-file -e "$BASE_SHA^{commit}" 2> /dev/null && git cat-file -e "$HEAD_SHA^{commit}" 2> /dev/null; then
+            gitleaks git . --no-banner --redact --log-opts="$BASE_SHA..$HEAD_SHA"
+          else
+            echo "The base or head commit is not available; scanned the tree only."
+          fi
+
+      # actionlint also runs shellcheck on the run: scripts of the workflows.
+      - name: Lint the workflows with actionlint
+        run: actionlint -shellcheck="$(command -v shellcheck)"
+
+      - name: Lint the Dockerfiles with hadolint
+        run: |
+          set -euo pipefail
+          mapfile -t dockerfiles < <(git ls-files ':(glob)**/Dockerfile' ':(glob)**/*.Containerfile')
+          printf '%s\n' "${dockerfiles[@]}"
+          hadolint "${dockerfiles[@]}"
+
   test:
     name: Tests
     needs: changes
@@ -194,7 +281,7 @@ jobs:
           docker run --detach --name ferrofolio-ci --publish 127.0.0.1:7592:7592 ferrofolio-server:ci \
             --port 7592 --data-dir /tmp/storage --log-dir /tmp/storage/logs
           # The server refuses connections until the Python backend is ready.
-          for attempt in $(seq 1 90); do
+          for _ in $(seq 1 90); do
             if curl --silent --fail --max-time 10 --output /dev/null http://127.0.0.1:7592/api/v1/status; then
               break
             fi
@@ -269,7 +356,7 @@ jobs:
             docker run --detach --name "$name" --publish "127.0.0.1:$port:7592" \
               --env FINANZE_API_SESSION=false --volume ferrofolio-ci-data:/data "$@" \
               ferrofolio-server:ci --port 7592 --data-dir /data --log-dir /data/logs
-            for attempt in $(seq 1 90); do
+            for _ in $(seq 1 90); do
               if curl --silent --fail --max-time 10 --output /dev/null "http://127.0.0.1:$port/api/v1/status"; then
                 return
               fi
