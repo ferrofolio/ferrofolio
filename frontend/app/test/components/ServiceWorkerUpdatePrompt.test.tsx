@@ -19,6 +19,7 @@ vi.mock("@/i18n", () => ({
     t: {
       common: {
         reload: "Reload",
+        close: "Close",
         newVersionReady: "A new version of Ferrofolio is ready.",
       },
     },
@@ -53,10 +54,7 @@ describe("ServiceWorkerUpdatePrompt", () => {
   it("can be dismissed without reloading", () => {
     render(<ServiceWorkerUpdatePrompt />)
     act(() => notify(true))
-    const close = screen
-      .getAllByRole("button")
-      .find(button => button.textContent !== "Reload")!
-    fireEvent.click(close)
+    fireEvent.click(screen.getByRole("button", { name: "Close" }))
     expect(
       screen.queryByText("A new version of Ferrofolio is ready."),
     ).toBeNull()

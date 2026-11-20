@@ -7,6 +7,7 @@ type Listener = (updateAvailable: boolean) => void
 
 let waitingWorker: ServiceWorker | null = null
 let updateRequested = false
+let reloadPage: () => void = () => window.location.reload()
 const listeners = new Set<Listener>()
 
 function setWaitingWorker(worker: ServiceWorker | null): void {
@@ -22,9 +23,14 @@ export function subscribeToServiceWorkerUpdate(listener: Listener): () => void {
   }
 }
 
-// Activates the waiting version; the page reloads once it controls the page.
+// Activates the waiting version; the page reloads once it controls the page. If another tab has
+// activated it already, the page already runs under it and only needs the reload.
 export function applyServiceWorkerUpdate(): void {
   if (!waitingWorker) return
+  if (waitingWorker.state !== "installed") {
+    reloadPage()
+    return
+  }
   updateRequested = true
   waitingWorker.postMessage({ type: "SKIP_WAITING" })
 }
@@ -52,11 +58,12 @@ export async function registerServiceWorker(
 ): Promise<void> {
   // Service workers need a secure context (HTTPS or localhost); elsewhere the app runs without.
   if (!container) return
+  reloadPage = reload
 
   container.addEventListener("controllerchange", () => {
     if (!updateRequested) return
     updateRequested = false
-    reload()
+    reloadPage()
   })
 
   const registration = await container.register("/sw.js")
@@ -80,5 +87,6 @@ export async function registerServiceWorker(
 export function resetServiceWorkerStateForTests(): void {
   waitingWorker = null
   updateRequested = false
+  reloadPage = () => window.location.reload()
   listeners.clear()
 }

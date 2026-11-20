@@ -85,12 +85,18 @@ export function computeShell(
   }
 }
 
-export function shellVersion(shell: Shell, indexHtml: string): string {
-  return createHash("sha256")
+// Hashes the shell, index.html and the contents of the public shell files. Bundle files carry a
+// content hash in their names; public files do not, so their contents count here.
+export function shellVersion(
+  shell: Shell,
+  indexHtml: string,
+  publicContents: Uint8Array[] = [],
+): string {
+  const hash = createHash("sha256")
     .update(JSON.stringify(shell))
     .update(indexHtml)
-    .digest("hex")
-    .slice(0, 16)
+  publicContents.forEach(content => hash.update(content))
+  return hash.digest("hex").slice(0, 16)
 }
 
 export function renderServiceWorker(
@@ -122,13 +128,16 @@ export function serviceWorkerPlugin(): Plugin {
       }
       const shell = computeShell(bundle as Record<string, BundleFile>)
       const template = readFileSync(resolve(__dirname, "sw.js"), "utf-8")
+      const publicContents = PUBLIC_SHELL_FILES.map(file =>
+        readFileSync(resolve(__dirname, "../public", file)),
+      )
       this.emitFile({
         type: "asset",
         fileName: SERVICE_WORKER_FILE,
         source: renderServiceWorker(
           template,
           shell,
-          shellVersion(shell, String(index.source)),
+          shellVersion(shell, String(index.source), publicContents),
         ),
       })
     },

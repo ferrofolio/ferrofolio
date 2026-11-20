@@ -32,6 +32,7 @@ function fakeResponse(body: string, ok = true, type = "basic") {
 function loadWorker(version = "v2", existingCaches: string[] = []) {
   const handlers: Record<string, Handler> = {}
   const stored = new Map<string, Map<string, unknown>>()
+  let putFails = false
   existingCaches.forEach(name => stored.set(name, new Map()))
   const cacheFor = (name: string) => {
     if (!stored.has(name)) stored.set(name, new Map())
@@ -45,6 +46,7 @@ function loadWorker(version = "v2", existingCaches: string[] = []) {
       },
       match: async (key: string) => entries.get(key),
       put: async (key: string, value: unknown) => {
+        if (putFails) throw new Error("QuotaExceededError")
         entries.set(key, value)
       },
     }
@@ -70,7 +72,10 @@ function loadWorker(version = "v2", existingCaches: string[] = []) {
     FakeRequest,
   )
   const cache = () => stored.get(`ferrofolio-shell-${version}`)!
-  return { handlers, stored, cache, self, fetchMock }
+  const failPut = () => {
+    putFails = true
+  }
+  return { handlers, stored, cache, self, fetchMock, failPut }
 }
 
 async function runLifecycle(
@@ -165,6 +170,14 @@ describe("shellVersion", () => {
     ).not.toBe(base)
     expect(shellVersion(shell, "<html >")).not.toBe(base)
   })
+
+  it("changes with the contents of the public shell files", () => {
+    const shell = { precache: ["/", "/site.webmanifest"], onDemand: [] }
+    const encode = (text: string) => new TextEncoder().encode(text)
+    expect(shellVersion(shell, "<html>", [encode('{"name":"A"}')])).not.toBe(
+      shellVersion(shell, "<html>", [encode('{"name":"B"}')]),
+    )
+  })
 })
 
 describe("renderServiceWorker", () => {
@@ -232,6 +245,14 @@ describe("service worker", () => {
 
     await dispatchFetch(worker.handlers.fetch, request)
     expect(worker.fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it("returns the network response when the cache cannot store it", async () => {
+    const request = { url: `${ORIGIN}/assets/lazy-abc.js` }
+    worker.failPut()
+    const response: any = await dispatchFetch(worker.handlers.fetch, request)
+    expect(response.body).toBe("from network")
+    expect(worker.cache().has("/assets/lazy-abc.js")).toBe(false)
   })
 
   it("does not cache a failed response", async () => {
