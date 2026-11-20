@@ -88,10 +88,12 @@ pnpm lint
 
 The `Lint` job of CI also scans every pull request for secrets with gitleaks, lints the workflows with actionlint
 (including shellcheck on their scripts) and the Dockerfiles with hadolint; `scripts/ci-local.sh --job lint` runs it
-alone. A value that gitleaks takes for a secret but that is none, such as a public client identifier of a web app,
-gets a `# gitleaks:allow` comment at the end of its line with a word on why. The comment only covers the line it is
-on: the scan of the pull request's commits still finds the value in the commit that added it without the comment, so
-the comment goes into that commit (amend it or rebase). The rules that hadolint and actionlint
+alone. A value that gitleaks takes for a secret but that is none, such as a public client identifier of a web app, gets
+a `gitleaks:allow` comment at the end of its line with a word on why, written in the comment syntax of the file (`#
+gitleaks:allow` in Python, `// gitleaks:allow` in TypeScript). A file without comments, such as JSON, lists the
+finding's fingerprint in `.gitleaksignore` instead; gitleaks prints the fingerprint with the finding. The comment only
+covers the line it is on: the scan of the pull request's commits still finds the value in the commit that added it
+without the comment, so the comment goes into that commit (amend it or rebase). The rules that hadolint and actionlint
 skip, and why, are in `.hadolint.yaml` and `.github/actionlint.yaml`.
 
 ## Test

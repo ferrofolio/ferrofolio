@@ -172,6 +172,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          # The output holds paths and lines from the pull request; a line starting
+          # with "::" would run as a workflow command, so command processing is off.
+          token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
           gitleaks dir . --no-banner --redact
           # A local run without a base commit (scripts/ci-local.sh with uncommitted
           # changes or --all) has only the tree to scan.
@@ -183,11 +188,23 @@ jobs:
 
       # actionlint also runs shellcheck on the run: scripts of the workflows.
       - name: Lint the workflows with actionlint
-        run: actionlint -shellcheck="$(command -v shellcheck)"
+        run: |
+          set -euo pipefail
+          # The output holds paths and lines from the pull request; a line starting
+          # with "::" would run as a workflow command, so command processing is off.
+          token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          actionlint -shellcheck="$(command -v shellcheck)"
 
       - name: Lint the Dockerfiles with hadolint
         run: |
           set -euo pipefail
+          # The output holds paths and lines from the pull request; a line starting
+          # with "::" would run as a workflow command, so command processing is off.
+          token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
           # -z keeps Git from quoting paths with special characters.
           mapfile -d '' -t dockerfiles < <(git ls-files -z ':(glob)**/Dockerfile' ':(glob)**/*.Containerfile')
           printf '%s\n' "${dockerfiles[@]}"
