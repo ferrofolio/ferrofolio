@@ -200,10 +200,31 @@ impl Harness {
         }
     }
 
+    /// Adds a second user, `username`, with a copy of the fixture database `file`
+    /// and the same password.
+    pub fn add_user(&self, username: &str, file: &str) {
+        let directory = &self._directory.0;
+        // Python names profiles with a UUID, and Rust reads only those.
+        let id = "1d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7c";
+        let profile = directory.join("profiles").join(id);
+        std::fs::create_dir_all(&profile).unwrap();
+        std::fs::copy(Path::new(FIXTURES).join(file), profile.join("data.db")).unwrap();
+        let profiles = json!({"profiles": [
+            {"id": PROFILE_ID, "name": USERNAME},
+            {"id": id, "name": username},
+        ]});
+        std::fs::write(directory.join("profiles.json"), profiles.to_string()).unwrap();
+    }
+
     /// Logs in through the router, as a client does, and returns the client's
     /// token, if API sessions issue one.
     pub async fn login(&self) -> Option<String> {
-        let body = json!({ "username": USERNAME, "password": PASSWORD }).to_string();
+        self.login_as(USERNAME).await
+    }
+
+    /// Logs in as `username` with the fixture password, as `login` does.
+    pub async fn login_as(&self, username: &str) -> Option<String> {
+        let body = json!({ "username": username, "password": PASSWORD }).to_string();
         let request = Request::post("/api/v1/login")
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(body))

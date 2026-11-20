@@ -22,7 +22,7 @@ use hyper::body::{Body as HttpBody, Frame, SizeHint};
 use serde_json::{Value, json};
 use tokio::sync::OwnedSemaphorePermit;
 
-use crate::app::AppState;
+use crate::app::{AppState, OriginalRequest};
 use crate::auth;
 use crate::error::ApiError;
 use crate::routes::{apply_cors, budgeted_body, is_json};
@@ -34,6 +34,11 @@ const TOKEN_RESPONSE_LIMIT: usize = 64 * 1024;
 
 /// Forwards a request to the backend.
 pub async fn forward(State(state): State<AppState>, mut request: Request) -> Response {
+    // A ported route that passes a request on after all sends it as it came.
+    if let Some(original) = request.extensions_mut().remove::<OriginalRequest>() {
+        *request.method_mut() = original.method;
+        *request.uri_mut() = original.uri;
+    }
     let client_addr = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()

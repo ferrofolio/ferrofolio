@@ -138,16 +138,29 @@ pub fn router(state: AppState) -> Router {
 /// spelling that would reach the Python handler of a ported route, such as
 /// `/api/v1/calculation/%6Coan`, `//api/v1/calculation/loan` or a lowercase `post`,
 /// is served by Rust under the route's own method and path, with its limits.
-/// Everything else keeps the method and path the client sent.
+/// Everything else keeps the method and path the client sent, and so does a
+/// request a ported route passes on after all (`OriginalRequest`).
 async fn route(ported: Router, mut request: Request) -> Response {
     if let Some((method, uri)) = canonical_ported(&request) {
-        *request.method_mut() = method;
-        *request.uri_mut() = uri;
+        let original = OriginalRequest {
+            method: std::mem::replace(request.method_mut(), method),
+            uri: std::mem::replace(request.uri_mut(), uri),
+        };
+        request.extensions_mut().insert(original);
     }
     match ported.oneshot(request).await {
         Ok(response) => response,
         Err(never) => match never {},
     }
+}
+
+/// The method and URI a client sent, kept when Rust serves the request under the
+/// spelling of a ported route. A request Rust passes on goes to Python with them,
+/// unchanged (`gateway::forward`).
+#[derive(Debug, Clone)]
+pub struct OriginalRequest {
+    pub method: Method,
+    pub uri: Uri,
 }
 
 /// The ported route's method and the request's URI with the route's path, if the

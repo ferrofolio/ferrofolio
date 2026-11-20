@@ -180,6 +180,58 @@ async fn passes_requests_on_while_python_has_locked_the_data_on_its_own() {
     );
 }
 
+/// Python locks the data on its own when a restore fails, and a login of another
+/// user then unlocks that user's data: the sessions of the first user end in
+/// Rust, so none of them reads the other user's database or reaches Python with
+/// its backend token.
+#[tokio::test]
+async fn a_login_of_another_user_ends_the_sessions_of_the_first() {
+    let fixtures = fixtures();
+    let harness = harness(&fixtures, "settings.db", true).await;
+    harness.add_user("other", "settings.db");
+    let first = harness.login().await.unwrap();
+    harness.python.set_unlocked(false);
+    let second = harness.login_as("other").await.unwrap();
+    assert!(!harness.state.sessions.is_valid(&{
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(AUTHORIZATION, format!("Bearer {first}").parse().unwrap());
+        headers
+    }));
+    let (status, body) = answer(&harness.app, get_settings(Some(&first))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body.unwrap(),
+        json!({
+            "forwarded": "GET /api/v1/settings?key=general",
+            "authorization": format!("Bearer {first}"),
+        })
+    );
+    // The second user's own session reads the second user's database.
+    let (status, body) = answer(&harness.app, get_settings(Some(&second))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.unwrap().get("forwarded").is_none());
+}
+
+/// A request Rust serves under the spelling of the route but passes on after all
+/// reaches Python with the method and path the client sent.
+#[tokio::test]
+async fn passes_requests_on_as_the_client_sent_them() {
+    let fixtures = fixtures();
+    let harness = harness(&fixtures, "settings.db", false).await;
+    harness.python.set_unlocked(true);
+    let request = Request::builder()
+        .method("get")
+        .uri("//api/v1/%73ettings?key=general")
+        .body(Body::empty())
+        .unwrap();
+    let (status, body) = answer(&harness.app, request).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body.unwrap(),
+        json!({"forwarded": "get //api/v1/%73ettings?key=general", "authorization": null})
+    );
+}
+
 /// Without API sessions, Python can have the data unlocked while Rust has no
 /// database open, after a logout that raced a login or a guest's backup import:
 /// Python answers, with its own data.
