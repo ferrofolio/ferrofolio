@@ -66,6 +66,10 @@ where
         Ok(Err(_)) => {
             return answer(ApiError::Unexpected("Request failed".to_owned()).into_response());
         }
+        // Rust may have lost the database meanwhile; Python then answers.
+        Err(_) if !state.sessions.may_read(&parts.headers) => {
+            return forward(State(state.clone()), Request::from_parts(parts, body)).await;
+        }
         Err(_) => return answer(ApiError::Busy.into_response()),
     };
     let sessions = state.sessions.clone();

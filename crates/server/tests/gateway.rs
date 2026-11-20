@@ -861,6 +861,34 @@ async fn a_read_rust_cannot_serve_goes_to_python_without_waiting_for_a_permit() 
 }
 
 #[tokio::test]
+async fn a_read_that_loses_its_database_while_it_waits_goes_to_python() {
+    let (url, _) = fake_backend().await;
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    state.calculation_wait = Duration::from_millis(300);
+    let app = router(state.clone());
+    let token = session_of(&app, &fixture_login(FIXTURE_PASSWORD)).await;
+
+    // Every permit is taken; Rust drops its database while the request waits.
+    let cores = state.calculations.available_permits();
+    let _taken = Arc::clone(&state.calculations)
+        .acquire_many_owned(u32::try_from(cores).unwrap())
+        .await
+        .unwrap();
+    let request = tokio::spawn({
+        let app = app.clone();
+        let request = get("/api/v1/settings", Some(&token));
+        async move { send(&app, request).await }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    state.sessions.forget_database();
+    let (status, headers, _) = request.await.unwrap();
+    assert_eq!(status, StatusCode::IM_A_TEAPOT);
+    assert_eq!(headers["x-answered-by"], "backend");
+}
+
+#[tokio::test]
 async fn a_login_another_login_overtook_does_not_unlock_the_database() {
     let (url, recorded) = fake_backend().await;
     let data = TempDataDir::new();

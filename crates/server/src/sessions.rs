@@ -461,6 +461,10 @@ impl Sessions {
     /// without waiting: Rust holds one and, with API sessions, the request's
     /// session may read it. `with_database_of` checks again when it reads.
     pub fn may_read(&self, headers: &HeaderMap) -> bool {
+        // A request that replaces the database is with Python.
+        if self.replacement.try_read().is_err() {
+            return false;
+        }
         let now = self.clock.now();
         let mut state = self.lock();
         if state.database.is_none() {
