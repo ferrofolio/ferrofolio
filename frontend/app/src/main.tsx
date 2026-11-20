@@ -15,6 +15,8 @@ import { initE2eMockExternalLogin } from "@/lib/dev/initE2eMockExternalLogin"
 import { initE2eMockChallengeWindow } from "@/lib/dev/initE2eMockChallengeWindow"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { initTelemetry } from "@/lib/telemetry"
+import { registerServiceWorker } from "@/lib/serviceWorker"
+import { ServiceWorkerUpdatePrompt } from "@/components/ServiceWorkerUpdatePrompt"
 
 async function bootstrap(): Promise<void> {
   initE2eMockExternalLogin()
@@ -39,12 +41,17 @@ async function bootstrap(): Promise<void> {
                   </AppProvider>
                 </AuthProvider>
               </ModalRegistryProvider>
+              <ServiceWorkerUpdatePrompt />
             </ErrorBoundary>
           </I18nProvider>
         </DataDisplayModeProvider>
       </ThemeProvider>
     </HashRouter>,
   )
+
+  if (import.meta.env.PROD) {
+    registerServiceWorker().catch(console.error)
+  }
 }
 
 bootstrap()

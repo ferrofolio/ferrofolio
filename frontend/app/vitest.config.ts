@@ -13,7 +13,7 @@ export default defineConfig({
   test: {
     root: __dirname,
     environment: "jsdom",
-    include: ["test/**/*.{test,spec}.?(c|m)[jt]s?(x)"],
+    include: ["test/**/*.{test,spec}.?(c|m)[jt]s?(x)", "pwa/**/*.test.ts"],
     setupFiles: ["test/setup.ts"],
     testTimeout: 1000 * 29,
   },

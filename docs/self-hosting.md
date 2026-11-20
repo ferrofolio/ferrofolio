@@ -41,6 +41,10 @@ Automatic updates of your accounts only run while it is unlocked; to unlock it o
 The web app works in any modern browser, on the desktop and on the phone. There is no desktop app. Installing the
 web app on the home screen is planned, and native mobile apps are planned in their own repositories.
 
+Opened over HTTPS or on `localhost`, the web app keeps its own files (not your financial data) in the browser, so it
+starts faster, and offers to reload once you have updated Ferrofolio. Over plain HTTP the browser does not
+allow this and the web app loads from the server each time.
+
 ## Use it from other devices
 
 The web app connects to the server at the address in `FINANZE_BASE_URL`, which is `http://localhost:7592` in the

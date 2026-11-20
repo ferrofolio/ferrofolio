@@ -74,7 +74,7 @@ Five findings shape this roadmap:
 4. **The code depends on upstream services**: `api.finanze.me` (backup), Supabase (cloud login), `features.api.finanze.me` (feature flags), `static.finanze.me` (ticker icons), telemetry DSNs, the Docker Hub images `finanze/finanze*` and the bundle ID `me.finanze`.
 5. **Enable Banking also runs through upstream.** The redirect after bank consent is hard-coded to `https://finanze.me/eb/v1/entity/callback/` (`finanze/infrastructure/client/financial/enablebanking/enablebanking_client.py`). Existing connections therefore depend on the upstream website today. The same holds for Google Sheets (`finanze/infrastructure/sheets/sheets_service_loader.py`).
 
-About the PWA: a web manifest with `display: standalone` and the iOS meta tags already exist. A service worker is missing.
+About the PWA: a web manifest with `display: standalone` and the iOS meta tags already exist. A service worker caches the app shell and asks before it reloads into a new version (`frontend/app/pwa`).
 
 ---
 
