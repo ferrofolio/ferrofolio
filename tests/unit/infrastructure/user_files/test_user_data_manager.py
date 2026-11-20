@@ -380,3 +380,18 @@ class TestUpdateUser:
         found = await manager.get_user("alice_renamed")
         assert found is not None
         assert found.id == user_id
+
+
+class TestAtomicSave:
+    @pytest.mark.asyncio
+    async def test_replaces_profiles_json_with_a_complete_file(self, tmp_path):
+        base = str(tmp_path / "data")
+        manager = UserDataManager(base)
+        path = os.path.join(base, "profiles.json")
+        inode_before = os.stat(path).st_ino
+        await manager.create_user(UserRegistration(id=uuid4(), username="alice"))
+        # A new file took the place of the old one instead of the old one being
+        # truncated and rewritten, and no temporary file is left behind.
+        assert os.stat(path).st_ino != inode_before
+        assert sorted(os.listdir(base)) == ["profiles", "profiles.json"]
+        assert _read_profiles_json(base)["profiles"][0]["name"] == "alice"

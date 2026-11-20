@@ -47,9 +47,11 @@ pub async fn forward(State(state): State<AppState>, mut request: Request) -> Res
         Some(SessionRoute::Login) => login(&state, request, false, client_addr).await,
         Some(SessionRoute::Signup) => login(&state, request, true, client_addr).await,
         Some(SessionRoute::Logout) => logout(&state, request, has_session, client_addr).await,
-        Some(SessionRoute::Import) => replace_database(&state, request, client_addr, false).await,
+        Some(SessionRoute::Import) => {
+            replace_database(&state, request, client_addr, false, has_session).await
+        }
         Some(SessionRoute::ChangePassword) => {
-            replace_database(&state, request, client_addr, true).await
+            replace_database(&state, request, client_addr, true, has_session).await
         }
         None => state.backend.forward_or_error(request, client_addr).await,
     }
@@ -189,21 +191,24 @@ async fn unlock(state: &AppState, attempt: LoginAttempt, credentials: Option<Cre
     let (Some(data_dir), Some(credentials)) = (state.data_dir.clone(), credentials) else {
         return;
     };
-    // A further login of the same user while the data is unlocked, from another
-    // client for example, opens nothing new: Rust keeps the connection it has
-    // instead of deriving the key once more. A logout since has dropped it.
-    if state.sessions.holds_database_of(&credentials) {
-        tracing::debug!("the login's database is unlocked for Rust already");
-        return;
-    }
     let sessions = state.sessions.clone();
-    // Deriving the key takes a while, so it runs on the blocking pool.
+    // Deriving the key takes a while, so it runs on the blocking pool; so does the
+    // check for a connection Rust holds already, which waits for a read in progress.
     let unlocked = tokio::task::spawn_blocking(move || {
-        sessions.open_and_unlock(attempt, || UserDatabase::open(&data_dir, credentials))
+        // A further login of the same user while the data is unlocked, from another
+        // client for example, opens nothing new: Rust keeps the connection it has
+        // instead of deriving the key once more. A logout since has dropped it.
+        if sessions.holds_database_of(&credentials) {
+            return Ok(false);
+        }
+        sessions
+            .open_and_unlock(attempt, || UserDatabase::open(&data_dir, credentials))
+            .map(|()| true)
     })
     .await;
     match unlocked {
-        Ok(Ok(())) => tracing::info!("unlocked the database read-only"),
+        Ok(Ok(true)) => tracing::info!("unlocked the database read-only"),
+        Ok(Ok(false)) => tracing::debug!("the login's database is unlocked for Rust already"),
         Ok(Err(error)) => tracing::warn!(%error, "a login did not unlock the database for Rust"),
         Err(error) => tracing::error!(%error, "opening the database did not complete"),
     }
@@ -339,12 +344,17 @@ async fn logout(
 /// still at work. When the connection to Python fails, or after a change of the
 /// password has succeeded, Rust keeps no connection at all: Python may still write
 /// the file, and the credentials of a password change open it no more. The next
-/// login opens it again.
+/// login opens it again. The same holds when Python refuses the request or fails:
+/// a backup import may have closed and replaced the file before it failed, and
+/// Python then reports the data as locked. Only a request without a session, which
+/// Python's session guard refuses while the data is unlocked, leaves Rust's
+/// connection alone, so that no client without a session can close it.
 async fn replace_database(
     state: &AppState,
     request: Request,
     client_addr: Option<SocketAddr>,
     rekeys: bool,
+    has_session: bool,
 ) -> Response {
     let (parts, body) = request.into_parts();
     let has_origin = parts.headers.contains_key(ORIGIN);
@@ -354,6 +364,7 @@ async fn replace_database(
     };
     let backend = state.backend.clone();
     let sessions = state.sessions.clone();
+    let sessions_enabled = state.sessions.enabled();
     let replacement = tokio::spawn(async move {
         let guard = sessions.close_for_replacement().await;
         let response = match backend
@@ -367,7 +378,10 @@ async fn replace_database(
                 return with_cors(error.into_response(), has_origin);
             }
         };
-        if rekeys && response.status().is_success() {
+        let guard_refused = sessions_enabled && !has_session;
+        if (rekeys && response.status().is_success())
+            || (!response.status().is_success() && !guard_refused)
+        {
             sessions.forget_database();
         }
         drop(guard);

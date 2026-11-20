@@ -178,10 +178,13 @@ sequenceDiagram
   logins that are opening the database, closes the connection, and holds the lock until Python has answered, also
   when the client goes away. Meanwhile a reader fails at once as for locked data, and a login waits before it opens
   the database. Afterwards a reader opens the database again (`UserDatabase::current`), as it does when the file has
-  been replaced in any other way. After a successful change of the password, and when the connection to Python fails,
-  Rust drops the connection together with the credentials, which no longer open the file: a change of the password
-  rekeys the file and locks it, and a failed replacement may still be writing it, so nothing opens it until the next
-  login: a login that reached Rust before, and waited for the lock, keeps it closed as well. Ported routes read the database only through `Sessions::with_database`, on the blocking pool.
+  been replaced in any other way. After a successful change of the password, when the connection to Python fails, and
+  when Python refuses or fails such a request, Rust drops the connection together with the credentials: a change of
+  the password rekeys the file and locks it, a failed replacement may still be writing it, and a backup import that
+  fails may have replaced the file and locked the data before it failed. Nothing opens it until the next login, and a
+  login that reached Rust before, and waited for the lock, keeps it closed as well. Only a request without a valid
+  session, which Python's session guard refuses while the data is unlocked, leaves the connection alone, so that a
+  client without a session cannot close it. Ported routes read the database only through `Sessions::with_database`, on the blocking pool.
   The `guest` flag of a signup is read with pydantic's rules for a `bool`, as Python's `LoginRequest` does.
 - **Ported routes** need the data unlocked. With API sessions they check the session in Rust, which exists only
   between a login and the logout. Without them they still ask Python, which also unlocks and locks the data without a

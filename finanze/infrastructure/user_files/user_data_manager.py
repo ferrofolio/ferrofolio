@@ -62,10 +62,21 @@ class UserDataManager(DataManager):
                 self._save_profiles()
 
     def _save_profiles(self):
+        # Write a complete file next to it and move it into place, so that a reader
+        # (the Rust server reads it at every login) sees either the old or the new
+        # profiles, never a truncated file.
+        tmp_path = f"{self._profiles_json_path}.{os.getpid()}.tmp"
         try:
-            with open(self._profiles_json_path, "w") as f:
+            with open(tmp_path, "w") as f:
                 json.dump(self._profiles_data, f, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self._profiles_json_path)
         except IOError as e:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
             self._log.error(
                 f"Error: Could not save profiles to '{self._profiles_json_path}': {e}"
             )
