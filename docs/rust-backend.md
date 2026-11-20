@@ -160,6 +160,11 @@ sequenceDiagram
   `infra-db` (see [Database](#database)). Python has migrated the database before it answered. Rust also opens it
   with the credentials of Python's automatic login at startup (`USERNAME` and `PASSWORD`), and, without API sessions,
   at a login Python refuses with `409` because the data is already unlocked, when the password opens the database.
+  Python checks that a login names the unlocked user only when it answers with a token: it refuses every login with
+  `409` while unlocked, and answers `204` to a login that a concurrent one overtook (`AlreadyUnlockedError`), whichever
+  user they name. With API sessions Rust therefore ignores a `204`, after which the overtaking login's `200` unlocks
+  the database; without them, after a `204` or `409`, it opens the database only if `GET /api/v1/status` names the
+  login's user as the one Python unlocked, so that it never holds another user's database than the one Python serves.
   The logout that ends the sessions closes it, and a login that a logout overtakes keeps it closed. If Rust cannot
   open it, for example because the profile is missing, the login still succeeds. Rust keeps the credentials while the
   database is open, as Python's `DBManager` keeps the password, so that it can open it again: a backup import
@@ -187,7 +192,8 @@ Rust learns of an unlock and a lock only through the login, signup and logout it
 Python can also lock the data on its own, when a backup import fails after it has closed the database, and unlock it,
 when a guest imports a backup from the cloud. In the first case the sessions stay valid in both processes, as they
 did in Python, and ported routes keep accepting them; in the second the client has no session in either, and logs in.
-Without API sessions such a login is refused with `409`, and Rust opens the database with its password. The
+Without API sessions such a login is refused with `409`, and Rust opens the database with its password if Python's
+status names its user. The
 database Rust holds matters only to routes that read data, none of which is ported yet; a route that needs it answers
 as for locked data while Rust has none open.
 

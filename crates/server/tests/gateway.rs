@@ -44,9 +44,13 @@ const FIXTURE_DATABASE: &str = concat!(
 const FIXTURE_PASSWORD: &str = "fixture pass'word ü";
 const FIXTURE_USER: &str = "fixture-user";
 const FIXTURE_USER_ID: &str = "0d3e7c1a-5b2f-4c8e-9a1b-2c3d4e5f6a7b";
+/// A second user, whose database is another copy of the fixture database and so
+/// opens with `FIXTURE_PASSWORD` too.
+const OTHER_USER: &str = "other-user";
+const OTHER_USER_ID: &str = "11111111-2222-4333-8444-555555555555";
 
 /// A data directory of its own with a `profiles.json` that names `FIXTURE_USER`
-/// and a copy of the fixture database as that user's. It is removed when the
+/// and `OTHER_USER`, and a copy of the fixture database as each one's. It is removed when the
 /// value is dropped, so keep it until the router and its database are gone.
 struct TempDataDir(std::path::PathBuf);
 
@@ -61,11 +65,17 @@ impl TempDataDir {
         // Fails if the directory exists, so that no test shares one.
         std::fs::create_dir(&directory).unwrap();
         let data_dir = TempDataDir(directory);
-        std::fs::create_dir_all(data_dir.database().parent().unwrap()).unwrap();
-        std::fs::copy(FIXTURE_DATABASE, data_dir.database()).unwrap();
+        for id in [FIXTURE_USER_ID, OTHER_USER_ID] {
+            let database = data_dir.0.join("profiles").join(id).join("data.db");
+            std::fs::create_dir_all(database.parent().unwrap()).unwrap();
+            std::fs::copy(FIXTURE_DATABASE, database).unwrap();
+        }
         let profiles = json!({
             "last_logged": FIXTURE_USER_ID,
-            "profiles": [{"id": FIXTURE_USER_ID, "name": FIXTURE_USER}],
+            "profiles": [
+                {"id": FIXTURE_USER_ID, "name": FIXTURE_USER},
+                {"id": OTHER_USER_ID, "name": OTHER_USER},
+            ],
         });
         std::fs::write(data_dir.0.join("profiles.json"), profiles.to_string()).unwrap();
         data_dir
@@ -131,6 +141,13 @@ struct Recorded {
     /// Without API sessions, the backend's data is already unlocked, so a login
     /// is refused with 409.
     already_unlocked: AtomicBool,
+    /// Without API sessions, the user whose data the backend has unlocked, which
+    /// its status names: set by a login it accepts, cleared by a logout.
+    unlocked_user: Mutex<Option<String>>,
+    /// A login running at the same time has unlocked the data: the backend
+    /// answers every login with 204, without checking the credentials, as
+    /// Python does at `AlreadyUnlockedError`.
+    overtaken: AtomicBool,
     /// The handlers that replace the database report with `replacement_started`
     /// and wait for `release_replacement` before they answer.
     replacement_waits: AtomicBool,
@@ -191,8 +208,14 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
         match (parts.method, parts.uri.path()) {
             (Method::GET, "/api/v1/status") => {
                 if recorded.sessions_disabled.load(Ordering::SeqCst) {
-                    return axum::Json(json!({"status": "UNLOCKED", "apiSession": false}))
-                        .into_response();
+                    let user = recorded
+                        .unlocked_user
+                        .lock()
+                        .unwrap()
+                        .clone()
+                        .map(|username| json!({"id": "hashed", "username": username}));
+                    let status = json!({"status": "UNLOCKED", "apiSession": false, "user": user});
+                    return axum::Json(status).into_response();
                 }
                 let status = if recorded.accepts(&parts.headers) {
                     "UNLOCKED"
@@ -212,6 +235,9 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 let login: Value = serde_json::from_slice(&body).unwrap_or_default();
                 let sessions_disabled = recorded.sessions_disabled.load(Ordering::SeqCst);
                 match login["username"].as_str() {
+                    _ if recorded.overtaken.load(Ordering::SeqCst) => {
+                        StatusCode::NO_CONTENT.into_response()
+                    }
                     _ if sessions_disabled && recorded.already_unlocked.load(Ordering::SeqCst) => {
                         let body = json!({"message": "User already logged in"});
                         (StatusCode::CONFLICT, axum::Json(body)).into_response()
@@ -221,7 +247,10 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                         axum::Json(json!({"token": backend_token(1)})).into_response()
                     }
                     // Without API sessions Python answers a login without a token.
-                    _ if sessions_disabled => StatusCode::NO_CONTENT.into_response(),
+                    username if sessions_disabled => {
+                        *recorded.unlocked_user.lock().unwrap() = username.map(str::to_owned);
+                        StatusCode::NO_CONTENT.into_response()
+                    }
                     Some("guest") => StatusCode::NO_CONTENT.into_response(),
                     Some("no-token") => axum::Json(json!({"message": "welcome"})).into_response(),
                     _ => {
@@ -242,6 +271,7 @@ async fn fake_backend() -> (String, Arc<Recorded>) {
                 }
                 // Like Python's handler, it ends its sessions first.
                 recorded.accepted.lock().unwrap().clear();
+                *recorded.unlocked_user.lock().unwrap() = None;
                 if recorded.logout_waits.load(Ordering::SeqCst) {
                     recorded.logout_started.notify_one();
                     recorded.release_logout.notified().await;
@@ -625,6 +655,7 @@ async fn without_sessions_a_login_unlocks_the_database_until_the_logout() {
 
     // Python unlocked the data without a login Rust saw and refuses the next one
     // with 409; the right password still unlocks the database for Rust.
+    *recorded.unlocked_user.lock().unwrap() = Some(FIXTURE_USER.to_owned());
     recorded.already_unlocked.store(true, Ordering::SeqCst);
     let request = login_request("/api/v1/login", &fixture_login("wrong password"));
     let (status, _, _) = send(&app, request).await;
@@ -634,6 +665,91 @@ async fn without_sessions_a_login_unlocks_the_database_until_the_logout() {
     let (status, _, _) = send(&app, request).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(state.sessions.is_unlocked());
+    drop(app);
+}
+
+/// The body of a login of `OTHER_USER` with the password that opens its database.
+fn other_login() -> String {
+    json!({"username": OTHER_USER, "password": FIXTURE_PASSWORD}).to_string()
+}
+
+/// Whether Rust holds the database of `OTHER_USER`: it reads the same data as
+/// `FIXTURE_USER`'s, so the test looks at the files Rust has open.
+fn holds_other_users_database(data: &TempDataDir) -> bool {
+    let directory = data.0.join("profiles").join(OTHER_USER_ID);
+    std::fs::read_dir("/proc/self/fd").unwrap().any(|entry| {
+        entry
+            .ok()
+            .and_then(|entry| std::fs::read_link(entry.path()).ok())
+            .is_some_and(|target| target.starts_with(&directory))
+    })
+}
+
+#[tokio::test]
+async fn without_sessions_a_login_of_another_user_does_not_unlock_the_database() {
+    let (url, recorded) = fake_backend().await;
+    recorded.sessions_disabled.store(true, Ordering::SeqCst);
+    let settings = SessionSettings {
+        enabled: false,
+        remember_ttl: None,
+    };
+    let data = TempDataDir::new();
+    let mut state = state(&url, settings, TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+
+    // Python has unlocked `FIXTURE_USER`'s data and refuses a login of another
+    // user with 409 without looking at its credentials, which open that user's
+    // database all the same.
+    *recorded.unlocked_user.lock().unwrap() = Some(FIXTURE_USER.to_owned());
+    recorded.already_unlocked.store(true, Ordering::SeqCst);
+    let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(!state.sessions.is_unlocked());
+
+    // Rust holds `FIXTURE_USER`'s database; a refused login of another user
+    // does not replace it.
+    let request = login_request("/api/v1/login", &fixture_login(FIXTURE_PASSWORD));
+    assert_eq!(send(&app, request).await.0, StatusCode::CONFLICT);
+    assert!(reads(&state));
+    let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(reads(&state));
+    assert!(!holds_other_users_database(&data));
+
+    // A login that another one overtook gets 204 from Python, also unchecked.
+    recorded.already_unlocked.store(false, Ordering::SeqCst);
+    recorded.overtaken.store(true, Ordering::SeqCst);
+    let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(reads(&state));
+    assert!(!holds_other_users_database(&data));
+
+    // Once Python reports that user, its login opens its database.
+    recorded.overtaken.store(false, Ordering::SeqCst);
+    recorded.already_unlocked.store(true, Ordering::SeqCst);
+    *recorded.unlocked_user.lock().unwrap() = Some(OTHER_USER.to_owned());
+    let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(reads(&state));
+    assert!(holds_other_users_database(&data));
+    drop(app);
+}
+
+#[tokio::test]
+async fn a_login_another_login_overtook_does_not_unlock_the_database() {
+    let (url, recorded) = fake_backend().await;
+    let data = TempDataDir::new();
+    let mut state = state(&url, SessionSettings::default(), TestClock::new());
+    state.data_dir = Some(data.data_dir());
+    let app = router(state.clone());
+
+    // Python answers 204 without checking the credentials; the login that
+    // overtook it answers 200 and unlocks the database for Rust.
+    recorded.overtaken.store(true, Ordering::SeqCst);
+    let (status, _, _) = send(&app, login_request("/api/v1/login", &other_login())).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(!state.sessions.is_unlocked());
     drop(app);
 }
 
