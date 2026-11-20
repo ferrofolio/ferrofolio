@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Labels of transactions, the part of `finanze/domain/labeling.py` the label
-//! routes read.
+//! Labels of transactions and the rules that assign them, the part of
+//! `finanze/domain/labeling.py` the ported routes read.
 
+use crate::Dezimal;
+use crate::dates::Date;
 use crate::pyrepr::repr_str;
+use crate::transactions::TxType;
 
 /// The keys of the labels that cannot be changed or deleted
 /// (`PROTECTED_LABEL_KEYS`).
@@ -98,6 +101,130 @@ impl Label {
     }
 }
 
+/// `LabelingRuleKind`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabelingRuleKind {
+    Match,
+    Transfer,
+}
+
+impl LabelingRuleKind {
+    pub fn value(self) -> &'static str {
+        match self {
+            LabelingRuleKind::Match => "MATCH",
+            LabelingRuleKind::Transfer => "TRANSFER",
+        }
+    }
+
+    /// `LabelingRuleKind(value)`: the member with exactly this value.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "MATCH" => Some(LabelingRuleKind::Match),
+            "TRANSFER" => Some(LabelingRuleKind::Transfer),
+            _ => None,
+        }
+    }
+}
+
+/// `TextMatchOperator`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextMatchOperator {
+    Contains,
+    StartsWith,
+    Equals,
+    Regex,
+}
+
+impl TextMatchOperator {
+    pub fn value(self) -> &'static str {
+        match self {
+            TextMatchOperator::Contains => "CONTAINS",
+            TextMatchOperator::StartsWith => "STARTS_WITH",
+            TextMatchOperator::Equals => "EQUALS",
+            TextMatchOperator::Regex => "REGEX",
+        }
+    }
+
+    /// `TextMatchOperator(value)`: the member with exactly this value.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "CONTAINS" => Some(TextMatchOperator::Contains),
+            "STARTS_WITH" => Some(TextMatchOperator::StartsWith),
+            "EQUALS" => Some(TextMatchOperator::Equals),
+            "REGEX" => Some(TextMatchOperator::Regex),
+            _ => None,
+        }
+    }
+}
+
+/// `TextMatchField`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextMatchField {
+    Any,
+    Name,
+    Counterparty,
+}
+
+impl TextMatchField {
+    pub fn value(self) -> &'static str {
+        match self {
+            TextMatchField::Any => "ANY",
+            TextMatchField::Name => "NAME",
+            TextMatchField::Counterparty => "COUNTERPARTY",
+        }
+    }
+
+    /// `TextMatchField(value)`: the member with exactly this value.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "ANY" => Some(TextMatchField::Any),
+            "NAME" => Some(TextMatchField::Name),
+            "COUNTERPARTY" => Some(TextMatchField::Counterparty),
+            _ => None,
+        }
+    }
+}
+
+/// `TextCondition`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextCondition {
+    pub values: Vec<String>,
+    pub operator: TextMatchOperator,
+    pub field: TextMatchField,
+}
+
+/// `LabelingRuleConditions`: one group of conditions, all of which a transaction
+/// must meet.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LabelingRuleConditions {
+    pub types: Option<Vec<TxType>>,
+    pub min_amount: Option<Dezimal>,
+    pub max_amount: Option<Dezimal>,
+    pub currency: Option<String>,
+    pub from_date: Option<Date>,
+    pub to_date: Option<Date>,
+    pub day_from: Option<i64>,
+    pub day_to: Option<i64>,
+    /// `str(UUID(...))` of each entity.
+    pub entities: Option<Vec<String>>,
+    pub text: Option<TextCondition>,
+    pub max_days: Option<i64>,
+    pub ibans: Option<Vec<String>>,
+}
+
+/// `LabelingRule`, as the repository reads it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LabelingRule {
+    /// `str(UUID(...))` of the stored id.
+    pub id: String,
+    pub conditions: Vec<LabelingRuleConditions>,
+    /// `str(UUID(...))` of each label, in the order the query returns them.
+    pub label_ids: Vec<String>,
+    pub name: Option<String>,
+    pub enabled: bool,
+    pub kind: LabelingRuleKind,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,6 +251,31 @@ mod tests {
                 Ok(subcategory)
             );
         }
+    }
+
+    #[test]
+    fn reads_the_rule_enums_exactly() {
+        for kind in [LabelingRuleKind::Match, LabelingRuleKind::Transfer] {
+            assert_eq!(LabelingRuleKind::parse(kind.value()), Some(kind));
+        }
+        for operator in [
+            TextMatchOperator::Contains,
+            TextMatchOperator::StartsWith,
+            TextMatchOperator::Equals,
+            TextMatchOperator::Regex,
+        ] {
+            assert_eq!(TextMatchOperator::parse(operator.value()), Some(operator));
+        }
+        for field in [
+            TextMatchField::Any,
+            TextMatchField::Name,
+            TextMatchField::Counterparty,
+        ] {
+            assert_eq!(TextMatchField::parse(field.value()), Some(field));
+        }
+        assert_eq!(LabelingRuleKind::parse("match"), None);
+        assert_eq!(TextMatchOperator::parse("CONTAINS "), None);
+        assert_eq!(TextMatchField::parse(""), None);
     }
 
     #[test]

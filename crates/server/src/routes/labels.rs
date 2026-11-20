@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 
 use crate::app::AppState;
 use crate::error::ApiError;
-use crate::routes::database;
+use crate::routes::database::{self, Reply};
 
 pub const PATH: &str = "/api/v1/labels";
 
@@ -31,16 +31,17 @@ pub async fn get_labels(State(state): State<AppState>, request: Request) -> Resp
 fn prepare(
     _state: &AppState,
     _parts: &Parts,
-) -> Result<impl FnOnce(&Database) -> Response + Send + use<>, ApiError> {
+) -> Result<impl FnOnce(&Database) -> Reply + Send + use<>, ApiError> {
     Ok(|database: &Database| {
         let repository = LabelRepository::new(database);
-        match GetLabels::new(&repository).execute() {
+        let response = match GetLabels::new(&repository).execute() {
             Ok(labels) => respond(&labels),
             Err(error) => {
                 tracing::error!(%error, "reading the labels failed");
                 ApiError::Unexpected(error.0).into_response()
             }
-        }
+        };
+        Reply::from(response)
     })
 }
 

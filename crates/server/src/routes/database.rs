@@ -29,6 +29,23 @@ use crate::proxy::BackendError;
 use crate::routes::apply_cors;
 use crate::user_data::UnlockError;
 
+/// What the work on the database answers.
+#[derive(Debug)]
+pub(crate) enum Reply {
+    /// Rust's answer.
+    Answer(Response),
+    /// The stored data has a form Rust does not read exactly as Python does; the
+    /// request goes to Python, which answers from the same data. The reason is
+    /// logged and never names stored values.
+    PassOn(String),
+}
+
+impl From<Response> for Reply {
+    fn from(response: Response) -> Self {
+        Reply::Answer(response)
+    }
+}
+
 /// Serves a request with Rust's connection to the database, or passes it on.
 ///
 /// `prepare` reads the request, as the Python route does before it touches the
@@ -38,7 +55,7 @@ use crate::user_data::UnlockError;
 pub(crate) async fn serve<P, W>(state: &AppState, request: Request, prepare: P) -> Response
 where
     P: FnOnce(&AppState, &Parts) -> Result<W, ApiError>,
-    W: FnOnce(&Database) -> Response + Send + 'static,
+    W: FnOnce(&Database) -> Reply + Send + 'static,
 {
     let has_origin = request.headers().contains_key(ORIGIN);
     let answer = |mut response: Response| {
@@ -80,7 +97,11 @@ where
     })
     .await;
     match read {
-        Ok(Ok(response)) => answer(response),
+        Ok(Ok(Reply::Answer(response))) => answer(response),
+        Ok(Ok(Reply::PassOn(reason))) => {
+            tracing::info!(%reason, "passing a request on whose stored data Python reads");
+            forward(State(state.clone()), Request::from_parts(parts, body)).await
+        }
         Ok(Err(error)) => {
             match error {
                 // Locked for Rust, or a request that replaces the database is with

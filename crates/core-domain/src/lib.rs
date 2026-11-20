@@ -18,6 +18,7 @@ pub mod python_printable;
 pub mod pyuuid;
 pub mod settings;
 pub mod text;
+pub mod transactions;
 pub mod unicode_digits;
 
 pub use dezimal::Dezimal;

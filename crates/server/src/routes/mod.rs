@@ -10,6 +10,7 @@
 
 pub mod calculations;
 pub mod database;
+pub mod labeling_rules;
 pub mod labels;
 pub mod settings;
 

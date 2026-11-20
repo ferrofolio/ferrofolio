@@ -85,6 +85,7 @@ target in both. The amount of a target that is kept is parsed exactly.
 | `POST /api/v1/calculations/savings` | `routes/calculate_savings.py`, `use_cases/calculate_savings.py` | Calculators |
 | `GET /api/v1/settings` | `routes/get_settings.py`, `use_cases/get_settings.py`, `repository/settings` | Status, login, settings (phase 4, slice 1); reads the database |
 | `GET /api/v1/labels` | `routes/get_labels.py`, `use_cases/get_labels.py`, `repository/labeling/label_repository.py` | Read paths (phase 4, slice 2); reads the database |
+| `GET /api/v1/labeling/rules` | `routes/get_labeling_rules.py`, `use_cases/get_labeling_rules.py`, `repository/labeling/labeling_rule_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored conditions on |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -140,6 +141,16 @@ an invalid parameter, as its route reads the parameters before the database), or
 Rust thus never answers with data Python would not give, nor as locked where Python would answer with data. The
 check costs one request to Python on the loopback interface per request. A logout that races a read is ordered after
 it, as in Python, where a read that has started finishes too.
+
+A route may also pass a request on after it has read the database, when it finds a value stored in a form that
+Python's own writer does not produce and that Python reads only through its coercions (`ReadError::Unreadable` in
+`core-app`, `Reply::PassOn` in the server). The labeling rules store their conditions as JSON, which Python reads with
+`json.loads`, `Dezimal`, `date.fromisoformat` and pydantic in lax mode: `"3"` or `3.0` as a day of the month becomes
+`3`, `"20260101"` a date, an integer an amount. Rust reads exactly the forms `serialize_conditions` writes, falsy
+values as Python's truth tests read them, unknown keys ignored, and leaves every other form to Python, which answers
+from the same data as it always has: with the rule, or with `500` where it fails. Rust therefore needs no copy of
+those coercions and never answers where Python would not. The pass-on is logged with the field, never with the stored
+value.
 
 Python reads the settings from the database on every request and keeps no copy, and Rust's read-only connection reads
 what Python has committed with every new statement (WAL mode), so a change Python writes with `POST
@@ -320,7 +331,10 @@ the ids of the seeded labels, with fixed ones, so that the comparison still sees
 rows. A slice's parity test replays its
 cases with `common::database::replay`, which logs in once per database and lock state, and checks the functions it
 records under `functions` against the Rust functions they describe (the labels record `uuid.UUID()` and the label
-enums for inputs no database row could show).
+enums for inputs no database row could show; the labeling rules record how Python reads stored conditions, in the forms
+its writer produces, which Rust must read identically, and in many it does not, where Rust may only pass the request
+on). A case with a valid session on unlocked data that Rust passes on because of the data it finds is marked
+`passed_on` and compares as `forwarded`, with the backend token of the session.
 
 The ids of rows are read with `core_domain::pyuuid::parse`, which follows `uuid.UUID(text)` exactly: it removes every
 `urn:` and `uuid:`, strips braces from both ends, removes every hyphen, and reads the 32 remaining characters with `int(text, 16)`, which accepts
@@ -439,8 +453,8 @@ virtual environment if needed.
 
 ## Next steps
 
-1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings and the labels
-   (see [Routes that read the database](#routes-that-read-the-database)): next the labeling rules, the periodic and
+1. Read paths, each with parity fixtures from a fixture database, following the pattern of the settings, the labels
+   and the labeling rules (see [Routes that read the database](#routes-that-read-the-database)): next the periodic and
    pending flows, then positions, transactions and the timelines.
 2. Rust's first write access to the database (the settings, the labels), with the writes Python makes to the same
    tables until the cutover.

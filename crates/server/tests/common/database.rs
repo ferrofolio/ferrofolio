@@ -301,7 +301,11 @@ pub async fn replay(
         }
         let (harness, token) = &harnesses[&key];
         let sent = request(case, token.as_deref());
-        let expected_forward = forwarded(&sent);
+        let mut expected_forward = forwarded(&sent);
+        // A valid session reaches Python with the backend token of its login.
+        if sessions && valid && token.is_some() {
+            expected_forward["authorization"] = json!(format!("Bearer {BACKEND_TOKEN}"));
+        }
         let (status, body) = super::answer(&harness.app, sent).await;
         replayed += 1;
         if case["compare"] == "forwarded" {

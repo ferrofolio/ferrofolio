@@ -24,7 +24,7 @@ use tower::ServiceExt;
 
 use crate::gateway::{forward, percent_decode};
 use crate::proxy::Backend;
-use crate::routes::{self, calculations, labels, settings};
+use crate::routes::{self, calculations, labeling_rules, labels, settings};
 use crate::sessions::Sessions;
 use crate::user_data::DataDir;
 
@@ -71,6 +71,16 @@ pub const PORTED_ROUTES: &[PortedRoute] = &[
         mount: |filter| {
             any(forward)
                 .on(filter, labels::get_labels)
+                .on(MethodFilter::HEAD, forward)
+        },
+    },
+    PortedRoute {
+        method: Method::GET,
+        path: labeling_rules::PATH,
+        // As for the settings, `HEAD` goes to the backend.
+        mount: |filter| {
+            any(forward)
+                .on(filter, labeling_rules::get_labeling_rules)
                 .on(MethodFilter::HEAD, forward)
         },
     },
