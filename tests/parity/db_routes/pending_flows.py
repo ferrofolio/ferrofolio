@@ -284,7 +284,7 @@ QUERIES = {
     ),
 }
 
-# Queries Python rejects with 400.
+# Queries Python rejects with 400, with its message, which Rust gives too.
 INVALID_QUERIES = {
     "an unknown status": "status=x",
     "a status in lower case": "status=active",
@@ -324,7 +324,7 @@ def cases():
         get(name, "pending_flows", query=query) for name, query in QUERIES.items()
     ]
     entries += [
-        get(name, "pending_flows", query=query, compare="status_code")
+        get(name, "pending_flows", query=query)
         for name, query in INVALID_QUERIES.items()
     ]
     entries += [
@@ -537,6 +537,9 @@ INT_TEXTS = [
     "99999999999999999999999999999999999999999",
     "1" * 4300,
     "1" * 4301,
+    "0" * 4300,
+    "0" * 4301,
+    "-" + "0" * 4300 + "1",
 ]
 
 
