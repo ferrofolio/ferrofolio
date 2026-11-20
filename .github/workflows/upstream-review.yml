@@ -74,8 +74,10 @@ jobs:
           # Commit messages and author names come from upstream. They are escaped so
           # that they cannot mention users, link issues of this repository, or hide
           # text in HTML, and they are never printed to the log.
-          escape='gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")
-            | gsub("@"; "&#64;") | gsub("#"; "&#35;") | gsub("`"; "&#96;")
+          # `&` and `#` go first, as the entities that replace the other characters
+          # contain them.
+          escape='gsub("&"; "&amp;") | gsub("#"; "&#35;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")
+            | gsub("@"; "&#64;") | gsub("`"; "&#96;")
             | gsub("\\["; "&#91;") | gsub("]"; "&#93;") | gsub("\\|"; "&#124;")'
           # The backticks and $ENV belong to the jq program and Markdown, not to the shell.
           # shellcheck disable=SC2016
