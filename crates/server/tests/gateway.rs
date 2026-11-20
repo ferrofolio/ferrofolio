@@ -1908,6 +1908,13 @@ async fn other_methods_on_ported_paths_go_to_the_backend() {
     assert_eq!(status, StatusCode::IM_A_TEAPOT);
     assert_eq!(headers["x-answered-by"], "backend");
     assert!(!headers.contains_key(header::ALLOW));
+    // `HEAD` on a path Rust serves with `GET` goes to the backend too.
+    let head = Request::head("/api/v1/settings?key=general")
+        .body(Body::empty())
+        .unwrap();
+    let (status, headers, _) = send(&app, head).await;
+    assert_eq!(status, StatusCode::IM_A_TEAPOT);
+    assert_eq!(headers["x-answered-by"], "backend");
 }
 
 #[tokio::test]
