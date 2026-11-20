@@ -48,9 +48,7 @@ describe("SplashScreen", () => {
     render(<SplashScreen />)
 
     expect(
-      screen.queryByText(
-        /The server could not be reached/i,
-      ),
+      screen.queryByText(/The server could not be reached/i),
     ).not.toBeInTheDocument()
   })
 
@@ -58,9 +56,7 @@ describe("SplashScreen", () => {
     render(<SplashScreen hasConnectionFailed />)
 
     expect(
-      screen.getByText(
-        /The server could not be reached/i,
-      ),
+      screen.getByText(/The server could not be reached/i),
     ).toBeInTheDocument()
   })
 
