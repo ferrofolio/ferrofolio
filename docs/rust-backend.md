@@ -34,8 +34,10 @@ in Python's place.
   Python is started with
   the inherited socket, `--host 127.0.0.1`, its port and `--public-port <public port>`, which keeps the redirect URLs it builds for
   GoCardless and the ChatGPT sign-in on the public port. Without `--data-dir`, the server takes Python's default,
-  `appdirs.user_data_dir("Finanze")` (`$XDG_DATA_HOME/Finanze`, else `~/.local/share/Finanze`, on macOS
-  `~/Library/Application Support/Finanze`), and passes it on, so that both use the same directory. Additional
+  `appdirs.user_data_dir("Ferrofolio")` (`$XDG_DATA_HOME/Ferrofolio`, else `~/.local/share/Ferrofolio`, on macOS
+  `~/Library/Application Support/Ferrofolio`), and passes it on, so that both use the same directory. Before, it
+  moves a `Finanze` directory from before the rename there once, as `finanze/data_dir.py` does when Python runs on
+  its own: only if the new directory is missing or empty, and if the move fails the old directory stays in use. Additional
   settings:
 
 | Variable / option | Default | Meaning |
