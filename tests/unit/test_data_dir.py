@@ -2,6 +2,7 @@
 """The default data directory and the move from the upstream name."""
 
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -100,6 +101,31 @@ def test_uses_the_new_directory_when_another_start_moved_it_first(dirs, monkeypa
     assert result == DefaultDataDir(target)
     assert not legacy.exists()
     assert (target / "profiles.json").exists()
+
+
+def test_keeps_the_legacy_directory_when_it_cannot_be_checked(dirs, monkeypatch):
+    legacy, target = _with_data(dirs[0]), dirs[1]
+    target.mkdir()
+    stat = data_dir_module.os.stat
+    renamed = []
+
+    def fail(source, destination):
+        renamed.append(source)
+        raise PermissionError("denied")
+
+    # Only the check after the failed rename cannot read the legacy directory
+    def unreadable(path, *args, **kwargs):
+        if renamed and Path(path) == legacy:
+            raise PermissionError("denied")
+        return stat(path, *args, **kwargs)
+
+    monkeypatch.setattr("data_dir.os.rename", fail)
+    monkeypatch.setattr("data_dir.os.stat", unreadable)
+
+    result = adopt_legacy_dir(legacy, target)
+
+    assert result.path == legacy
+    assert result.warning
 
 
 def test_keeps_the_legacy_directory_when_the_new_path_is_a_file(dirs):

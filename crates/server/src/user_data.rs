@@ -101,10 +101,19 @@ fn adopt_legacy_dir_with(
     // Replaces an empty target directory atomically (POSIX rename).
     match rename(legacy, target) {
         Ok(()) => Adoption::Moved,
-        // Another start moved it in the meantime; the old path no longer exists.
-        Err(_) if !legacy.is_dir() && target.is_dir() => Adoption::NoLegacy,
+        // Another start moved it in the meantime: the old path is confirmed gone,
+        // not just unreadable.
+        Err(_) if is_missing(legacy) && target.is_dir() => Adoption::NoLegacy,
         Err(error) => Adoption::Failed(error),
     }
+}
+
+/// Whether nothing exists at `path`; an error other than `NotFound` does not count.
+fn is_missing(path: &Path) -> bool {
+    matches!(
+        std::fs::metadata(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound
+    )
 }
 
 /// The base of `appdirs.user_data_dir` for the given environment: on macOS
@@ -460,6 +469,17 @@ mod tests {
         assert!(matches!(adoption, Adoption::Failed(_)));
         assert!(legacy.join("profiles.json").exists());
         assert!(!target.exists());
+    }
+
+    #[test]
+    fn only_a_missing_path_counts_as_missing() {
+        let base = TempDirectory::new("missing");
+        assert!(is_missing(&base.0.join("nothing")));
+        assert!(!is_missing(&base.0));
+        // A path below a file fails with NotADirectory, not NotFound.
+        let file = base.0.join("file");
+        std::fs::write(&file, "").unwrap();
+        assert!(!is_missing(&file.join("below")));
     }
 
     #[test]

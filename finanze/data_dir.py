@@ -55,7 +55,7 @@ def adopt_legacy_dir(legacy: Path, target: Path) -> DefaultDataDir:
         # Replaces an empty target directory atomically (POSIX rename)
         os.rename(legacy, target)
     except OSError as e:
-        if not legacy.is_dir() and target.is_dir():
+        if _is_missing(legacy) and target.is_dir():
             # Another start moved it in the meantime
             return DefaultDataDir(target)
         return DefaultDataDir(
@@ -65,6 +65,17 @@ def adopt_legacy_dir(legacy: Path, target: Path) -> DefaultDataDir:
             warning=True,
         )
     return DefaultDataDir(target, f"Moved the data directory from {legacy} to {target}")
+
+
+def _is_missing(path: Path) -> bool:
+    """Whether nothing exists at path; an error other than not found does not count."""
+    try:
+        os.stat(path)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
 
 
 def _has_entries(directory: Path) -> bool:
