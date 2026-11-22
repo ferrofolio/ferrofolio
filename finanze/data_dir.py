@@ -55,6 +55,9 @@ def adopt_legacy_dir(legacy: Path, target: Path) -> DefaultDataDir:
         # Replaces an empty target directory atomically (POSIX rename)
         os.rename(legacy, target)
     except OSError as e:
+        if not legacy.is_dir() and target.is_dir():
+            # Another start moved it in the meantime
+            return DefaultDataDir(target)
         return DefaultDataDir(
             legacy,
             f"Could not move the data directory {legacy} to {target}, keeping "

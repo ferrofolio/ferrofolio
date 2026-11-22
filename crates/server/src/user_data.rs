@@ -78,21 +78,31 @@ enum Adoption {
 /// Renames `legacy` to `target` unless `target` already holds something, as
 /// `adopt_legacy_dir` in `finanze/data_dir.py` does.
 fn adopt_legacy_dir(legacy: &Path, target: &Path) -> Adoption {
+    adopt_legacy_dir_with(legacy, target, |from, to| std::fs::rename(from, to))
+}
+
+/// `adopt_legacy_dir` with the rename passed in, so that tests can interleave
+/// another start.
+fn adopt_legacy_dir_with(
+    legacy: &Path,
+    target: &Path,
+    rename: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Adoption {
     if !legacy.is_dir() {
         return Adoption::NoLegacy;
     }
-    match std::fs::read_dir(target) {
-        Ok(mut entries) => {
-            if entries.next().is_some() {
-                return Adoption::BothExist;
-            }
-        }
+    match std::fs::read_dir(target).map(|mut entries| entries.next()) {
+        Ok(Some(Ok(_))) => return Adoption::BothExist,
+        Ok(Some(Err(error))) => return Adoption::Failed(error),
+        Ok(None) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Adoption::Failed(error),
     }
     // Replaces an empty target directory atomically (POSIX rename).
-    match std::fs::rename(legacy, target) {
+    match rename(legacy, target) {
         Ok(()) => Adoption::Moved,
+        // Another start moved it in the meantime; the old path no longer exists.
+        Err(_) if !legacy.is_dir() && target.is_dir() => Adoption::NoLegacy,
         Err(error) => Adoption::Failed(error),
     }
 }
@@ -425,6 +435,31 @@ mod tests {
             "new"
         );
         assert!(!target.join("profiles").exists());
+    }
+
+    #[test]
+    fn uses_the_new_directory_when_another_start_moved_it_first() {
+        let base = TempDirectory::new("adopt-race");
+        let (legacy, target) = legacy_with_data(&base.0);
+        let adoption = adopt_legacy_dir_with(&legacy, &target, |from, to| {
+            std::fs::rename(from, to)?;
+            Err(std::io::Error::from(std::io::ErrorKind::NotFound))
+        });
+        assert!(matches!(adoption, Adoption::NoLegacy));
+        assert!(!legacy.exists());
+        assert!(target.join("profiles.json").exists());
+    }
+
+    #[test]
+    fn keeps_the_legacy_directory_when_the_rename_fails() {
+        let base = TempDirectory::new("adopt-fail");
+        let (legacy, target) = legacy_with_data(&base.0);
+        let adoption = adopt_legacy_dir_with(&legacy, &target, |_, _| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        });
+        assert!(matches!(adoption, Adoption::Failed(_)));
+        assert!(legacy.join("profiles.json").exists());
+        assert!(!target.exists());
     }
 
     #[test]

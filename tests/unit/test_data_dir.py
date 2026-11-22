@@ -6,6 +6,7 @@ import sys
 import pytest
 
 import args as args_module
+import data_dir as data_dir_module
 from args import app_args, parse_args
 from data_dir import DefaultDataDir, adopt_legacy_dir
 
@@ -82,6 +83,23 @@ def test_keeps_the_legacy_directory_when_the_move_fails(dirs, monkeypatch):
     assert "denied" in result.message
     assert (legacy / "profiles.json").exists()
     assert not target.exists()
+
+
+def test_uses_the_new_directory_when_another_start_moved_it_first(dirs, monkeypatch):
+    legacy, target = _with_data(dirs[0]), dirs[1]
+    rename = data_dir_module.os.rename
+
+    def moved_by_another_start(source, destination):
+        rename(source, destination)
+        raise FileNotFoundError(source)
+
+    monkeypatch.setattr("data_dir.os.rename", moved_by_another_start)
+
+    result = adopt_legacy_dir(legacy, target)
+
+    assert result == DefaultDataDir(target)
+    assert not legacy.exists()
+    assert (target / "profiles.json").exists()
 
 
 def test_keeps_the_legacy_directory_when_the_new_path_is_a_file(dirs):
