@@ -1202,9 +1202,6 @@
           ]
         }
       },
-      "GITHUB_COPILOT": {
-        "description": "Usa los modelos incluidos en tu plan de GitHub Copilot. GitHub factura el uso en créditos de IA según el precio por token de cada modelo, y las solicitudes las procesan GitHub y el proveedor del modelo."
-      },
       "CLAUDE_AGENT": {
         "name": "Agente de Claude",
         "description": "Usa Claude a través de Claude Code instalado y con la sesión iniciada en el servidor. El uso cuenta para los límites de tu plan de Claude y las solicitudes las procesa Anthropic.",
@@ -1241,7 +1238,6 @@
       "OPENAI": "OpenAI",
       "ANTHROPIC": "Anthropic",
       "OPENROUTER": "OpenRouter",
-      "GITHUB_COPILOT": "GitHub Copilot",
       "LOCAL_MODELS": "Modelos locales",
       "CUSTOM": "IA personalizada"
     },
@@ -1250,7 +1246,6 @@
       "CHATGPT": "Plan de ChatGPT",
       "CLAUDE_AGENT": "CLI de Claude",
       "OPENROUTER": "Clave API",
-      "GITHUB_COPILOT": "Plan de GitHub",
       "LOCAL_MODELS": "Entorno local o servidor",
       "OPENAI_COMPATIBLE": "API compatible"
     },
@@ -1268,12 +1263,6 @@
     "integrationDisabledSuccess": "Integración {integration} desactivada correctamente",
     "integrationRequiredMessage": "Activa la integración de Google Sheets en Integraciones para configurar estos ajustes.",
     "integrationInsecureKeyWarning": "Esta conexión no está cifrada (http), así que la clave API se envía en texto plano. Usa https o solo una red de confianza.",
-    "deviceAuthorization": {
-      "intro": "Recibirás un código de un solo uso para iniciar sesión con tu cuenta de {integration}. Puedes revocar el acceso cuando quieras desde los ajustes de tu cuenta.",
-      "instructions": "Introduce este código en {site} para autorizar a Ferrofolio:",
-      "copyAndOpen": "Copiar código y abrir {site}",
-      "waiting": "Esperando autorización, el código caduca en {time}"
-    },
     "localModels": {
       "builtInMode": "Motor integrado",
       "serverMode": "Mi servidor llama.cpp",

@@ -1204,9 +1204,6 @@
           ]
         }
       },
-      "GITHUB_COPILOT": {
-        "description": "Nutze die in deinem GitHub-Copilot-Tarif enthaltenen Modelle. GitHub rechnet die Nutzung in AI Credits gemäß den Tokenpreisen des jeweiligen Modells ab, und Anfragen werden von GitHub und dem Modellanbieter verarbeitet."
-      },
       "CLAUDE_AGENT": {
         "name": "Claude Agent",
         "description": "Nutze Claude über das auf dem Server installierte und angemeldete Claude Code. Die Nutzung wird auf die Limits deines Claude-Tarifs angerechnet, und Anfragen werden von Anthropic verarbeitet.",
@@ -1243,7 +1240,6 @@
       "OPENAI": "OpenAI",
       "ANTHROPIC": "Anthropic",
       "OPENROUTER": "OpenRouter",
-      "GITHUB_COPILOT": "GitHub Copilot",
       "LOCAL_MODELS": "Lokale Modelle",
       "CUSTOM": "Eigene KI"
     },
@@ -1252,7 +1248,6 @@
       "CHATGPT": "ChatGPT-Tarif",
       "CLAUDE_AGENT": "Claude CLI",
       "OPENROUTER": "API-Schlüssel",
-      "GITHUB_COPILOT": "GitHub-Tarif",
       "LOCAL_MODELS": "Lokale Laufzeit oder Server",
       "OPENAI_COMPATIBLE": "Kompatible API"
     },
@@ -1270,12 +1265,6 @@
     "integrationDisabledSuccess": "Integration {integration} erfolgreich deaktiviert",
     "integrationRequiredMessage": "Aktiviere die Google-Sheets-Integration unter Integrationen, um diese Einstellungen zu konfigurieren.",
     "integrationInsecureKeyWarning": "Diese Verbindung ist nicht verschlüsselt (http), daher wird der API-Schlüssel im Klartext gesendet. Verwende https oder nur ein Netzwerk, dem du vertraust.",
-    "deviceAuthorization": {
-      "intro": "Du erhältst einen Einmalcode, um dich mit deinem {integration}-Konto anzumelden. Du kannst den Zugriff jederzeit in deinen Kontoeinstellungen widerrufen.",
-      "instructions": "Gib diesen Code auf {site} ein, um Ferrofolio zu autorisieren:",
-      "copyAndOpen": "Code kopieren und {site} öffnen",
-      "waiting": "Warte auf die Autorisierung, der Code läuft in {time} ab"
-    },
     "localModels": {
       "builtInMode": "Integrierte Engine",
       "serverMode": "Mein llama.cpp-Server",

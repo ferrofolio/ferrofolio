@@ -27,6 +27,5 @@ AI_MODEL_PRESETS: dict[ExternalIntegrationId, list[AIModelPreset]] = {
     ],
     ExternalIntegrationId.OPENAI_COMPATIBLE: [],
     ExternalIntegrationId.LOCAL_MODELS: [],
-    ExternalIntegrationId.GITHUB_COPILOT: [],
     ExternalIntegrationId.CLAUDE_AGENT: [],
 }

@@ -79,18 +79,11 @@ import {
 } from "@/components/settings/LocalModelsIntegration"
 import { AIServerDetailsDialog } from "@/components/settings/AIServerDetailsDialog"
 import { AI_MODELS_SETTINGS_PATH } from "@/components/ai/TaskAIProviders"
-import {
-  DeviceAuthorizationPanel,
-  toDeviceAuthorization,
-  type DeviceAuthorization,
-} from "@/components/integrations/DeviceAuthorizationPanel"
 import { ChatGPTIntegrationPanel } from "@/components/integrations/ChatGPTIntegrationPanel"
 
 const LOCAL_MODELS_ID = "LOCAL_MODELS"
-const GITHUB_COPILOT_ID = "GITHUB_COPILOT"
 const CHATGPT_ID = "CHATGPT"
 const OAUTH_INTEGRATIONS = new Set(["GOOGLE_SHEETS", CHATGPT_ID])
-const DEVICE_FLOW_INTEGRATIONS = new Set([GITHUB_COPILOT_ID])
 const SERVER_DETAILS_INTEGRATIONS = new Set(["OPENAI_COMPATIBLE"])
 const URL_FIELDS = ["base_url", "server_url"]
 const LOOPBACK_HOST_REGEX = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i
@@ -345,24 +338,10 @@ export function ProvidersTab() {
   const [awaitingAuthorization, setAwaitingAuthorization] = useState<
     string | null
   >(null)
-  const [deviceAuthorizations, setDeviceAuthorizations] = useState<
-    Record<string, DeviceAuthorization>
-  >({})
   const retryAuthorizationRef = useRef<
     ((integrationId: string) => Promise<void>) | null
   >(null)
   const authorizationRetriedRef = useRef(false)
-
-  const clearDeviceAuthorization = useCallback((integrationId: string) => {
-    setDeviceAuthorizations(prev => {
-      if (!prev[integrationId]) {
-        return prev
-      }
-      const next = { ...prev }
-      delete next[integrationId]
-      return next
-    })
-  }, [])
 
   const [hintUrls, setHintUrls] = useState<IntegrationHintUrls>({
     [EXTERNAL_ENTITY_CALLBACK_PLACEHOLDER]: null,
@@ -690,14 +669,6 @@ export function ProvidersTab() {
           } else {
             await openExternalAuthLink(result.link)
           }
-          return
-        }
-        if (result?.device) {
-          const device = toDeviceAuthorization(result.device)
-          setDeviceAuthorizations(prev => ({
-            ...prev,
-            [integrationId]: device,
-          }))
           return
         }
         await handleIntegrationEnabled(integration)
@@ -1438,33 +1409,6 @@ export function ProvidersTab() {
                     renderActions={renderActions}
                     onServerModeChange={handleLocalModelsModeChange}
                   />
-                ) : DEVICE_FLOW_INTEGRATIONS.has(integration.id) ? (
-                  <>
-                    {!isEnabled && (
-                      <DeviceAuthorizationPanel
-                        integrationId={integration.id}
-                        integrationName={title}
-                        authorization={
-                          deviceAuthorizations[integration.id] ?? null
-                        }
-                        onConnected={async () => {
-                          clearDeviceAuthorization(integration.id)
-                          await handleIntegrationEnabled(integration)
-                        }}
-                        onError={error => {
-                          clearDeviceAuthorization(integration.id)
-                          showIntegrationError(error, title)
-                        }}
-                        onCancel={() =>
-                          clearDeviceAuthorization(integration.id)
-                        }
-                      />
-                    )}
-                    {renderActions({
-                      setup:
-                        !isEnabled && !deviceAuthorizations[integration.id],
-                    })}
-                  </>
                 ) : integration.id === CHATGPT_ID ? (
                   <>
                     <ChatGPTIntegrationPanel

@@ -652,8 +652,8 @@ Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.
 | 9 | Reuse code from GiroCrab or contribute there | Read its connector code first, then decide |
 | 10 | The upstream cloud sign-in and backup code: delete it, although that removes `/api/v1` routes | Decided and done: deleted. The routes cannot work without the upstream service, so their removal is a deliberate exception to additive API changes, and they need no port. Ferrofolio's own sync comes with iOS stage B |
 | 11 | The default data directory `Finanze` | Rename it to `Ferrofolio` and move an existing directory once, in Python and the Rust server together |
-| 12 | Where the public keychain, ticker icons, crypto snapshot and historic metal prices come from | Keep them configurable and off; host nothing until a feature needs it |
-| 13 | Own GitHub, OpenAI and OpenRouter app identities | Register own identities where users grant access through them, so the consent names Ferrofolio |
+| 12 | Where the public keychain, ticker icons, crypto snapshot and historic metal prices come from | Decided: keep them configurable and off, and host nothing until a feature needs it. Each of the four stays an optional source (`FEATURE_FLAG_URL` for the keychain, the ticker icon source, `CRYPTO_DATASET_URL`, `METAL_RATES_URL`) with nothing configured by default |
+| 13 | Own GitHub, OpenAI and OpenRouter app identities | Decided and done: no own GitHub identity, because the GitHub sign-in is removed. It existed only for the GitHub Copilot provider, and a self-hosted instance has no reason to send the user through GitHub; the provider, its device-code routes and its stored credentials went with it, which is a deliberate exception to additive API changes. OpenAI and OpenRouter need no app identity: users bring an API key, and the ChatGPT plan sign-in registers itself dynamically under the name Ferrofolio |
 
 ---
 

@@ -1203,9 +1203,6 @@
           ]
         }
       },
-      "GITHUB_COPILOT": {
-        "description": "Usa i modelli inclusi nel tuo piano GitHub Copilot. GitHub addebita l'utilizzo in crediti IA in base al prezzo per token di ogni modello e le richieste vengono elaborate da GitHub e dal fornitore del modello."
-      },
       "CLAUDE_AGENT": {
         "name": "Agente di Claude",
         "description": "Usa Claude tramite Claude Code installato e con l'accesso effettuato sul server. L'utilizzo conta per i limiti del tuo piano Claude e le richieste vengono elaborate da Anthropic.",
@@ -1242,7 +1239,6 @@
       "OPENAI": "OpenAI",
       "ANTHROPIC": "Anthropic",
       "OPENROUTER": "OpenRouter",
-      "GITHUB_COPILOT": "GitHub Copilot",
       "LOCAL_MODELS": "Modelli locali",
       "CUSTOM": "IA personalizzata"
     },
@@ -1251,7 +1247,6 @@
       "CHATGPT": "Piano ChatGPT",
       "CLAUDE_AGENT": "CLI di Claude",
       "OPENROUTER": "Chiave API",
-      "GITHUB_COPILOT": "Piano GitHub",
       "LOCAL_MODELS": "Runtime locale o server",
       "OPENAI_COMPATIBLE": "API compatibile"
     },
@@ -1269,12 +1264,6 @@
     "integrationDisabledSuccess": "Integrazione {integration} disabilitata con successo",
     "integrationRequiredMessage": "Abilita l'integrazione Google Sheets in Integrazioni per configurare queste impostazioni.",
     "integrationInsecureKeyWarning": "Questa connessione non è cifrata (http), quindi la chiave API viene inviata in chiaro. Usa https o solo una rete di cui ti fidi.",
-    "deviceAuthorization": {
-      "intro": "Riceverai un codice monouso per accedere con il tuo account {integration}. Puoi revocare l'accesso in qualsiasi momento dalle impostazioni del tuo account.",
-      "instructions": "Inserisci questo codice su {site} per autorizzare Ferrofolio:",
-      "copyAndOpen": "Copia il codice e apri {site}",
-      "waiting": "In attesa di autorizzazione, il codice scade tra {time}"
-    },
     "localModels": {
       "builtInMode": "Motore integrato",
       "serverMode": "Il mio server llama.cpp",

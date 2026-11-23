@@ -70,13 +70,6 @@ from infrastructure.client.ai.claude_agent.claude_agent_types import (
     ClaudeOutcome,
 )
 from infrastructure.client.ai.claude_agent.claude_cli_locator import ClaudeCli
-from infrastructure.client.ai.github_copilot.copilot_runtime_types import (
-    CopilotModelEntry,
-)
-from infrastructure.client.ai.github_copilot.github_copilot_client import (
-    CATALOG_TTL_SECONDS,
-    GitHubCopilotClient,
-)
 from infrastructure.client.ai.openai.openai_client import OpenAIClient
 from infrastructure.client.http.http_response import HttpResponse
 from infrastructure.labeling.ai_labeling_presets import LABELING_PRESETS
@@ -1166,121 +1159,11 @@ async def test_relabel_replaces_external_labels_when_availability_is_unknown(env
     assert await env.labels_of(tx.id) == []
 
 
-class _CopilotRuntime:
-    def __init__(self, models: list[CopilotModelEntry], category: str):
-        self.models = models
-        self.category = category
-        self.requests = []
-
-    async def stop(self):
-        pass
-
-    async def is_authenticated(self):
-        return True
-
-    async def list_models(self):
-        return list(self.models)
-
-    async def complete(
-        self, model, instructions, prompt, schema, reasoning_effort, timeout
-    ):
-        self.requests.append(model)
-        results = [
-            {"id": movement_id, "category": self.category, "confidence": 0.95}
-            for movement_id in json.loads(prompt)
-        ]
-        return json.dumps({"results": results})
-
-
-class _CopilotProvisioner:
-    def prefetch(self):
-        pass
-
-    async def ensure(self):
-        return "/runtime/copilot"
-
-
 class _Clock:
     now = 0.0
 
     def __call__(self):
         return self.now
-
-
-@pytest.mark.asyncio
-async def test_github_copilot_labels_and_relabel_keeps_them_after_delisting(
-    env, tmp_path
-):
-    restaurants = await env.label_id("restaurants")
-    runtime = _CopilotRuntime(
-        [CopilotModelEntry(id="gpt-5-mini", name="GPT-5 mini", enabled=True)],
-        "restaurants",
-    )
-
-    async def runtime_factory(executable, token, dirs):
-        return runtime
-
-    clock = _Clock()
-    pool = AgentRuntimePool()
-    client = GitHubCopilotClient(
-        AsyncMock(),
-        _CopilotProvisioner(),
-        pool,
-        AgentRuntimeSandbox(tmp_path),
-        env.integration_port,
-        runtime_factory=runtime_factory,
-        clock=clock,
-    )
-    labeler = TransactionLabelerAdapter(
-        transaction_port=env.tx_repo,
-        transaction_label_port=env.tx_label_repo,
-        labeling_rule_port=env.rule_repo,
-        label_port=env.label_repo,
-        config_port=env.config_port,
-        external_integration_port=env.integration_port,
-        providers={
-            ExternalIntegrationId.GITHUB_COPILOT: AILabelingProvider(
-                client, LABELING_PRESETS[ExternalIntegrationId.GITHUB_COPILOT]
-            )
-        },
-        transaction_handler_port=env.handler,
-    )
-    env.integration_port.get_payload = AsyncMock(
-        return_value={"access_token": "gho_token"}
-    )
-    env.config_port.load_sections = AsyncMock(
-        return_value=_settings(
-            ExternalLabelingConfig(
-                enabled=True,
-                providers=[
-                    AIProviderEntry(provider="GITHUB_COPILOT", model="gpt-5-mini")
-                ],
-            )
-        )
-    )
-    tx = env.account_tx("Burger place", "15")
-    await env.save(tx)
-    uc = RelabelTransactionsImpl(env.tx_repo, env.tx_label_repo, labeler, env.handler)
-
-    labeled = await uc.execute(RelabelRequest(include_external=True))
-
-    assert labeled.external.external_labeled == 1
-    assert runtime.requests == ["gpt-5-mini"]
-    stored = await env.labels_of(tx.id)
-    assert (stored[0].label_id, stored[0].origin, stored[0].provider) == (
-        restaurants,
-        LabelOrigin.EXTERNAL,
-        "GITHUB_COPILOT:gpt-5-mini",
-    )
-
-    runtime.models = []
-    clock.now = CATALOG_TTL_SECONDS
-    delisted = await uc.execute(RelabelRequest(include_external=True))
-
-    assert delisted.external.external_error_code == "MODEL_NOT_FOUND"
-    assert runtime.requests == ["gpt-5-mini"]
-    assert [label.label_id for label in await env.labels_of(tx.id)] == [restaurants]
-    await pool.release_all()
 
 
 class _ClaudeLocator:

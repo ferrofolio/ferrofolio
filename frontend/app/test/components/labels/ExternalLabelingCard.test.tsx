@@ -98,8 +98,8 @@ const COMPATIBLE_PROVIDER: AIProviderDetails = {
   dynamic_models: true,
 }
 
-const COPILOT_PROVIDER: AIProviderDetails = {
-  id: "GITHUB_COPILOT",
+const OPENAI_PROVIDER: AIProviderDetails = {
+  id: "OPENAI",
   connected: true,
   recommended_models: [],
   custom_models: false,
@@ -729,7 +729,7 @@ describe("ExternalLabelingCard models", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("shows token prices and keeps a delisted Copilot model selected", async () => {
+  it("shows token prices and keeps a delisted model selected", async () => {
     getExternalLabelingModels.mockResolvedValue({
       models: [
         {
@@ -755,7 +755,7 @@ describe("ExternalLabelingCard models", () => {
         { id: "auto", name: "Auto", probabilistic: false },
       ],
     })
-    renderCard(COPILOT_PROVIDER, "retired-model")
+    renderCard(OPENAI_PROVIDER, "retired-model")
 
     const options = await screen.findByTestId("external-model-options")
     expect(within(options).getByText("$0.10 / $0.50 per 1M")).toHaveAttribute(
