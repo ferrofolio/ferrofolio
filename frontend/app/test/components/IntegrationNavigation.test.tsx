@@ -329,12 +329,15 @@ describe("Settings integration migration", () => {
     ).toHaveAttribute("aria-selected", "true")
   })
 
-  it("opens the general settings tab for an unknown tab", () => {
-    renderRoute("/settings?tab=unknown")
-    expect(
-      screen.getByRole("tab", { name: en.settings.general }),
-    ).toHaveAttribute("aria-selected", "true")
-  })
+  it.each(["cloud", "unknown"])(
+    "opens the general settings tab for the removed or unknown tab %s",
+    tab => {
+      renderRoute(`/settings?tab=${tab}`)
+      expect(
+        screen.getByRole("tab", { name: en.settings.general }),
+      ).toHaveAttribute("aria-selected", "true")
+    },
+  )
 
   it("opens the AI & MCP settings tab from the legacy MCP link", () => {
     renderRoute("/settings?tab=mcp")
