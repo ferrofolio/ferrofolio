@@ -96,7 +96,12 @@ class TestRemoveGitHubCopilotMigration:
         _insert(
             conn,
             "importing",
-            {"ai": {"providers": [COPILOT_ENTRY, OPENROUTER_ENTRY], "instructions": "x"}},
+            {
+                "ai": {
+                    "providers": [COPILOT_ENTRY, OPENROUTER_ENTRY],
+                    "instructions": "x",
+                }
+            },
         )
 
         await _migrate(client)

@@ -10,4 +10,3 @@ from infrastructure.client.ai.claude_agent.claude_agent_client import (
 def test_claude_agent_client_app_name_is_ferrofolio():
     """The Claude agent client should identify itself as Ferrofolio."""
     assert CLAUDE_APPLICATION_NAME == "Ferrofolio"
-
