@@ -68,7 +68,7 @@ beforeEach(() => {
       labeling: {
         external: {
           enabled: true,
-          providers: [{ provider: "GITHUB_COPILOT", model: "retired-model" }],
+          providers: [{ provider: "OPENAI", model: "retired-model" }],
           autoRun: true,
         },
       },
@@ -76,8 +76,8 @@ beforeEach(() => {
     showToast: vi.fn(),
     externalIntegrations: [
       {
-        id: "GITHUB_COPILOT",
-        name: "GitHub Copilot",
+        id: "OPENAI",
+        name: "OpenAI",
         available: true,
         status: "ON",
       },
@@ -141,7 +141,7 @@ describe("RelabelDialog external failures", () => {
       model: "router-model",
     })
     state.app.externalIntegrations = [
-      { id: "GITHUB_COPILOT", name: "GitHub Copilot", ...first },
+      { id: "OPENAI", name: "OpenAI", ...first },
       { id: "OPENROUTER", name: "OpenRouter", available: true, status: "ON" },
     ]
     render(<RelabelDialog isOpen onClose={vi.fn()} />)
@@ -156,8 +156,8 @@ describe("RelabelDialog external failures", () => {
   it("hides external labeling when all configured methods are ineligible", () => {
     state.app.externalIntegrations = [
       {
-        id: "GITHUB_COPILOT",
-        name: "GitHub Copilot",
+        id: "OPENAI",
+        name: "OpenAI",
         available: false,
         status: "ON",
       },
@@ -180,8 +180,8 @@ describe("RelabelDialog external failures", () => {
     })
     state.app.externalIntegrations = [
       {
-        id: "GITHUB_COPILOT",
-        name: "GitHub Copilot",
+        id: "OPENAI",
+        name: "OpenAI",
         available: true,
         status: "ON",
       },
@@ -210,10 +210,10 @@ describe("RelabelDialog external failures", () => {
     [
       {
         external_error: "ExternalLabelingUnavailable",
-        external_error_details: "GitHub Copilot usage limit reached",
+        external_error_details: "The provider usage limit was reached",
         external_error_code: "INSUFFICIENT_FUNDS",
       },
-      `${relabel.externalFailed}: GitHub Copilot usage limit reached`,
+      `${relabel.externalFailed}: The provider usage limit was reached`,
     ],
   ])("explains the external labeling error", async (external, message) => {
     relabelTransactions.mockResolvedValue({

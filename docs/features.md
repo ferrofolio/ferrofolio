@@ -98,7 +98,7 @@ AI labels transactions and imports files. It is optional; everything else works 
 - OpenAI with an API key
 - ChatGPT with a Plus or Pro plan
 - OpenRouter
-- GitHub Copilot or Anthropic Claude through Claude Code
+- Anthropic Claude through Claude Code
 - A custom OpenAI-compatible endpoint, such as Ollama, LM Studio, vLLM or a single-model llama.cpp server, with its
   base URL and an optional API key
 - Local models in GGUF format, run by a llama.cpp server in router mode. Ferrofolio downloads recommended models or

@@ -382,6 +382,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -446,7 +450,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -524,7 +528,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -955,6 +959,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -1019,7 +1027,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -1131,7 +1139,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -1871,6 +1879,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -1935,7 +1947,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -2013,7 +2025,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -2475,6 +2487,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -2805,7 +2821,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -3385,7 +3401,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -3816,6 +3832,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -3880,7 +3900,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -4341,7 +4361,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -4772,6 +4792,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -4836,7 +4860,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -4914,7 +4938,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -5526,6 +5550,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -5590,7 +5618,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -5668,7 +5696,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -6136,6 +6164,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -6200,7 +6232,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -6278,7 +6310,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0
@@ -6734,6 +6766,10 @@
     {
      "name": "v0.12.0:4_ai_settings",
      "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
     }
    ],
    "tables": {
@@ -6798,7 +6834,7 @@
      "count": 0
     },
     "external_integrations": {
-     "count": 13
+     "count": 12
     },
     "factoring_positions": {
      "count": 0
@@ -6876,7 +6912,7 @@
      "count": 0
     },
     "migrations": {
-     "count": 95
+     "count": 96
     },
     "networth_timeline_meta": {
      "count": 0

@@ -127,9 +127,6 @@ from application.use_cases.update_tracked_quotes import UpdateTrackedQuotesImpl
 from application.use_cases.update_tracked_loans import UpdateTrackedLoansImpl
 from application.use_cases.user_login import UserLoginImpl
 from application.use_cases.user_logout import UserLogoutImpl
-from application.use_cases.poll_external_integration_connection import (
-    PollExternalIntegrationConnectionImpl,
-)
 from application.use_cases.create_label import CreateLabelImpl
 from application.use_cases.create_labeling_rule import CreateLabelingRuleImpl
 from application.use_cases.delete_label import DeleteLabelImpl
@@ -176,18 +173,6 @@ from infrastructure.client.ai.openai_compatible.openai_compatible_client import 
 from infrastructure.client.ai.openrouter.openrouter_client import OpenRouterClient
 from infrastructure.agent_runtime.runtime_pool import AgentRuntimePool
 from infrastructure.agent_runtime.runtime_sandbox import AgentRuntimeSandbox
-from infrastructure.client.ai.github_copilot.copilot_runtime_provisioner import (
-    CopilotRuntimeProvisioner,
-)
-from infrastructure.client.ai.github_copilot.github_copilot_client import (
-    GITHUB_DEVICE_SCOPE,
-    PROVIDER as GITHUB_COPILOT_RUNTIME,
-    GitHubCopilotClient,
-    resolve_github_copilot_client_id,
-)
-from infrastructure.client.ai.github_copilot.github_device_flow import (
-    GitHubDeviceFlow,
-)
 from infrastructure.client.ai.claude_agent.claude_agent_client import (
     ClaudeAgentClient,
 )
@@ -562,15 +547,6 @@ class FerrofolioServer:
         await agent_runtime_sandbox.cleanup_stale()
         agent_runtime_pool = AgentRuntimePool()
         self._agent_runtime_pool = agent_runtime_pool
-        ai_clients[ExternalIntegrationId.GITHUB_COPILOT] = GitHubCopilotClient(
-            GitHubDeviceFlow(resolve_github_copilot_client_id(), GITHUB_DEVICE_SCOPE),
-            CopilotRuntimeProvisioner(
-                agent_runtime_sandbox.runtime_dir(GITHUB_COPILOT_RUNTIME)
-            ),
-            agent_runtime_pool,
-            agent_runtime_sandbox,
-            external_integration_repository,
-        )
         if detect_distribution() != Distribution.DOCKER or os.getenv(
             CLAUDE_CLI_PATH_ENV
         ):
@@ -1036,10 +1012,6 @@ class FerrofolioServer:
                 external_integrations,
             )
         )
-        poll_external_integration_connection = PollExternalIntegrationConnectionImpl(
-            external_integration_repository,
-            external_integrations,
-        )
         forward_integration_oauth_callback = ForwardIntegrationOAuthCallbackImpl(
             external_integrations
         )
@@ -1450,7 +1422,6 @@ class FerrofolioServer:
             delete_local_model_uc=delete_local_model,
             list_hugging_face_quants_uc=list_hugging_face_quants,
             import_local_model_uc=import_local_model,
-            poll_external_integration_connection_uc=poll_external_integration_connection,
             forward_integration_oauth_callback_uc=forward_integration_oauth_callback,
         )
 

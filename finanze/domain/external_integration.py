@@ -1,4 +1,3 @@
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -34,7 +33,6 @@ class ExternalIntegrationId(str, Enum):
     OPENAI = "OPENAI"
     OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE"
     LOCAL_MODELS = "LOCAL_MODELS"
-    GITHUB_COPILOT = "GITHUB_COPILOT"
     CLAUDE_AGENT = "CLAUDE_AGENT"
     CHATGPT = "CHATGPT"
 
@@ -43,7 +41,6 @@ class AIProviderFamily(str, Enum):
     OPENAI = "OPENAI"
     ANTHROPIC = "ANTHROPIC"
     OPENROUTER = "OPENROUTER"
-    GITHUB_COPILOT = "GITHUB_COPILOT"
     LOCAL_MODELS = "LOCAL_MODELS"
     CUSTOM = "CUSTOM"
 
@@ -53,7 +50,6 @@ AI_PROVIDER_FAMILIES = {
     ExternalIntegrationId.CHATGPT: AIProviderFamily.OPENAI,
     ExternalIntegrationId.CLAUDE_AGENT: AIProviderFamily.ANTHROPIC,
     ExternalIntegrationId.OPENROUTER: AIProviderFamily.OPENROUTER,
-    ExternalIntegrationId.GITHUB_COPILOT: AIProviderFamily.GITHUB_COPILOT,
     ExternalIntegrationId.LOCAL_MODELS: AIProviderFamily.LOCAL_MODELS,
     ExternalIntegrationId.OPENAI_COMPATIBLE: AIProviderFamily.CUSTOM,
 }
@@ -62,7 +58,6 @@ AI_PROVIDER_FAMILY_NAMES = {
     AIProviderFamily.OPENAI: "OpenAI",
     AIProviderFamily.ANTHROPIC: "Anthropic",
     AIProviderFamily.OPENROUTER: "OpenRouter",
-    AIProviderFamily.GITHUB_COPILOT: "GitHub Copilot",
     AIProviderFamily.LOCAL_MODELS: "Local Models",
     AIProviderFamily.CUSTOM: "Custom AI",
 }
@@ -75,7 +70,6 @@ AI_PROVIDER_PLATFORMS = {
         or integration
         not in (
             ExternalIntegrationId.LOCAL_MODELS,
-            ExternalIntegrationId.GITHUB_COPILOT,
             ExternalIntegrationId.CLAUDE_AGENT,
         )
     )
@@ -119,47 +113,8 @@ class ConnectedExternalIntegrationRequest:
 
 
 @dataclass
-class ExternalIntegrationDeviceAuthorization:
-    flow_id: str
-    user_code: str
-    verification_uri: str
-    expires_at: datetime
-    interval: int
-
-
-@dataclass
 class ExternalIntegrationConnectionResult:
     link: Optional[str] = None
-    device: Optional[ExternalIntegrationDeviceAuthorization] = None
-
-
-class DeviceAuthorizationStatus(str, Enum):
-    PENDING = "PENDING"
-    AUTHORIZED = "AUTHORIZED"
-
-
-@dataclass
-class DeviceAuthorizationPollResult:
-    status: DeviceAuthorizationStatus
-    interval: int
-    payload: Optional[ExternalIntegrationPayload] = None
-
-
-class ExternalIntegrationConnectionStatus(str, Enum):
-    PENDING = "PENDING"
-    CONNECTED = "CONNECTED"
-
-
-@dataclass
-class PollExternalIntegrationConnectionRequest:
-    integration_id: ExternalIntegrationId
-    flow_id: str
-
-
-@dataclass
-class ExternalIntegrationConnectionPoll:
-    status: ExternalIntegrationConnectionStatus
-    interval: Optional[int] = None
 
 
 @dataclass
@@ -223,7 +178,6 @@ EXTERNAL_INTEGRATION_PAYLOAD_SCHEMAS = {
         "server_url": "Server URL",
         "api_key": "API Key",
     },
-    ExternalIntegrationId.GITHUB_COPILOT: {},
     ExternalIntegrationId.CLAUDE_AGENT: {
         "cli_path": "Claude Code path",
     },

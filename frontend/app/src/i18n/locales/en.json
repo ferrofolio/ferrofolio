@@ -1192,9 +1192,6 @@
           ]
         }
       },
-      "GITHUB_COPILOT": {
-        "description": "Use models included in your GitHub Copilot plan. GitHub bills usage in AI credits according to each model's token prices, and requests are processed by GitHub and the model provider."
-      },
       "CLAUDE_AGENT": {
         "name": "Claude Agent",
         "description": "Use Claude through Claude Code installed and signed in on the server. Usage counts toward your Claude plan limits, and requests are processed by Anthropic.",
@@ -1231,7 +1228,6 @@
       "OPENAI": "OpenAI",
       "ANTHROPIC": "Anthropic",
       "OPENROUTER": "OpenRouter",
-      "GITHUB_COPILOT": "GitHub Copilot",
       "LOCAL_MODELS": "Local Models",
       "CUSTOM": "Custom AI"
     },
@@ -1240,7 +1236,6 @@
       "CHATGPT": "ChatGPT plan",
       "CLAUDE_AGENT": "Claude CLI",
       "OPENROUTER": "API key",
-      "GITHUB_COPILOT": "GitHub plan",
       "LOCAL_MODELS": "Local runtime or server",
       "OPENAI_COMPATIBLE": "Compatible API"
     },
@@ -1258,12 +1253,6 @@
     "integrationDisabledSuccess": "{integration} integration disabled successfully",
     "integrationRequiredMessage": "Enable the Google Sheets integration in Integrations to configure these settings.",
     "integrationInsecureKeyWarning": "This connection is not encrypted (http), so the API key is sent in plain text. Use https or only a network you trust.",
-    "deviceAuthorization": {
-      "intro": "You will get a one-time code to sign in with your {integration} account. You can revoke access at any time from your account settings.",
-      "instructions": "Enter this code at {site} to authorize Ferrofolio:",
-      "copyAndOpen": "Copy code and open {site}",
-      "waiting": "Waiting for authorization, code expires in {time}"
-    },
     "localModels": {
       "builtInMode": "Built-in engine",
       "serverMode": "My llama.cpp server",

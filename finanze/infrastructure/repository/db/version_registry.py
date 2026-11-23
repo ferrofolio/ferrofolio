@@ -251,6 +251,9 @@ from infrastructure.repository.db.versions.v0.v12.v0120_3_labeling_rule_multi_co
 from infrastructure.repository.db.versions.v0.v12.v0120_4_ai_settings import (
     V01204AISettings,
 )
+from infrastructure.repository.db.versions.v0.v12.v0120_5_remove_github_copilot import (
+    V01205RemoveGitHubCopilot,
+)
 
 versions = [
     V0Genesis(),
@@ -348,4 +351,5 @@ versions = [
     V01202ChatGPTIntegration(),
     V01203LabelingRuleMultiConditions(),
     V01204AISettings(),
+    V01205RemoveGitHubCopilot(),
 ]
