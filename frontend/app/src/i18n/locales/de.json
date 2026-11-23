@@ -1075,19 +1075,7 @@
               ". Dieses Feld ist **besonders wichtig**."
             ],
             [
-              "Als Privacy URL kannst du ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/privacy/",
-                "url": "https://finanze.me/privacy/"
-              },
-              " verwenden und als Terms URL ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/terms/",
-                "url": "https://finanze.me/terms/"
-              },
-              "."
+              "Als **Privacy URL** und **Terms URL** kannst du eine Adresse angeben, die du kontrollierst; der Konsentscreen zeigt beide dem Nutzer."
             ],
             [
               "Der private Schlüssel der Anwendung im PEM-Format wird automatisch heruntergeladen, bewahre ihn sicher auf!"

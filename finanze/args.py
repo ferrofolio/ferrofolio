@@ -5,21 +5,20 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
-import appdirs
+from data_dir import default_data_dir
 from logs import configure_logging
 
 
 def app_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Ferrofolio Server")
 
-    default_user_dir = appdirs.user_data_dir("Finanze", False)
-    default_logs_dir = Path(default_user_dir) / "logs"
-
     parser.add_argument(
         "--data-dir",
-        help="Directory to store database and configuration files.",
+        help="Directory to store database and configuration files (default: "
+        "Ferrofolio in the platform's user data directory, into which an existing "
+        "Finanze directory there is moved once).",
         type=str,
-        default=default_user_dir,
+        default=None,
     )
     parser.add_argument(
         "--host",
@@ -57,9 +56,9 @@ def app_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--log-dir",
-        help="Path to log directory (default: <default-app-data-dir>/logs).",
+        help="Path to log directory (default: <data-dir>/logs).",
         type=str,
-        default=default_logs_dir,
+        default=None,
     )
     parser.add_argument(
         "--log-file-level",
@@ -86,7 +85,13 @@ def parse_args() -> argparse.Namespace:
     parser = app_args()
     args = parser.parse_args()
 
+    default_dir = None
+    if args.data_dir is None:
+        default_dir = default_data_dir()
+        args.data_dir = default_dir.path
     args.data_dir = Path(args.data_dir)
+    if args.log_dir is None:
+        args.log_dir = args.data_dir / "logs"
     os.makedirs(args.data_dir, exist_ok=True)
     args.llama_server_path = (
         Path(args.llama_server_path) if args.llama_server_path else None
@@ -99,6 +104,9 @@ def parse_args() -> argparse.Namespace:
     ).strip().lower() not in ("0", "false", "no", "off")
 
     configure_logging(args)
+    if default_dir and default_dir.message:
+        log = logging.warning if default_dir.warning else logging.info
+        log(default_dir.message)
     logging.info(f"Using data directory: {args.data_dir}")
 
     args.api_session_remember_ttl = _remember_ttl(

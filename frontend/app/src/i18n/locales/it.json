@@ -376,7 +376,8 @@
     },
     "credentialFields": {
       "apiKey": "Chiave API",
-      "secretKey": "Chiave Segreta"
+      "secretKey": "Chiave Segreta",
+      "identifier": "Nome utente o indirizzo wallet"
     },
     "entityNotes": {
       "e0000000-0000-0000-0000-000000000003": "Includi il prefisso internazionale nel numero di telefono (es. +34612345678)",
@@ -1074,19 +1075,7 @@
               ". Questo campo è **molto importante**."
             ],
             [
-              "Come URL Privacy puoi usare ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/privacy/",
-                "url": "https://finanze.me/privacy/"
-              },
-              " e come URL Termini ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/terms/",
-                "url": "https://finanze.me/terms/"
-              },
-              "."
+              "Per l'**URL Privacy** e l'**URL Termini** puoi inserire un indirizzo che controlli; la schermata di consenso mostra entrambi all'utente."
             ],
             [
               "La chiave privata dell'applicazione in formato PEM verrà scaricata automaticamente, conservala al sicuro!"
@@ -2057,6 +2046,10 @@
     "addManualTransaction": "Aggiungi",
     "previous": "Precedente",
     "next": "Successivo",
+    "contractType": "Tipo di Contratto",
+    "direction": "Direzione",
+    "size": "Quantità",
+    "underlyingSymbol": "Sottostante",
     "page": "Pagina",
     "of": "di",
     "selectEntities": "Seleziona entità...",
@@ -2910,6 +2903,8 @@
     "inactive": "Inattiva",
     "principalOutstanding": "Capitale Residuo",
     "monthlyInstallment": "Rata Mensile",
+    "installment": "Rata",
+    "next": "Prossimo",
     "installmentByFrequency": {
       "WEEKLY": "Rata Settimanale",
       "BIWEEKLY": "Rata Bisettimanale",

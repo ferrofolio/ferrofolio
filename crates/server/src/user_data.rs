@@ -16,30 +16,115 @@ use serde::Deserialize;
 
 use crate::sessions::Credentials;
 
-/// The name of the application directory Python uses.
-const APP_NAME: &str = "Finanze";
+/// The name of the data directory in the platform's user data location.
+const APP_NAME: &str = "Ferrofolio";
 
-/// The data directory Python uses without `--data-dir`:
-/// `appdirs.user_data_dir("Finanze", False)`.
+/// Its name before the rename; an existing directory is moved once (`adopt_legacy_dir`).
+const LEGACY_APP_NAME: &str = "Finanze";
+
+/// The data directory Python uses without `--data-dir`, resolved as
+/// `finanze/data_dir.py` resolves it: `appdirs.user_data_dir("Ferrofolio", False)`,
+/// after moving an existing `Finanze` directory next to it there once.
 pub fn default_data_dir() -> PathBuf {
     let home = std::env::var_os("HOME").or_else(|| std::env::home_dir().map(OsString::from));
-    data_dir_for(
+    let base = data_base_for(
         std::env::var_os("XDG_DATA_HOME"),
         home,
         cfg!(target_os = "macos"),
+    );
+    let legacy = base.join(LEGACY_APP_NAME);
+    let target = base.join(APP_NAME);
+    match adopt_legacy_dir(&legacy, &target) {
+        Adoption::NoLegacy => target,
+        Adoption::Moved => {
+            tracing::info!(from = %legacy.display(), to = %target.display(), "moved the data directory");
+            target
+        }
+        Adoption::BothExist => {
+            tracing::warn!(
+                used = %target.display(),
+                unchanged = %legacy.display(),
+                "both data directories exist; start with --data-dir and the unchanged one to use it instead"
+            );
+            target
+        }
+        Adoption::Failed(error) => {
+            tracing::warn!(
+                %error,
+                from = %legacy.display(),
+                to = %target.display(),
+                "could not move the data directory, keeping the old one"
+            );
+            legacy
+        }
+    }
+}
+
+/// What `adopt_legacy_dir` did.
+#[derive(Debug)]
+enum Adoption {
+    /// There is no legacy directory.
+    NoLegacy,
+    /// The legacy directory was renamed to the new one.
+    Moved,
+    /// The new directory already holds something; both stay as they are and the
+    /// new one is used.
+    BothExist,
+    /// The legacy directory could not be moved and stays in use, so that its data
+    /// is not hidden behind an empty directory.
+    Failed(std::io::Error),
+}
+
+/// Renames `legacy` to `target` unless `target` already holds something, as
+/// `adopt_legacy_dir` in `finanze/data_dir.py` does.
+fn adopt_legacy_dir(legacy: &Path, target: &Path) -> Adoption {
+    adopt_legacy_dir_with(legacy, target, |from, to| std::fs::rename(from, to))
+}
+
+/// `adopt_legacy_dir` with the rename passed in, so that tests can interleave
+/// another start.
+fn adopt_legacy_dir_with(
+    legacy: &Path,
+    target: &Path,
+    rename: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Adoption {
+    if !legacy.is_dir() {
+        return Adoption::NoLegacy;
+    }
+    match std::fs::read_dir(target).map(|mut entries| entries.next()) {
+        Ok(Some(Ok(_))) => return Adoption::BothExist,
+        Ok(Some(Err(error))) => return Adoption::Failed(error),
+        Ok(None) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Adoption::Failed(error),
+    }
+    // Replaces an empty target directory atomically (POSIX rename).
+    match rename(legacy, target) {
+        Ok(()) => Adoption::Moved,
+        // Another start moved it in the meantime: the old path is confirmed gone,
+        // not just unreadable.
+        Err(_) if is_missing(legacy) && target.is_dir() => Adoption::NoLegacy,
+        Err(error) => Adoption::Failed(error),
+    }
+}
+
+/// Whether nothing exists at `path`; an error other than `NotFound` does not count.
+fn is_missing(path: &Path) -> bool {
+    matches!(
+        std::fs::metadata(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound
     )
 }
 
-/// `appdirs.user_data_dir` for the given environment: on macOS in
-/// `~/Library/Application Support`, elsewhere in `XDG_DATA_HOME`, which counts as
-/// set even when empty, or `~/.local/share`.
-fn data_dir_for(xdg_data_home: Option<OsString>, home: Option<OsString>, macos: bool) -> PathBuf {
-    let base = match (macos, xdg_data_home) {
+/// The base of `appdirs.user_data_dir` for the given environment: on macOS
+/// `~/Library/Application Support`, elsewhere `XDG_DATA_HOME`, which counts as set
+/// even when empty, or `~/.local/share`.
+fn data_base_for(xdg_data_home: Option<OsString>, home: Option<OsString>, macos: bool) -> PathBuf {
+    match (macos, xdg_data_home) {
         (true, _) => expand_home(home, "Library/Application Support"),
         (false, Some(xdg_data_home)) => PathBuf::from(xdg_data_home),
         (false, None) => expand_home(home, ".local/share"),
-    };
-    base.join(APP_NAME)
+    }
 }
 
 /// `os.path.expanduser("~/<rest>")`: the home directory without trailing slashes,
@@ -233,36 +318,180 @@ mod tests {
     #[test]
     fn finds_the_default_data_directory_like_appdirs() {
         let some = |text: &str| Some(OsString::from(text));
-        let dir = |xdg, home, macos| data_dir_for(xdg, home, macos);
+        let dir = |xdg, home, macos| data_base_for(xdg, home, macos).join(APP_NAME);
         assert_eq!(
             dir(None, some("/home/anna"), false),
-            PathBuf::from("/home/anna/.local/share/Finanze")
+            PathBuf::from("/home/anna/.local/share/Ferrofolio")
         );
         assert_eq!(
             dir(None, some("/home/anna/"), false),
-            PathBuf::from("/home/anna/.local/share/Finanze")
+            PathBuf::from("/home/anna/.local/share/Ferrofolio")
         );
         assert_eq!(
             dir(some("/data/xdg"), some("/home/anna"), false),
-            PathBuf::from("/data/xdg/Finanze")
+            PathBuf::from("/data/xdg/Ferrofolio")
         );
         // An empty XDG_DATA_HOME makes the directory relative, as in appdirs.
         assert_eq!(
             dir(some(""), some("/home/anna"), false),
-            PathBuf::from("Finanze")
+            PathBuf::from("Ferrofolio")
         );
         assert_eq!(
             dir(None, some("/"), false),
-            PathBuf::from("/.local/share/Finanze")
+            PathBuf::from("/.local/share/Ferrofolio")
         );
         assert_eq!(
             dir(None, None, false),
-            PathBuf::from("~/.local/share/Finanze")
+            PathBuf::from("~/.local/share/Ferrofolio")
         );
         assert_eq!(
             dir(some("/data/xdg"), some("/Users/anna"), true),
-            PathBuf::from("/Users/anna/Library/Application Support/Finanze")
+            PathBuf::from("/Users/anna/Library/Application Support/Ferrofolio")
         );
+    }
+
+    /// A new directory under the system's temporary directory, removed on drop,
+    /// also when an assertion fails.
+    struct TempDirectory(PathBuf);
+
+    impl TempDirectory {
+        fn new(name: &str) -> Self {
+            // A directory left by an earlier run is skipped rather than reused.
+            (0..1000)
+                .map(|n| {
+                    std::env::temp_dir()
+                        .join(format!("ferrofolio-{name}-{}-{n}", std::process::id()))
+                })
+                .find_map(|directory| {
+                    std::fs::create_dir(&directory)
+                        .ok()
+                        .map(|()| TempDirectory(directory))
+                })
+                .unwrap()
+        }
+    }
+
+    impl Drop for TempDirectory {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// The legacy and the new directory inside `base`, with data in the legacy one.
+    fn legacy_with_data(base: &Path) -> (PathBuf, PathBuf) {
+        let legacy = base.join(LEGACY_APP_NAME);
+        std::fs::create_dir_all(legacy.join("profiles")).unwrap();
+        std::fs::write(legacy.join("profiles.json"), "legacy").unwrap();
+        (legacy, base.join(APP_NAME))
+    }
+
+    #[test]
+    fn uses_the_new_directory_without_legacy_data() {
+        let base = TempDirectory::new("adopt-none");
+        let target = base.0.join(APP_NAME);
+        assert!(matches!(
+            adopt_legacy_dir(&base.0.join(LEGACY_APP_NAME), &target),
+            Adoption::NoLegacy
+        ));
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn moves_the_legacy_directory() {
+        let base = TempDirectory::new("adopt-move");
+        let (legacy, target) = legacy_with_data(&base.0);
+        assert!(matches!(
+            adopt_legacy_dir(&legacy, &target),
+            Adoption::Moved
+        ));
+        assert!(!legacy.exists());
+        assert_eq!(
+            std::fs::read_to_string(target.join("profiles.json")).unwrap(),
+            "legacy"
+        );
+        assert!(target.join("profiles").is_dir());
+    }
+
+    #[test]
+    fn moves_into_an_empty_new_directory() {
+        let base = TempDirectory::new("adopt-empty");
+        let (legacy, target) = legacy_with_data(&base.0);
+        std::fs::create_dir(&target).unwrap();
+        assert!(matches!(
+            adopt_legacy_dir(&legacy, &target),
+            Adoption::Moved
+        ));
+        assert!(!legacy.exists());
+        assert!(target.join("profiles.json").exists());
+    }
+
+    #[test]
+    fn never_mixes_two_directories_with_data() {
+        let base = TempDirectory::new("adopt-both");
+        let (legacy, target) = legacy_with_data(&base.0);
+        std::fs::create_dir(&target).unwrap();
+        std::fs::write(target.join("profiles.json"), "new").unwrap();
+        assert!(matches!(
+            adopt_legacy_dir(&legacy, &target),
+            Adoption::BothExist
+        ));
+        assert_eq!(
+            std::fs::read_to_string(legacy.join("profiles.json")).unwrap(),
+            "legacy"
+        );
+        assert_eq!(
+            std::fs::read_to_string(target.join("profiles.json")).unwrap(),
+            "new"
+        );
+        assert!(!target.join("profiles").exists());
+    }
+
+    #[test]
+    fn uses_the_new_directory_when_another_start_moved_it_first() {
+        let base = TempDirectory::new("adopt-race");
+        let (legacy, target) = legacy_with_data(&base.0);
+        let adoption = adopt_legacy_dir_with(&legacy, &target, |from, to| {
+            std::fs::rename(from, to)?;
+            Err(std::io::Error::from(std::io::ErrorKind::NotFound))
+        });
+        assert!(matches!(adoption, Adoption::NoLegacy));
+        assert!(!legacy.exists());
+        assert!(target.join("profiles.json").exists());
+    }
+
+    #[test]
+    fn keeps_the_legacy_directory_when_the_rename_fails() {
+        let base = TempDirectory::new("adopt-fail");
+        let (legacy, target) = legacy_with_data(&base.0);
+        let adoption = adopt_legacy_dir_with(&legacy, &target, |_, _| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        });
+        assert!(matches!(adoption, Adoption::Failed(_)));
+        assert!(legacy.join("profiles.json").exists());
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn only_a_missing_path_counts_as_missing() {
+        let base = TempDirectory::new("missing");
+        assert!(is_missing(&base.0.join("nothing")));
+        assert!(!is_missing(&base.0));
+        // A path below a file fails with NotADirectory, not NotFound.
+        let file = base.0.join("file");
+        std::fs::write(&file, "").unwrap();
+        assert!(!is_missing(&file.join("below")));
+    }
+
+    #[test]
+    fn keeps_the_legacy_directory_when_the_new_path_is_a_file() {
+        let base = TempDirectory::new("adopt-file");
+        let (legacy, target) = legacy_with_data(&base.0);
+        std::fs::write(&target, "not a directory").unwrap();
+        assert!(matches!(
+            adopt_legacy_dir(&legacy, &target),
+            Adoption::Failed(_)
+        ));
+        assert!(legacy.join("profiles.json").exists());
     }
 
     #[test]
@@ -290,25 +519,7 @@ mod tests {
 
     #[test]
     fn finds_the_database_of_the_first_profile_with_the_name() {
-        /// Removes the directory also when an assertion fails.
-        struct Cleanup(std::path::PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        // A directory left by an earlier run is skipped rather than reused.
-        let cleanup = (0..1000)
-            .map(|n| {
-                std::env::temp_dir()
-                    .join(format!("ferrofolio-user-data-{}-{n}", std::process::id()))
-            })
-            .find_map(|directory| {
-                std::fs::create_dir(&directory)
-                    .ok()
-                    .map(|()| Cleanup(directory))
-            })
-            .unwrap();
+        let cleanup = TempDirectory::new("user-data");
         let directory = cleanup.0.clone();
         std::fs::write(
             directory.join("profiles.json"),

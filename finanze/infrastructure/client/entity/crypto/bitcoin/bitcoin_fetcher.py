@@ -25,8 +25,6 @@ class BitcoinFetcher(CryptoEntityFetcher):
 
     def __init__(self):
         self._bc_client = BlockchainClient(self.SCALE)
-        # self._bstr_client = BlockstreamClient(self.SCALE)
-        # self._mps_client = SpaceClient("btc", "BTC", self.SCALE)
         self._log = logging.getLogger(__name__)
 
     async def fetch(self, request: CryptoFetchRequest) -> CryptoFetchResults:

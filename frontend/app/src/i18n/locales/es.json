@@ -34,6 +34,8 @@
     "dashboard": "Resumen",
     "transactions": "Transacciones",
     "entities": "Integraciones",
+    "integrations": "Integraciones",
+    "accounts": "Cuentas",
     "investments": "Inversiones",
     "myAssets": "Mis Activos",
     "stocksEtfs": "Acciones y ETFs",
@@ -1073,19 +1075,7 @@
               ". Este campo es **imprescindible**."
             ],
             [
-              "Como URL de Privacidad puedes usar ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/privacy/",
-                "url": "https://finanze.me/privacy/"
-              },
-              " y como URL de Términos ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/terms/",
-                "url": "https://finanze.me/terms/"
-              },
-              "."
+              "Para la **URL de Privacidad** y la **URL de Términos**, puedes introducir una dirección que controles; la pantalla de consentimiento muestra ambas al usuario."
             ],
             [
               "La clave privada de la aplicación en formato PEM se descargará automáticamente, ¡guárdala en un lugar seguro!"
@@ -1454,7 +1444,6 @@
     },
     "noDataTitle": "Aún no tienes datos",
     "noDataSubtitle": "Conecta tus entidades financieras en la sección de integraciones para el resumen, también puedes añadir manualmente o importar tus datos!",
-    "noDataButton": "Actualizar datos",
     "connectEntitiesButton": "Conectar entidades",
     "totalValue": "Valor total",
     "shareOfTotal": "Cuota del total",
@@ -3840,7 +3829,6 @@
       "fixedYears": "Años fijos",
       "fixedYearsLabel": "Años a tipo fijo",
       "fixedInterestRateLabel": "Tipo de interés fijo",
-      "monthlyInterest": "Intereses de la cuota",
       "fromLabel": "Desde",
       "untilLabel": "Hasta",
       "termShortcut": "Plazo",

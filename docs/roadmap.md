@@ -2,7 +2,7 @@
 
 Rust backend, web app as a PWA, native iOS app, an open licence and an agent-driven workflow.
 
-Last updated: 2026-11-20 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
+Last updated: 2026-11-21 · Fork point: Finanze `develop` at `d9761ed6` · Code measurements were taken at `c940caf2`, two commits earlier.
 
 This document holds the plan. Progress is tracked in one GitHub issue per workstream, labelled
 [`roadmap`](https://github.com/ferrofolio/ferrofolio/issues?q=is%3Aissue+label%3Aroadmap); a pull request does not
@@ -12,7 +12,7 @@ need an issue of its own.
 
 | Track | State | Tracking |
 |---|---|---|
-| Phase 0 – Independence | Nearly done: upstream services are off by default and a test fails on new references to `finanze.me`. Left: the data directory and three decisions | [#83](https://github.com/ferrofolio/ferrofolio/issues/83) |
+| Phase 0 – Independence | Nearly done: upstream services are off by default and a test fails on new references to `finanze.me`. Left: two decisions (section 9, rows 12 and 13) | [#83](https://github.com/ferrofolio/ferrofolio/issues/83) |
 | Phase 1 – Workflow and quality gates | In place, except end-to-end tests (off during the rewrite), secret scanning and workflow lint | [#84](https://github.com/ferrofolio/ferrofolio/issues/84) |
 | Phase 2 – Server mode and PWA | Capacitor, Pyodide and the desktop app are removed. Open: hardening, PWA, API contract | [#85](https://github.com/ferrofolio/ferrofolio/issues/85), [#86](https://github.com/ferrofolio/ferrofolio/issues/86), [#87](https://github.com/ferrofolio/ferrofolio/issues/87) |
 | Phase 3 – Rust foundation | Started ahead of phase 2: the Rust server is the entry point, holds the sessions and opens the database. Open: web app in Rust, end-to-end tests, spikes | [#88](https://github.com/ferrofolio/ferrofolio/issues/88) |
@@ -421,7 +421,7 @@ Nearly done; the rest is tracked in [#83](https://github.com/ferrofolio/ferrofol
 - Set up the `ferrofolio` organisation (section 3.1) and register the domain `ferrofolio.app` (done)
 - Repository `ferrofolio/ferrofolio` with the full history, `upstream` as a fetch-only remote (done)
 - Licence steps from section 3 (done)
-- Rename: name and icons (#54), web app (#26), backend texts (#27), images (#28) and the URL scheme `ferrofolio://` (#29) are done. Open: the default data directory `Finanze` in `finanze/args.py`, with a migration of existing data (#25 was closed without merging)
+- Rename: name and icons (#54), web app (#26), backend texts (#27), images (#28) and the URL scheme `ferrofolio://` (#29) are done, as is the default data directory: `Ferrofolio` instead of `Finanze`, into which an existing directory is moved once, in Python and the Rust server alike
 - Replace, self-host or remove upstream services:
 
 | Service | Action | Status |
@@ -651,7 +651,7 @@ Every Monday the `Upstream Review` workflow (`.github/workflows/upstream-review.
 | 8 | Scalable: talk to the interface directly or invoke the official CLI | Directly; clarify the terms of use first |
 | 9 | Reuse code from GiroCrab or contribute there | Read its connector code first, then decide |
 | 10 | The upstream cloud sign-in and backup code: delete it, although that removes `/api/v1` routes | Decided and done: deleted. The routes cannot work without the upstream service, so their removal is a deliberate exception to additive API changes, and they need no port. Ferrofolio's own sync comes with iOS stage B |
-| 11 | The default data directory `Finanze` | Rename it to `Ferrofolio` and move an existing directory once, in Python and the Rust server together |
+| 11 | The default data directory `Finanze` | Decided and done: renamed to `Ferrofolio`. Python and the Rust server move an existing `Finanze` directory once, unless the new one already holds something; if the move fails, the old directory stays in use |
 | 12 | Where the public keychain, ticker icons, crypto snapshot and historic metal prices come from | Decided: keep them configurable and off, and host nothing until a feature needs it. Each of the four stays an optional source (`FEATURE_FLAG_URL` for the keychain, the ticker icon source, `CRYPTO_DATASET_URL`, `METAL_RATES_URL`) with nothing configured by default |
 | 13 | Own GitHub, OpenAI and OpenRouter app identities | Decided and done: no own GitHub identity, because the GitHub sign-in is removed. It existed only for the GitHub Copilot provider, and a self-hosted instance has no reason to send the user through GitHub; the provider, its device-code routes and its stored credentials went with it, which is a deliberate exception to additive API changes. OpenAI and OpenRouter need no app identity: users bring an API key; the ChatGPT plan sign-in starts with a dynamic client ID and sends `Ferrofolio` as an agent name hint, while the upstream decides the registration and the name shown on the consent screen |
 
@@ -665,5 +665,5 @@ In order of priority; each step names the issue that tracks it.
 2. Turn the end-to-end tests back on against the image with the Rust entry point and make them a required check, so that the port has its acceptance test ([#84](https://github.com/ferrofolio/ferrofolio/issues/84)).
 3. Harden the sessions in Rust: cookie for the web app, devices, rate limit, CORS, TLS example ([#85](https://github.com/ferrofolio/ferrofolio/issues/85)). Then serve the web app from the Rust binary ([#88](https://github.com/ferrofolio/ferrofolio/issues/88)) and add the PWA ([#86](https://github.com/ferrofolio/ferrofolio/issues/86)).
 4. In parallel: enable "Agentic Investing" in a Scalable account, clarify the terms of use and start the `connectors-scalable` crate ([#89](https://github.com/ferrofolio/ferrofolio/issues/89)); try the Trade Republic v2 sign-in without the WAF token ([#90](https://github.com/ferrofolio/ferrofolio/issues/90)).
-5. Settle the open phase 0 decisions, rows 10 to 13 of section 9 ([#83](https://github.com/ferrofolio/ferrofolio/issues/83)).
+5. Settle the open phase 0 decisions, rows 12 and 13 of section 9 ([#83](https://github.com/ferrofolio/ferrofolio/issues/83)).
 6. Generate and publish the OpenAPI specification ([#87](https://github.com/ferrofolio/ferrofolio/issues/87)); once a Mac is available, start iOS stage A.

@@ -25,7 +25,6 @@ Flat fills only, no gradients, at most three colours per file.
 | `ferrofolio-logo-mono.svg`                    | Mark in one colour (`currentColor`: inherits the text colour when inlined, black in `<img>`)                                                                                                       |
 | `ferrofolio-logo-color.svg`                   | Mark on a rounded tile, three colours                                                                                                                                                              |
 | `ios/app-icon.svg`, `ios/app-icon-tinted.svg` | Sources of the iOS app icon, 1024 × 1024, full bleed, square corners                                                                                                                               |
-| `macos/app-icon.svg`                          | Source of the macOS app icon, 1024 × 1024, on the macOS icon grid (rounded tile, transparent margin)                                                                                               |
 | `ios/AppIcon.appiconset/`                     | Asset catalog for Xcode 16 and later: one 1024 px icon each for the default, dark and tinted appearance. Default and dark are identical; the dark entry is explicit so iOS does not derive its own |
 | `ios/icon-composer/{f,arrow}.svg`             | Foreground layers for Icon Composer (iOS 26 and later)                                                                                                                                             |
 | `ios/apple-touch-icon.png`                    | 180 × 180 home screen icon for the web app (PWA)                                                                                                                                                   |
@@ -51,14 +50,10 @@ rsvg-convert -w 1024 -h 1024 ios/app-icon-tinted.svg | magick png:- -alpha off -
 rsvg-convert -w 180 -h 180 ios/app-icon.svg | magick png:- -alpha off -strip PNG24:ios/apple-touch-icon.png
 ```
 
-The web app uses rendered copies as well, and `ferrofolio-macos.icns` is built from the macOS source. From the
+The web app uses rendered copies as well. From the
 repository root:
 
 ```bash
 rsvg-convert -w 1024 -h 1024 resources/logo/ios/app-icon.svg -o frontend/app/public/ferrofolio-app.png
 rsvg-convert -w 1024 -h 1024 frontend/app/public/ferrofolio-fg.svg -o frontend/app/public/ferrofolio-fg.png
-
-tmp=$(mktemp -d)
-for s in 16 32 48 128 256 512 1024; do rsvg-convert -w "$s" -h "$s" resources/logo/macos/app-icon.svg -o "$tmp/icon_$s.png"; done
-png2icns frontend/app/public/ferrofolio-macos.icns "$tmp"/icon_{16,32,48,128,256,512,1024}.png
 ```
