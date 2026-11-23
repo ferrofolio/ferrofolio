@@ -356,8 +356,8 @@ impl Sessions {
 
     /// Keeps the database a login opened, if the login still may (`may_unlock`).
     ///
-    /// Python can lock the data on its own, when a backup import fails, and a
-    /// login of another user then unlocks that user's data without a logout Rust
+    /// Python can lock the data on its own, when a change of the password fails, and
+    /// a login of another user then unlocks that user's data without a logout Rust
     /// saw. The sessions that came before belong to the other user, so they end
     /// here, before the login's own session starts, and no read with one of them
     /// reaches the new database (`with_database_of`).

@@ -137,7 +137,7 @@ header. Python reports `UNLOCKED` exactly when its data is unlocked and the requ
 |---|---|---|---|
 | A valid session, or API sessions off | `UNLOCKED` | Readable | Rust answers from its database |
 | A valid session, or API sessions off | `UNLOCKED` | `Locked`, `Replacing` or failing to open | Passed on to Python |
-| A valid session, or API sessions off | Anything else: locked, also on its own after a failed restore, or the request not authorised | Not read | Passed on to Python |
+| A valid session, or API sessions off | Anything else: locked, also on its own after a failed change of the password, or the request not authorised | Not read | Passed on to Python |
 | API sessions on, no valid session | Not asked | Not read | Passed on to Python |
 | | No answer, or no readable status | Not read | `502 BACKEND_UNAVAILABLE`, `504 BACKEND_TIMEOUT` after 30 seconds |
 

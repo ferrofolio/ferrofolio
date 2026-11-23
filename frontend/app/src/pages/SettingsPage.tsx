@@ -49,7 +49,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get("tab")
     if (tab === LEGACY_MCP_TAB) return AI_SETTINGS_TAB
-    // An unknown tab, such as the removed "cloud", would select no panel
+    // An unknown tab selects no panel of the fixed tabs.
     return tab && SETTINGS_TABS.includes(tab) ? tab : "general"
   })
 
