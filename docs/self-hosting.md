@@ -95,6 +95,11 @@ The upstream compose file named its services `finanze-server` and `finanze-front
 Run the upgrade in the directory that holds the existing `./.storage` folder, or copy that folder into the new
 checkout first: a new checkout starts with an empty `./.storage`. The old data is not deleted.
 
+The compose file passes `--data-dir`, so the data stays where it is. Without `--data-dir` the data directory is
+now `Ferrofolio` instead of `Finanze` in the user data location (`~/.local/share` on Linux); the first start moves an
+existing `Finanze` directory there, unless `Ferrofolio` already holds data. Logs go to `logs` in the data directory
+unless `--log-dir` is given.
+
 Ferrofolio has no upstream cloud sign-in or cloud backup, so these features are gone after the upgrade. The local
 data in `./.storage` is not affected.
 
