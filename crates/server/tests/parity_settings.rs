@@ -94,9 +94,9 @@ fn get_settings(token: Option<&str>) -> Request<Body> {
     builder.body(Body::empty()).unwrap()
 }
 
-/// With API sessions, Python locks the data on its own when a restore fails and
-/// keeps its sessions, as Rust keeps its own: a request with a valid session goes
-/// to Python with the session's backend token, and Rust reads nothing.
+/// With API sessions, Python locks the data on its own when a change of the password
+/// fails and keeps its sessions, as Rust keeps its own: a request with a valid session
+/// goes to Python with the session's backend token, and Rust reads nothing.
 #[tokio::test]
 async fn passes_requests_on_while_python_has_locked_the_data_on_its_own() {
     let fixtures = fixtures();
@@ -114,9 +114,9 @@ async fn passes_requests_on_while_python_has_locked_the_data_on_its_own() {
     );
 }
 
-/// Python locks the data on its own when a restore fails, and a login of another
-/// user then unlocks that user's data: the sessions of the first user end in
-/// Rust, so none of them reads the other user's database or reaches Python with
+/// Python locks the data on its own when a change of the password fails, and a login
+/// of another user then unlocks that user's data: the sessions of the first user end
+/// in Rust, so none of them reads the other user's database or reaches Python with
 /// its backend token.
 #[tokio::test]
 async fn a_login_of_another_user_ends_the_sessions_of_the_first() {
@@ -171,8 +171,8 @@ async fn passes_requests_on_as_the_client_sent_them() {
 }
 
 /// Without API sessions, Python can have the data unlocked while Rust has no
-/// database open, after a logout that raced a login or a guest's backup import:
-/// Python answers, with its own data.
+/// database open, after a logout that raced a login or a failed change of the
+/// password: Python answers, with its own data.
 #[tokio::test]
 async fn passes_requests_on_while_rust_has_no_database_open() {
     let fixtures = fixtures();

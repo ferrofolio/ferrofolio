@@ -9,7 +9,6 @@ import {
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import EntityIntegrationsPage from "@/pages/EntityIntegrationsPage"
 import SettingsPage from "@/pages/SettingsPage"
-import { FFStatus } from "@/types"
 import en from "@/i18n/locales/en.json"
 import es from "@/i18n/locales/es.json"
 import itTranslations from "@/i18n/locales/it.json"
@@ -314,37 +313,28 @@ describe("Settings integration migration", () => {
     },
   )
 
-  it.each([FFStatus.OFF, FFStatus.ON])(
-    "keeps the three settings tabs with the CLOUD flag %s",
-    cloud => {
-      state.app.featureFlags = { CLOUD: cloud }
-      renderRoute("/settings")
-      expect(
-        screen.getAllByRole("tab").map(tab => tab.textContent?.trim()),
-      ).toEqual([
-        en.settings.general,
-        en.settings.application,
-        en.settings.aiTab.title,
-      ])
-      expect(screen.getByRole("tablist")).toHaveClass("sm:grid-cols-3")
-      expect(
-        screen.queryByRole("tab", { name: en.settings.integrations }),
-      ).not.toBeInTheDocument()
-      expect(
-        screen.getByRole("tab", { name: en.settings.general }),
-      ).toHaveAttribute("aria-selected", "true")
-    },
-  )
+  it("keeps the settings tabs fixed", () => {
+    state.app.featureFlags = {}
+    renderRoute("/settings")
+    expect(
+      screen.getAllByRole("tab").map(tab => tab.textContent?.trim()),
+    ).toEqual([
+      en.settings.general,
+      en.settings.application,
+      en.settings.aiTab.title,
+    ])
+    expect(screen.getByRole("tablist")).toHaveClass("sm:grid-cols-3")
+    expect(
+      screen.getByRole("tab", { name: en.settings.general }),
+    ).toHaveAttribute("aria-selected", "true")
+  })
 
-  it.each(["cloud", "unknown"])(
-    "opens the general settings tab for the unknown tab %s",
-    tab => {
-      renderRoute(`/settings?tab=${tab}`)
-      expect(
-        screen.getByRole("tab", { name: en.settings.general }),
-      ).toHaveAttribute("aria-selected", "true")
-    },
-  )
+  it("opens the general settings tab for an unknown tab", () => {
+    renderRoute("/settings?tab=unknown")
+    expect(
+      screen.getByRole("tab", { name: en.settings.general }),
+    ).toHaveAttribute("aria-selected", "true")
+  })
 
   it("opens the AI & MCP settings tab from the legacy MCP link", () => {
     renderRoute("/settings?tab=mcp")

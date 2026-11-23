@@ -1075,19 +1075,7 @@
               ". This field is **so important**."
             ],
             [
-              "As Privacy URL you can use ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/privacy/",
-                "url": "https://finanze.me/privacy/"
-              },
-              " and as Terms URL ",
-              {
-                "type": "copylink",
-                "label": "https://finanze.me/terms/",
-                "url": "https://finanze.me/terms/"
-              },
-              "."
+              "For the **Privacy URL** and the **Terms URL** you can enter an address you control; the consent screen shows both to the user."
             ],
             [
               "The application's private key in PEM format will be downloaded automatically, keep it safe!"

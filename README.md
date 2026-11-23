@@ -142,6 +142,4 @@ Ferrofolio is derived from [Finanze](https://github.com/finanze/finanze). See [N
   heavily modified, this library has been vital for the entity integration.
 - Selenium reCAPTCHA resolution is based
   on [sarperavci/GoogleRecaptchaBypass](https://github.com/sarperavci/GoogleRecaptchaBypass/tree/selenium)
-  project, using a slightly modified version of Selenium version. In an attempt of using Playwright I made an adaptation
-  for it [here](finanze/infrastructure/client/entity/financial/mintos/recaptcha_solver_playwright.py), it works, but has some troubles
-  with headless mode.
+  project, using a slightly modified version of Selenium version.

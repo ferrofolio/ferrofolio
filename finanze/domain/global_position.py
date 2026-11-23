@@ -427,22 +427,6 @@ class CryptoCurrencyWallet(BaseData):
     hd_wallet: Optional[HDWallet] = None
 
 
-class CryptoInitialInvestmentType(str, Enum):
-    CRYPTO = "CRYPTO"
-    TOKEN = "TOKEN"
-
-
-@dataclass
-class CryptoInitialInvestment(BaseData):
-    wallet_connection_id: UUID
-    symbol: str
-    type: CryptoInitialInvestmentType
-    initial_investment: Optional[Dezimal]
-    average_buy_price: Optional[Dezimal]
-    investment_currency: str
-    currency: str
-
-
 class DerivativeContractType(str, Enum):
     PERPETUAL = "PERPETUAL"
     FUTURES = "FUTURES"

@@ -115,7 +115,7 @@ async fn login(
         // also one that a concurrent login overtook, and it refuses every login
         // with `409` while the data is unlocked, whoever it names; the data may
         // have been unlocked without a login Rust saw, by the automatic login at
-        // startup or a guest's backup import. Rust opens the database only if
+        // startup or a failed change of the password. Rust opens the database only if
         // Python reports the login's user as the one it unlocked, and the
         // password is checked by opening it.
         StatusCode::CONFLICT if !state.sessions.enabled() && !signup => {
@@ -519,11 +519,6 @@ mod tests {
             Some(ChangePassword)
         );
         assert_eq!(session_route(&Method::GET, "/api/v1/change-password"), None);
-        // The upstream cloud's backup import is gone and is forwarded like any route.
-        assert_eq!(
-            session_route(&Method::POST, "/api/v1/cloud/backup/import"),
-            None
-        );
         assert_eq!(session_route(&Method::POST, "/api/v1/login/"), None);
         assert_eq!(session_route(&Method::POST, "/api/v1/status"), None);
     }

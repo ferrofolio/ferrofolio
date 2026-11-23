@@ -4,8 +4,8 @@
 //! read the database").
 //!
 //! Until the cutover Python stays the authority on whether the data is unlocked: it
-//! locks and unlocks it without a request Rust sees (a failed restore, a guest's
-//! backup import), and Rust can have no database open while Python has (a logout
+//! locks and unlocks it without a request Rust sees (a failed change of the password),
+//! and Rust can have no database open while Python has (a logout
 //! racing a login, a request that replaces the database). Such a route therefore
 //! answers from Rust's connection only when Python reports the request as authorised
 //! on unlocked data and Rust can read its database; in every other case it passes
