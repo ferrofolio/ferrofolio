@@ -791,16 +791,49 @@ pub struct Commodity {
 #[derive(Debug, Clone)]
 pub struct UntypedJson(pub String);
 
+/// Python compares such a value as a `dict` or `list`: object keys in a different
+/// order are equal, and numbers compare by value, so `1` equals `1.0`. With
+/// `arbitrary_precision`, serde_json compares the stored number texts, so numbers
+/// are compared here as `Dezimal` instead, without going through a float.
+fn untyped_json_eq(left: &serde_json::Value, right: &serde_json::Value) -> bool {
+    match (left, right) {
+        (serde_json::Value::Number(left), serde_json::Value::Number(right)) => {
+            match (
+                Dezimal::from_python_str(&left.to_string()),
+                Dezimal::from_python_str(&right.to_string()),
+            ) {
+                (Ok(left), Ok(right)) => left == right,
+                _ => left == right,
+            }
+        }
+        (serde_json::Value::Array(left), serde_json::Value::Array(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| untyped_json_eq(left, right))
+        }
+        (serde_json::Value::Object(left), serde_json::Value::Object(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(key, value)| {
+                    right
+                        .get(key)
+                        .is_some_and(|other| untyped_json_eq(value, other))
+                })
+        }
+        _ => left == right,
+    }
+}
+
 impl PartialEq for UntypedJson {
-    /// Python compares such a value as a `dict` or `list`: two objects with the
-    /// same keys in a different order are equal. Compare the parsed values, but
-    /// keep the text as it is stored when either side is not JSON.
+    /// Compare the parsed values, but keep the text as it is stored when either
+    /// side is not JSON.
     fn eq(&self, other: &Self) -> bool {
         match (
             serde_json::from_str::<serde_json::Value>(&self.0),
             serde_json::from_str::<serde_json::Value>(&other.0),
         ) {
-            (Ok(left), Ok(right)) => left == right,
+            (Ok(left), Ok(right)) => untyped_json_eq(&left, &right),
             _ => self.0 == other.0,
         }
     }
@@ -1049,7 +1082,9 @@ mod tests {
         let one = UntypedJson(r#"{"ACTIVE":1,"LATE":2}"#.to_owned());
         let reordered = UntypedJson(r#"{"LATE":2,"ACTIVE":1}"#.to_owned());
         assert_eq!(one, reordered);
+        assert_eq!(one, UntypedJson(r#"{"LATE":2.0,"ACTIVE":1.00}"#.to_owned()));
         assert_ne!(one, UntypedJson(r#"{"ACTIVE":1}"#.to_owned()));
+        assert_ne!(one, UntypedJson(r#"{"ACTIVE":2,"LATE":2}"#.to_owned()));
         let unparsed = UntypedJson("not JSON".to_owned());
         assert_eq!(unparsed, UntypedJson("not JSON".to_owned()));
         assert_ne!(unparsed, one);
