@@ -40,11 +40,10 @@ use core_domain::exception::PositionError;
 use core_domain::external_integration::ExternalIntegrationId;
 use core_domain::fetch_record::DataSource;
 use core_domain::global_position::{
-    AccountType, AssetType, CardType, CreditDetail, CryptoCurrencyPosition,
-    CryptoInitialInvestmentType, Deposit, DerivativeContractType, EquityType, FactoringDetail,
-    FundDetail, FundType, InstallmentFrequency, InterestType, Loan, LoanType, MarginType,
-    PositionDirection, ProductType, RealEstateCFDetail, StockDetail, compute_investment_hash,
-    compute_loan_hash,
+    AccountType, AssetType, CardType, CreditDetail, CryptoCurrencyPosition, Deposit,
+    DerivativeContractType, EquityType, FactoringDetail, FundDetail, FundType,
+    InstallmentFrequency, InterestType, Loan, LoanType, MarginType, PositionDirection, ProductType,
+    RealEstateCFDetail, StockDetail, compute_investment_hash, compute_loan_hash,
 };
 use core_domain::profitability::{ProfitabilityTerms, annualized_profitability};
 use core_domain::public_key::{CoinType, ScriptType};
@@ -176,10 +175,6 @@ fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
         ("global_position.AccountType", values::<AccountType>()),
         ("global_position.AssetType", values::<AssetType>()),
         ("global_position.CardType", values::<CardType>()),
-        (
-            "global_position.CryptoInitialInvestmentType",
-            values::<CryptoInitialInvestmentType>(),
-        ),
         (
             "global_position.DerivativeContractType",
             values::<DerivativeContractType>(),
@@ -511,7 +506,7 @@ fn loans() {
                     Some(dezimal(&result["principal_paid"]))
                 );
                 assert_eq!(
-                    loan.compute_hash(text(&case["entity_id"])),
+                    loan.compute_hash(text(&case["entity_id"])).unwrap(),
                     text(&result["hash"])
                 );
             }

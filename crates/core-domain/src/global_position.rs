@@ -234,9 +234,29 @@ fn shake_128_hex(raw: &str) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn loan_hash(entity_id: &str, loan_amount: Dezimal, creation_date: &str) -> String {
-    let canonical_amount = loan_amount.to_fixed(2);
-    shake_128_hex(&format!("{entity_id}|{canonical_amount}|{creation_date}"))
+/// Largest power of ten whose plain-text expansion the hash formats. Python
+/// builds the whole expansion for `f"{amount:.2f}"`, so an amount such as
+/// `1e2147483647` would try to allocate gigabytes before hashing. Such an amount
+/// is refused here instead; see the deviations in docs/rust-backend.md.
+const MAX_HASH_EXPONENT: i32 = 1_000_000;
+
+/// The canonical amount of a hash, bounded before it is written in plain text.
+fn hash_amount(amount: Dezimal) -> Result<String, ParseDezimalError> {
+    if amount.exponent().unsigned_abs() > MAX_HASH_EXPONENT.unsigned_abs() {
+        return Err(ParseDezimalError);
+    }
+    Ok(amount.to_fixed(2))
+}
+
+fn loan_hash(
+    entity_id: &str,
+    loan_amount: Dezimal,
+    creation_date: &str,
+) -> Result<String, ParseDezimalError> {
+    let canonical_amount = hash_amount(loan_amount)?;
+    Ok(shake_128_hex(&format!(
+        "{entity_id}|{canonical_amount}|{creation_date}"
+    )))
 }
 
 /// `compute_loan_hash(entity_id, loan_amount, creation_date)`: the key that tells a
@@ -251,7 +271,7 @@ pub fn compute_loan_hash(
     creation_date: &str,
 ) -> Result<String, ParseDezimalError> {
     let amount = Dezimal::from_python_str(loan_amount)?;
-    Ok(loan_hash(entity_id, amount, creation_date))
+    loan_hash(entity_id, amount, creation_date)
 }
 
 /// `compute_investment_hash(entity_id, amount, start_date, name)`: the key of a
@@ -262,7 +282,7 @@ pub fn compute_investment_hash(
     start_date: &str,
     name: &str,
 ) -> Result<String, ParseDezimalError> {
-    let canonical_amount = Dezimal::from_python_str(amount)?.to_fixed(2);
+    let canonical_amount = hash_amount(Dezimal::from_python_str(amount)?)?;
     Ok(shake_128_hex(&format!(
         "{entity_id}|{canonical_amount}|{start_date}|{name}"
     )))
@@ -307,11 +327,11 @@ impl Loan {
 
     /// `compute_hash(entity_id)`: the loan's hash, computed from the entity, the
     /// amount and the creation date and kept unless one is set already.
-    pub fn compute_hash(&mut self, entity_id: &str) -> &str {
+    pub fn compute_hash(&mut self, entity_id: &str) -> Result<&str, ParseDezimalError> {
         if self.hash.is_empty() {
-            self.hash = loan_hash(entity_id, self.loan_amount, &self.creation.to_string());
+            self.hash = loan_hash(entity_id, self.loan_amount, &self.creation.to_string())?;
         }
-        &self.hash
+        Ok(&self.hash)
     }
 }
 
@@ -645,26 +665,6 @@ pub struct CryptoCurrencyWallet {
 }
 
 str_enum! {
-    /// `CryptoInitialInvestmentType`.
-    pub enum CryptoInitialInvestmentType {
-        Crypto = "CRYPTO",
-        Token = "TOKEN",
-    }
-}
-
-/// `CryptoInitialInvestment`: what the user paid for an asset in a wallet.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CryptoInitialInvestment {
-    pub wallet_connection_id: Uuid,
-    pub symbol: String,
-    pub r#type: CryptoInitialInvestmentType,
-    pub initial_investment: Option<Dezimal>,
-    pub average_buy_price: Option<Dezimal>,
-    pub investment_currency: String,
-    pub currency: String,
-}
-
-str_enum! {
     /// `DerivativeContractType`.
     pub enum DerivativeContractType {
         Perpetual = "PERPETUAL",
@@ -788,8 +788,23 @@ pub struct Commodity {
 
 /// A value Python keeps untyped and no domain logic reads, held as its JSON text,
 /// the form in which the database stores it and the API returns it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct UntypedJson(pub String);
+
+impl PartialEq for UntypedJson {
+    /// Python compares such a value as a `dict` or `list`: two objects with the
+    /// same keys in a different order are equal. Compare the parsed values, but
+    /// keep the text as it is stored when either side is not JSON.
+    fn eq(&self, other: &Self) -> bool {
+        match (
+            serde_json::from_str::<serde_json::Value>(&self.0),
+            serde_json::from_str::<serde_json::Value>(&other.0),
+        ) {
+            (Ok(left), Ok(right)) => left == right,
+            _ => self.0 == other.0,
+        }
+    }
+}
 
 /// `Crowdlending`: the summary of a crowdlending account.
 #[derive(Debug, Clone, PartialEq)]
@@ -1030,6 +1045,17 @@ mod tests {
     }
 
     #[test]
+    fn untyped_json_compares_by_value_not_by_text() {
+        let one = UntypedJson(r#"{"ACTIVE":1,"LATE":2}"#.to_owned());
+        let reordered = UntypedJson(r#"{"LATE":2,"ACTIVE":1}"#.to_owned());
+        assert_eq!(one, reordered);
+        assert_ne!(one, UntypedJson(r#"{"ACTIVE":1}"#.to_owned()));
+        let unparsed = UntypedJson("not JSON".to_owned());
+        assert_eq!(unparsed, UntypedJson("not JSON".to_owned()));
+        assert_ne!(unparsed, one);
+    }
+
+    #[test]
     fn defaults_match_python() {
         assert_eq!(InterestType::default(), InterestType::Fixed);
         assert_eq!(
@@ -1061,9 +1087,9 @@ mod tests {
     #[test]
     fn loan_hash_is_kept_once_computed() {
         let mut loan = loan("100.50", "50");
-        let hash = loan.compute_hash("x").to_owned();
+        let hash = loan.compute_hash("x").unwrap().to_owned();
         assert_eq!(hash, "83abe3144610487c25676151a50dccbc");
-        assert_eq!(loan.compute_hash("other"), hash);
+        assert_eq!(loan.compute_hash("other").unwrap(), hash);
         assert_eq!(compute_loan_hash("x", "100.5", "2020-01-02").unwrap(), hash);
     }
 
@@ -1075,6 +1101,16 @@ mod tests {
         );
         assert_eq!(
             compute_loan_hash("e", "abc", "2024-01-01"),
+            Err(ParseDezimalError)
+        );
+        // Python would try to write two billion digits for such an amount; the
+        // port refuses it before allocating, as a deviation in the docs.
+        assert_eq!(
+            compute_loan_hash("e", "1e2147483647", "2024-01-01"),
+            Err(ParseDezimalError)
+        );
+        assert_eq!(
+            compute_investment_hash("e", "1e-2147483648", "2024-01-01", "n"),
             Err(ParseDezimalError)
         );
     }

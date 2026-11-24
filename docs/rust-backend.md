@@ -109,16 +109,18 @@ The port follows Python's types:
 - `__post_init__` becomes a `post_init` method that takes the struct as written and returns it with the derived
   fields, or the error Python raises (`MissingFieldsError` or a decimal signal). `BaseData`, the base class of the
   positions, is not ported: its only method, `from_dict`, is called nowhere. `Crowdlending.distribution` and
-  `entries`, a `dict` and a `list` without types that no domain logic reads, hold their JSON text.
+  `entries`, a `dict` and a `list` without types that no domain logic reads, hold their JSON text, but compare by
+  parsed value, so object keys in a different order compare equal as in Python.
 - `Account`'s `Debug` output leaves out the IBAN, which must not reach a log.
 - Nothing in the domain reads the clock: where Python calls `datetime.now()`, the Rust function takes the time as a
   parameter, such as the `today` of `annualized_profitability` and of the `post_init` of factoring, real estate
   crowdfunding and deposits. `settings.rs` uses serde to write the shape Python stores; the other modules leave
   mapping to rows and to JSON to `infra-db` and `server`.
 
-Two differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
-which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. And
-`crypto_rate_key` changes the case of a symbol or contract address with the standard library of each language, and
+Three differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
+which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. An amount whose
+exponent is beyond one million is refused before the hash writes it in plain text, where Python would try to
+allocate the whole expansion; none of the recorded cases uses one. And `crypto_rate_key` changes the case of a symbol or contract address with the standard library of each language, and
 Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the 56 letters added in Unicode 17 change case in
 Rust and stay as they are in Python. No ticker symbol or hex address contains them.
 

@@ -25,7 +25,6 @@ str_enum! {
         Openai = "OPENAI",
         OpenaiCompatible = "OPENAI_COMPATIBLE",
         LocalModels = "LOCAL_MODELS",
-        GithubCopilot = "GITHUB_COPILOT",
         ClaudeAgent = "CLAUDE_AGENT",
         Chatgpt = "CHATGPT",
     }

@@ -117,6 +117,11 @@ impl Dezimal {
         parse_python_decimal(value)
     }
 
+    /// The power of ten of the coefficient, needed to bound a plain-text expansion.
+    pub const fn exponent(self) -> i32 {
+        self.exponent
+    }
+
     pub fn is_zero(self) -> bool {
         self.coefficient == 0
     }
@@ -195,11 +200,17 @@ impl Dezimal {
         }
         // The result has exactly `places` places, as in Python: 1.5 becomes 1.50
         // in cents. The check above keeps the scaled coefficient within 28 digits.
-        let shift = u32::try_from(i64::from(rounded.exponent) + places).unwrap_or(0);
-        let coefficient = 10_u128
-            .checked_pow(shift)
-            .and_then(|scale| rounded.coefficient.checked_mul(scale))
-            .ok_or(ArithmeticError::InvalidOperation)?;
+        // A zero needs no scaling factor: Python allows `0E-39`, although 10^39
+        // does not fit the coefficient. Keep the sign of a negative zero.
+        let coefficient = if rounded.is_zero() {
+            0
+        } else {
+            let shift = u32::try_from(i64::from(rounded.exponent) + places).unwrap_or(0);
+            10_u128
+                .checked_pow(shift)
+                .and_then(|scale| rounded.coefficient.checked_mul(scale))
+                .ok_or(ArithmeticError::InvalidOperation)?
+        };
         Ok(Dezimal {
             coefficient,
             exponent: i32::try_from(-places).map_err(|_| ArithmeticError::InvalidOperation)?,
@@ -1299,6 +1310,13 @@ mod tests {
             "29 digits"
         );
         assert!(d("1e23").round(4).is_ok());
+        // Python accepts `round(Decimal(0), 39)` although 10^39 does not fit a
+        // 128-bit coefficient; the scaled coefficient of a zero stays zero.
+        let zero = d("0").round(39).unwrap();
+        assert!(zero.is_zero());
+        assert_eq!(zero.exponent(), -39);
+        assert_eq!(zero.to_string().len(), 41);
+        assert_eq!(d("-0").round(39).unwrap().exponent(), -39);
     }
 
     #[test]
