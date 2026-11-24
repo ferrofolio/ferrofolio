@@ -6,58 +6,21 @@
 use crate::Dezimal;
 use crate::dates::Date;
 use crate::datetime::DateTime;
+use crate::str_enum::str_enum;
 
-/// `FlowFrequency`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FlowFrequency {
-    Daily,
-    Weekly,
-    Biweekly,
-    Semimonthly,
-    Monthly,
-    EveryTwoMonths,
-    Quarterly,
-    EveryFourMonths,
-    Semiannually,
-    Yearly,
-}
-
-impl FlowFrequency {
-    /// Every member, in the order Python declares them.
-    pub const ALL: [FlowFrequency; 10] = [
-        FlowFrequency::Daily,
-        FlowFrequency::Weekly,
-        FlowFrequency::Biweekly,
-        FlowFrequency::Semimonthly,
-        FlowFrequency::Monthly,
-        FlowFrequency::EveryTwoMonths,
-        FlowFrequency::Quarterly,
-        FlowFrequency::EveryFourMonths,
-        FlowFrequency::Semiannually,
-        FlowFrequency::Yearly,
-    ];
-
-    /// The member's value.
-    pub fn value(self) -> &'static str {
-        match self {
-            FlowFrequency::Daily => "DAILY",
-            FlowFrequency::Weekly => "WEEKLY",
-            FlowFrequency::Biweekly => "BIWEEKLY",
-            FlowFrequency::Semimonthly => "SEMIMONTHLY",
-            FlowFrequency::Monthly => "MONTHLY",
-            FlowFrequency::EveryTwoMonths => "EVERY_TWO_MONTHS",
-            FlowFrequency::Quarterly => "QUARTERLY",
-            FlowFrequency::EveryFourMonths => "EVERY_FOUR_MONTHS",
-            FlowFrequency::Semiannually => "SEMIANNUALLY",
-            FlowFrequency::Yearly => "YEARLY",
-        }
-    }
-
-    /// `FlowFrequency(value)`: the member with exactly this value.
-    pub fn parse(value: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|frequency| frequency.value() == value)
+str_enum! {
+    /// `FlowFrequency`: how often a periodic flow recurs.
+    pub enum FlowFrequency {
+        Daily = "DAILY",
+        Weekly = "WEEKLY",
+        Biweekly = "BIWEEKLY",
+        Semimonthly = "SEMIMONTHLY",
+        Monthly = "MONTHLY",
+        EveryTwoMonths = "EVERY_TWO_MONTHS",
+        Quarterly = "QUARTERLY",
+        EveryFourMonths = "EVERY_FOUR_MONTHS",
+        Semiannually = "SEMIANNUALLY",
+        Yearly = "YEARLY",
     }
 }
 
@@ -257,9 +220,12 @@ mod tests {
     #[test]
     fn parses_exactly_the_values() {
         for frequency in FlowFrequency::ALL {
-            assert_eq!(FlowFrequency::parse(frequency.value()), Some(frequency));
+            assert_eq!(
+                FlowFrequency::from_value(frequency.as_str()),
+                Some(*frequency)
+            );
         }
-        assert_eq!(FlowFrequency::parse("monthly"), None);
+        assert_eq!(FlowFrequency::from_value("monthly"), None);
         assert_eq!(FlowType::parse("EXPENSE"), Some(FlowType::Expense));
         assert_eq!(FlowType::parse("Earning"), None);
         for status in FlowStatus::ALL {

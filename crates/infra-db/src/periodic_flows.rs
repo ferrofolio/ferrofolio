@@ -91,7 +91,7 @@ pub fn map_row(row: &StoredFlow<'_>) -> Read<PeriodicFlow> {
         currency: required(row.currency, "currency")?.to_owned(),
         flow_type: FlowType::parse(required(row.flow_type, "flow type")?)
             .ok_or_else(|| "flow type".to_owned())?,
-        frequency: FlowFrequency::parse(required(row.frequency, "frequency")?)
+        frequency: FlowFrequency::from_value(required(row.frequency, "frequency")?)
             .ok_or_else(|| "frequency".to_owned())?,
         category: text(row.category, "category")?.map(str::to_owned),
         enabled: flag(row.enabled, "enabled")?,

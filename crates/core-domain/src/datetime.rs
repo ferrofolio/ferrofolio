@@ -12,6 +12,8 @@
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 
+use crate::dates::Date;
+
 const MIN_YEAR: i64 = 1;
 const MAX_YEAR: i64 = 9999;
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -64,7 +66,7 @@ impl UtcOffset {
 }
 
 /// A `datetime`, naive or with a fixed offset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct DateTime {
     year: i64,
     month: i64,
@@ -75,6 +77,28 @@ pub struct DateTime {
     microsecond: i64,
     offset: Option<UtcOffset>,
 }
+
+impl PartialEq for DateTime {
+    /// Python compares two aware datetimes by instant, two naive ones by their
+    /// wall time, and never equates a naive and an aware one.
+    fn eq(&self, other: &Self) -> bool {
+        match (self.offset, other.offset) {
+            (Some(_), Some(_)) => self.timestamp_micros() == other.timestamp_micros(),
+            (None, None) => {
+                self.year == other.year
+                    && self.month == other.month
+                    && self.day == other.day
+                    && self.hour == other.hour
+                    && self.minute == other.minute
+                    && self.second == other.second
+                    && self.microsecond == other.microsecond
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for DateTime {}
 
 /// A string `datetime.fromisoformat` rejects with a `ValueError`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -198,6 +222,15 @@ impl DateTime {
     }
 
     /// The offset of an aware datetime.
+    /// The calendar date of this value, as Python's `datetime.date()` gives it:
+    /// the date in the value's own offset, without a conversion to UTC.
+    pub fn date(&self) -> Option<Date> {
+        let year = i16::try_from(self.year).ok()?;
+        let month = i8::try_from(self.month).ok()?;
+        let day = i8::try_from(self.day).ok()?;
+        Date::new(year, month, day).ok()
+    }
+
     pub fn offset(&self) -> Option<UtcOffset> {
         self.offset
     }
@@ -673,6 +706,19 @@ impl Local<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn aware_values_compare_by_instant() {
+        let utc = DateTime::from_isoformat("2024-01-01T12:00:00+00:00").unwrap();
+        let cet = DateTime::from_isoformat("2024-01-01T13:00:00+01:00").unwrap();
+        let naive = DateTime::from_isoformat("2024-01-01T12:00:00").unwrap();
+        assert_eq!(utc, cet);
+        assert_ne!(utc, naive);
+        assert_ne!(
+            cet,
+            DateTime::from_isoformat("2024-01-01T12:00:00+01:00").unwrap()
+        );
+    }
 
     #[test]
     fn an_offset_is_less_than_a_day_either_way() {

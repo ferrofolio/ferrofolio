@@ -1,0 +1,184 @@
+{
+  "commodity.CommodityType": [
+    "GOLD",
+    "SILVER",
+    "PLATINUM",
+    "PALLADIUM"
+  ],
+  "commodity.WeightUnit": [
+    "GRAM",
+    "TROY_OUNCE"
+  ],
+  "crypto.CryptoCurrencyType": [
+    "NATIVE",
+    "TOKEN"
+  ],
+  "crypto.CryptoPositionType": [
+    "HOLDING",
+    "SUPPLIED",
+    "BORROWED",
+    "STAKED",
+    "LP",
+    "REWARD"
+  ],
+  "crypto.AddressSource": [
+    "DERIVED",
+    "MANUAL"
+  ],
+  "crypto.CryptoWalletConnectionFailureCode": [
+    "ADDRESS_ALREADY_EXISTS",
+    "ADDRESS_NOT_FOUND",
+    "XPUB_ALREADY_EXISTS",
+    "TOO_MANY_REQUESTS",
+    "UNEXPECTED_ERROR"
+  ],
+  "entity.Feature": [
+    "POSITION",
+    "AUTO_CONTRIBUTIONS",
+    "TRANSACTIONS",
+    "HISTORIC"
+  ],
+  "entity.TransactionKind": [
+    "ACCOUNT",
+    "INVESTMENT"
+  ],
+  "entity.EntityType": [
+    "FINANCIAL_INSTITUTION",
+    "CRYPTO_WALLET",
+    "CRYPTO_EXCHANGE",
+    "MARKET_FORECAST_PLATFORM",
+    "COMMODITY"
+  ],
+  "entity.EntityOrigin": [
+    "MANUAL",
+    "NATIVE",
+    "EXTERNALLY_PROVIDED",
+    "INTERNAL"
+  ],
+  "fetch_record.DataSource": [
+    "SHEETS",
+    "MANUAL",
+    "REAL"
+  ],
+  "global_position.ProductType": [
+    "ACCOUNT",
+    "CARD",
+    "LOAN",
+    "STOCK_ETF",
+    "FUND",
+    "FUND_PORTFOLIO",
+    "DEPOSIT",
+    "FACTORING",
+    "REAL_ESTATE_CF",
+    "CROWDLENDING",
+    "CRYPTO",
+    "COMMODITY",
+    "BOND",
+    "CREDIT",
+    "DERIVATIVE",
+    "MARKET_FORECAST"
+  ],
+  "global_position.AccountType": [
+    "CHECKING",
+    "VIRTUAL_WALLET",
+    "BROKERAGE",
+    "SAVINGS",
+    "FUND_PORTFOLIO"
+  ],
+  "global_position.CardType": [
+    "CREDIT",
+    "DEBIT"
+  ],
+  "global_position.LoanType": [
+    "MORTGAGE",
+    "STANDARD"
+  ],
+  "global_position.InterestType": [
+    "FIXED",
+    "VARIABLE",
+    "MIXED"
+  ],
+  "global_position.InstallmentFrequency": [
+    "WEEKLY",
+    "BIWEEKLY",
+    "SEMIMONTHLY",
+    "MONTHLY",
+    "BIMONTHLY",
+    "QUARTERLY",
+    "SEMIANNUAL",
+    "YEARLY"
+  ],
+  "global_position.AssetType": [
+    "EQUITY",
+    "FIXED_INCOME",
+    "MONEY_MARKET",
+    "MIXED",
+    "OTHER"
+  ],
+  "global_position.FundType": [
+    "MUTUAL_FUND",
+    "PRIVATE_EQUITY",
+    "PENSION_FUND"
+  ],
+  "global_position.EquityType": [
+    "STOCK",
+    "ETF"
+  ],
+  "global_position.DerivativeContractType": [
+    "PERPETUAL",
+    "FUTURES",
+    "KNOCK_OUT",
+    "FACTOR",
+    "WARRANT",
+    "OPTIONS",
+    "CFD",
+    "OTHER"
+  ],
+  "global_position.PositionDirection": [
+    "LONG",
+    "SHORT"
+  ],
+  "global_position.MarginType": [
+    "CROSS",
+    "ISOLATED"
+  ],
+  "public_key.CoinType": [
+    "BITCOIN",
+    "LITECOIN"
+  ],
+  "public_key.ScriptType": [
+    "p2pkh",
+    "p2sh-p2wpkh",
+    "p2wpkh",
+    "p2tr"
+  ],
+  "earnings_expenses.FlowFrequency": [
+    "DAILY",
+    "WEEKLY",
+    "BIWEEKLY",
+    "SEMIMONTHLY",
+    "MONTHLY",
+    "EVERY_TWO_MONTHS",
+    "QUARTERLY",
+    "EVERY_FOUR_MONTHS",
+    "SEMIANNUALLY",
+    "YEARLY"
+  ],
+  "external_integration.ExternalIntegrationId": [
+    "GOOGLE_SHEETS",
+    "ETHERSCAN",
+    "ETHPLORER",
+    "ZERION",
+    "GOCARDLESS",
+    "ENABLE_BANKING",
+    "COINGECKO",
+    "COINMARKETCAP",
+    "CRYPTOCOMPARE",
+    "OPENROUTER",
+    "OPENAI",
+    "OPENAI_COMPATIBLE",
+    "LOCAL_MODELS",
+    "CLAUDE_AGENT",
+    "CHATGPT"
+  ]
+}

@@ -99,12 +99,27 @@ impl Dezimal {
         }
     }
 
+    /// `value × 10^-scale`, exactly: `from_scaled(19, 2)` is 0.19. A `const`
+    /// constructor for the domain's fixed rates and factors.
+    pub const fn from_scaled(value: i64, scale: u16) -> Self {
+        Dezimal {
+            negative: value < 0,
+            coefficient: value.unsigned_abs() as u128,
+            exponent: -(scale as i32),
+        }
+    }
+
     /// Parses a string the way Python's `Decimal(str)` does for finite numbers:
     /// surrounding whitespace, a sign, underscores, digits of any script and an
     /// exponent are accepted. `NaN` and `Infinity` are rejected, because money is
     /// always finite, and so are numbers with more than 38 significant digits.
     pub fn from_python_str(value: &str) -> Result<Self, ParseDezimalError> {
         parse_python_decimal(value)
+    }
+
+    /// The power of ten of the coefficient, needed to bound a plain-text expansion.
+    pub const fn exponent(self) -> i32 {
+        self.exponent
     }
 
     pub fn is_zero(self) -> bool {
@@ -136,17 +151,18 @@ impl Dezimal {
     /// Rounds to `places` decimal places with Python's `ROUND_HALF_UP`, which rounds
     /// ties away from zero. A value with fewer places is returned unchanged.
     pub fn round_half_up(self, places: u32) -> Self {
+        self.round_places(places, Rounding::HalfUp)
+    }
+
+    /// Rounds to `places` decimal places; a value with fewer places is returned
+    /// unchanged.
+    fn round_places(self, places: u32, rounding: Rounding) -> Self {
         let target = -i64::from(places);
         if i64::from(self.exponent) >= target {
             return self;
         }
         let drop = u32::try_from(target - i64::from(self.exponent)).unwrap_or(u32::MAX);
-        let (quotient, _) = round_off(
-            self.coefficient.as_::<U256>(),
-            drop,
-            false,
-            Rounding::HalfUp,
-        );
+        let (quotient, _) = round_off(self.coefficient.as_::<U256>(), drop, false, rounding);
         Dezimal {
             negative: self.negative,
             coefficient: quotient.try_into().unwrap_or(0),
@@ -158,27 +174,70 @@ impl Dezimal {
     ///
     /// Fails like Python does when the result has more than 28 digits.
     pub fn round_cents(self) -> Result<Self, ArithmeticError> {
-        let rounded = self.round_half_up(2);
-        // The quantized coefficient counts every digit down to the cents, also
-        // those a large value only has as trailing zeros (1E+26 has 29).
+        self.quantize(2, Rounding::HalfUp)
+    }
+
+    /// `round(value, places)` in Python: the value quantized to `places` decimal
+    /// places with the context's `ROUND_HALF_EVEN`, which rounds ties to the even
+    /// digit, so `round(0.125, 2)` is 0.12. The result has exactly `places` places.
+    /// `places` is nonnegative: Python also rounds to tens with a negative number
+    /// of places, which this port does not support. A zero is quantized without a
+    /// scaling factor, so `round(0, 39)` succeeds although 10^39 does not fit the
+    /// coefficient.
+    ///
+    /// Fails like Python does when a nonzero result has more than 28 digits.
+    pub fn round(self, places: u32) -> Result<Self, ArithmeticError> {
+        self.quantize(places, Rounding::HalfEven)
+    }
+
+    /// `value.quantize(Decimal(10) ** -places, rounding)`.
+    fn quantize(self, places: u32, rounding: Rounding) -> Result<Self, ArithmeticError> {
+        let rounded = self.round_places(places, rounding);
+        let places = i64::from(places);
+        // The quantized coefficient counts every digit down to the last place, also
+        // those a large value only has as trailing zeros (1E+26 has 29 to the cents).
         if !rounded.is_zero() {
             let length = i64::from(digits(rounded.coefficient.as_::<U256>()));
-            if i64::from(rounded.exponent) + 2 + length > i64::from(PRECISION) {
+            if i64::from(rounded.exponent) + places + length > i64::from(PRECISION) {
                 return Err(ArithmeticError::InvalidOperation);
             }
         }
-        // The result has exactly two places, as in Python: 1.5 becomes 1.50. The
-        // check above keeps the scaled coefficient within 28 digits.
-        let shift = u32::try_from(i64::from(rounded.exponent) + 2).unwrap_or(0);
-        let coefficient = 10_u128
-            .checked_pow(shift)
-            .and_then(|scale| rounded.coefficient.checked_mul(scale))
-            .ok_or(ArithmeticError::InvalidOperation)?;
+        // The result has exactly `places` places, as in Python: 1.5 becomes 1.50
+        // in cents. The check above keeps the scaled coefficient within 28 digits.
+        // A zero needs no scaling factor: Python allows `0E-39`, although 10^39
+        // does not fit the coefficient. Keep the sign of a negative zero.
+        let coefficient = if rounded.is_zero() {
+            0
+        } else {
+            let shift = u32::try_from(i64::from(rounded.exponent) + places).unwrap_or(0);
+            10_u128
+                .checked_pow(shift)
+                .and_then(|scale| rounded.coefficient.checked_mul(scale))
+                .ok_or(ArithmeticError::InvalidOperation)?
+        };
         Ok(Dezimal {
             coefficient,
-            exponent: -2,
+            exponent: i32::try_from(-places).map_err(|_| ArithmeticError::InvalidOperation)?,
             ..rounded
         })
+    }
+
+    /// `f"{value:.{places}f}"` in Python: the value in plain notation with exactly
+    /// `places` decimal places, rounded with `ROUND_HALF_EVEN` and, unlike
+    /// [`round`](Self::round), without a limit on the digits. The sign of a negative
+    /// value that rounds to zero is kept: -0.001 gives `-0.00`.
+    pub fn to_fixed(self, places: u32) -> String {
+        let rounded = self.round_places(places, Rounding::HalfEven);
+        let mut text = rounded.to_string();
+        // Rounding left at most `places` places; pad to exactly that many.
+        let written = u32::try_from(-i64::from(rounded.exponent)).unwrap_or(0);
+        if places > 0 && written == 0 {
+            text.push('.');
+        }
+        for _ in written..places {
+            text.push('0');
+        }
+        text
     }
 
     /// The nearest binary float, like Python's `float(Dezimal)`.
@@ -1230,6 +1289,50 @@ mod tests {
             "0.002916666666666666666666666667"
         );
         assert_eq!((d("1E+30") + d("1E-30")).value().unwrap(), d("1E+30"));
+    }
+
+    #[test]
+    fn scaled_constants_are_exact() {
+        assert_eq!(Dezimal::from_scaled(19, 2), d("0.19"));
+        assert_eq!(Dezimal::from_scaled(-5, 0), d("-5"));
+        assert_eq!(
+            Dezimal::from_scaled(311_034_768, 7).to_string(),
+            "31.1034768"
+        );
+    }
+
+    #[test]
+    fn rounds_half_even_like_python_round() {
+        assert_eq!(d("0.125").round(2).unwrap().to_string(), "0.12");
+        assert_eq!(d("0.135").round(2).unwrap().to_string(), "0.14");
+        assert_eq!(d("1.5").round(2).unwrap().to_string(), "1.50");
+        assert_eq!(d("-0.00005").round(4).unwrap().to_string(), "-0.0000");
+        assert_eq!(d("2.5").round(0).unwrap().to_string(), "2");
+        assert_eq!(
+            d("1e24").round(4),
+            Err(ArithmeticError::InvalidOperation),
+            "29 digits"
+        );
+        assert!(d("1e23").round(4).is_ok());
+        // Python accepts `round(Decimal(0), 39)` although 10^39 does not fit a
+        // 128-bit coefficient; the scaled coefficient of a zero stays zero.
+        let zero = d("0").round(39).unwrap();
+        assert!(zero.is_zero());
+        assert_eq!(zero.exponent(), -39);
+        assert_eq!(zero.to_string().len(), 41);
+        assert_eq!(d("-0").round(39).unwrap().exponent(), -39);
+    }
+
+    #[test]
+    fn formats_fixed_places_like_python() {
+        assert_eq!(d("0.125").to_fixed(2), "0.12");
+        assert_eq!(d("0.135").to_fixed(2), "0.14");
+        assert_eq!(d("100").to_fixed(2), "100.00");
+        assert_eq!(d("1.5").to_fixed(2), "1.50");
+        assert_eq!(d("-0.001").to_fixed(2), "-0.00");
+        assert_eq!(d("1e30").to_fixed(2), "1000000000000000000000000000000.00");
+        assert_eq!(d("12.5").to_fixed(0), "12");
+        assert_eq!(d("0").to_fixed(3), "0.000");
     }
 
     #[test]
