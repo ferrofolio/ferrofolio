@@ -86,7 +86,7 @@ the routes that need them (the read paths of phase 4, slice 2, need the position
 
 | Python module | Ported |
 |---|---|
-| `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `global_position.py`, `profitability.py`, `public_key.py` | Completely |
+| `auto_contributions.py`, `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `global_position.py`, `profitability.py`, `public_key.py` | Completely |
 | `calculations.py`, `loan_calculator.py` | The types of the calculators |
 | `dezimal.py` | See above; `round(value, n)` is `Dezimal::round` for nonnegative `n` (Python also rounds to tens with a negative `n`), `f"{value:.2f}"` is `Dezimal::to_fixed` |
 | `earnings_expenses.py` | `FlowFrequency` |
@@ -149,6 +149,7 @@ updates together with this table.
 | `GET /api/v1/labeling/rules` | `routes/get_labeling_rules.py`, `use_cases/get_labeling_rules.py`, `repository/labeling/labeling_rule_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored conditions on |
 | `GET /api/v1/flows/periodic` | `routes/get_periodic_flows.py`, `use_cases/get_periodic_flows.py`, `repository/earnings_expenses/periodic_flow_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values on |
 | `GET /api/v1/flows/pending` | `routes/get_pending_flows.py`, `use_cases/query_pending_flows.py`, `repository/earnings_expenses/pending_flow_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values and pages beyond `i64` on |
+| `GET /api/v1/contributions` | `routes/contributions.py`, `use_cases/get_contributions.py`, `repository/auto_contributions/auto_contributions_repository.py` | Read paths (phase 4, slice 2); reads the database, passes unusual stored values and entity ids pydantic rejects on |
 
 The list in code is `PORTED_ROUTES` in `crates/server/src/app.rs`; `crates/server/ported_routes.json` repeats it for
 `tests/unit/infrastructure/controller/test_ported_routes.py`, which checks that Python still declares every ported
@@ -222,6 +223,8 @@ record as "other" (such as braced UUIDs and `" 1_000.5 "`), and passes the remai
 flow's next date with the server's clock, as `date.today()` does in Python, and passes the request on where Python's
 date arithmetic leaves the range of `date`, which Python answers with `500`. The query has no `ORDER BY`, as in
 Python, so Rust sends the same statement and gets the flows in the same order.
+
+The contributions are read the same way. The repository applies the same filters as the Python query, with bound parameters for the entity ids; rows in a form its writer does not produce go to Python. The route passes an `entity` filter Python's `UUID` validation rejects on, because the validation happens in pydantic when the query object is built, before the database is read. The next date of a contribution uses the server's clock, as `date.today()` does in Python, and a contribution whose date arithmetic leaves the range of `date` is passed on.
 
 The pending flows are read the same way. The time of the last status change is read only in the form
 `datetime.isoformat()` writes it and gives back unchanged, with an offset of whole minutes; pydantic reads other

@@ -6,6 +6,7 @@
 //! the routes that use them move to Rust (docs/roadmap.md, section 6); each module
 //! is named after its Python module.
 
+pub mod auto_contributions;
 pub mod calculations;
 pub mod commodity;
 pub mod constants;

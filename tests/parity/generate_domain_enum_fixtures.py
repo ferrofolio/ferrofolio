@@ -39,6 +39,7 @@ sys.path.insert(0, str(ROOT / "finanze"))
 # packages that a developer running the wrong Python may not have installed.
 require_ci_python()
 
+import domain.auto_contributions as auto_contributions  # noqa: E402
 import domain.commodity as commodity  # noqa: E402
 import domain.constants as constants  # noqa: E402
 import domain.crypto as crypto  # noqa: E402
@@ -58,6 +59,7 @@ CASES = "domain_cases.json"
 
 # Modules ported completely: every enum they define must exist in Rust.
 COMPLETE_MODULES = [
+    auto_contributions,
     commodity,
     crypto,
     entity,

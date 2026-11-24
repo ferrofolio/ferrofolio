@@ -1,4 +1,27 @@
 {
+  "auto_contributions.ContributionFrequency": [
+    "WEEKLY",
+    "BIWEEKLY",
+    "MONTHLY",
+    "BIMONTHLY",
+    "EVERY_FOUR_MONTHS",
+    "QUARTERLY",
+    "SEMIANNUAL",
+    "YEARLY"
+  ],
+  "auto_contributions.ContributionTargetType": [
+    "STOCK_ETF",
+    "FUND",
+    "FUND_PORTFOLIO",
+    "CRYPTO"
+  ],
+  "auto_contributions.ContributionTargetSubtype": [
+    "STOCK",
+    "ETF",
+    "MUTUAL_FUND",
+    "PRIVATE_EQUITY",
+    "PENSION_FUND"
+  ],
   "commodity.CommodityType": [
     "GOLD",
     "SILVER",

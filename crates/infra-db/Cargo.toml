@@ -13,6 +13,8 @@ workspace = true
 [dependencies]
 core-app.workspace = true
 core-domain.workspace = true
+# Contributions are grouped into a Python dict, which keeps insertion order.
+indexmap = "2.14.2"
 jiff = "1.0.1"
 rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher"] }
 # Stored settings sections are JSON; numbers keep the digits Python wrote.
