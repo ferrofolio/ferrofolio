@@ -28,9 +28,11 @@ pub struct ProfitabilityTerms {
 /// The interest rate counts from the start to the maturity. Once `today` has reached
 /// the maturity, an extension to a later maturity counts with its own rate, else
 /// with the interest rate. A late interest rate counts the days after the last
-/// maturity up to `today`, the date Python takes from the local clock. Without any
-/// of these the result is zero. Fails like Python when the arithmetic leaves the
-/// decimal range.
+/// maturity up to `today`, the date Python takes from the local clock. As in Python,
+/// an `extended_maturity` that is not later than `maturity` still anchors the late
+/// interest, so those days can count twice; the port keeps that rule rather than
+/// changing Python's behaviour. Without any of these the result is zero. Fails like
+/// Python when the arithmetic leaves the decimal range.
 pub fn annualized_profitability(
     terms: &ProfitabilityTerms,
     today: Date,
@@ -138,6 +140,25 @@ mod tests {
         assert_eq!(
             annualized_profitability(&terms, date("2024-01-25")).unwrap(),
             d("0.008")
+        );
+    }
+
+    #[test]
+    fn an_earlier_extension_anchors_the_late_interest_as_in_python() {
+        let terms = ProfitabilityTerms {
+            interest_rate: Some(d("0.073")),
+            start_dt: start("2024-01-01T00:00:00"),
+            maturity: Some(date("2024-01-11")),
+            extended_maturity: Some(date("2024-01-06")),
+            late_interest_rate: Some(d("0.365")),
+            ..ProfitabilityTerms::default()
+        };
+        // The extension is not later than the maturity, so it earns no extension
+        // interest; the late rate still starts on 6 January, counting two days
+        // that the base term also counts.
+        assert_eq!(
+            annualized_profitability(&terms, date("2024-01-08")).unwrap(),
+            d("0.004")
         );
     }
 

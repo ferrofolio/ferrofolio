@@ -88,7 +88,7 @@ the routes that need them (the read paths of phase 4, slice 2, need the position
 |---|---|
 | `commodity.py`, `constants.py`, `crypto.py`, `entity.py`, `entity_account.py`, `fetch_record.py`, `global_position.py`, `profitability.py`, `public_key.py` | Completely |
 | `calculations.py`, `loan_calculator.py` | The types of the calculators |
-| `dezimal.py` | See above; `round(value, n)` is `Dezimal::round`, `f"{value:.2f}"` is `Dezimal::to_fixed` |
+| `dezimal.py` | See above; `round(value, n)` is `Dezimal::round` for nonnegative `n` (Python also rounds to tens with a negative `n`), `f"{value:.2f}"` is `Dezimal::to_fixed` |
 | `earnings_expenses.py` | `FlowFrequency` |
 | `external_integration.py` | `ExternalIntegrationId`, `ExternalIntegrationPayload`, `EnabledExternalIntegrations` |
 
@@ -117,18 +117,22 @@ The port follows Python's types:
   crowdfunding and deposits. `settings.rs` uses serde to write the shape Python stores; the other modules leave
   mapping to rows and to JSON to `infra-db` and `server`.
 
-Three differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
+Four differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
 which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. An amount whose
 exponent is beyond one million is refused before the hash writes it in plain text, where Python would try to
-allocate the whole expansion; none of the recorded cases uses one. And `crypto_rate_key` changes the case of a symbol or contract address with the standard library of each language, and
-Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the 56 letters added in Unicode 17 change case in
-Rust and stay as they are in Python. No ticker symbol or hex address contains them.
+allocate the whole expansion; none of the recorded cases uses one. A crypto fetch merge that overflows leaves
+Python's left operand partly updated from before the error, while Rust consumes its operands and exposes no partial
+result, so callers must not rely on that state. And `crypto_rate_key` changes the case of a symbol or contract address
+with the standard library of each language, and Rust 1.99 knows Unicode 17 while Python 3.14 knows Unicode 16, so the
+56 letters added in Unicode 17 change case in Rust and stay as they are in Python. No ticker symbol or hex address
+contains them.
 
 `tests/parity/generate_domain_enum_fixtures.py` writes `domain_enums.json`, every enum of the ported modules with its
 values in order (for a completely ported module every enum it defines, so a new one makes `--check` fail), and
-`domain_cases.json`, inputs and Python's outputs for every function with logic, with a fixed date where Python
-reads the clock; `crates/core-domain/tests/domain_parity.rs` requires Rust to have the same enums and compute the same
-outputs. CI runs the generator with `--check`.
+`domain_cases.json`, inputs and Python's outputs for the functions the generator has cases for, with a fixed date
+where Python reads the clock; `crates/core-domain/tests/domain_parity.rs` requires Rust to have the same enums and
+compute the same outputs of those cases. Not every function with logic has a case, for example the date a
+`GlobalPosition` takes when none is supplied; CI checks only what the generator records. It runs with `--check`.
 
 ## Ported routes
 

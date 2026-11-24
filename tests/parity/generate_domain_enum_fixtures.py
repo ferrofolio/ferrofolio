@@ -35,6 +35,10 @@ from ci_python import require_ci_python
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "finanze"))
 
+# Check the interpreter before importing the domain modules: they need third-party
+# packages that a developer running the wrong Python may not have installed.
+require_ci_python()
+
 import domain.commodity as commodity  # noqa: E402
 import domain.constants as constants  # noqa: E402
 import domain.crypto as crypto  # noqa: E402
@@ -1097,7 +1101,6 @@ def render_cases(groups: dict) -> str:
 
 
 def main():
-    require_ci_python()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output", type=Path, help="write the fixtures to DIRECTORY")

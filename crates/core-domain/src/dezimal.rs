@@ -180,8 +180,12 @@ impl Dezimal {
     /// `round(value, places)` in Python: the value quantized to `places` decimal
     /// places with the context's `ROUND_HALF_EVEN`, which rounds ties to the even
     /// digit, so `round(0.125, 2)` is 0.12. The result has exactly `places` places.
+    /// `places` is nonnegative: Python also rounds to tens with a negative number
+    /// of places, which this port does not support. A zero is quantized without a
+    /// scaling factor, so `round(0, 39)` succeeds although 10^39 does not fit the
+    /// coefficient.
     ///
-    /// Fails like Python does when the result has more than 28 digits.
+    /// Fails like Python does when a nonzero result has more than 28 digits.
     pub fn round(self, places: u32) -> Result<Self, ArithmeticError> {
         self.quantize(places, Rounding::HalfEven)
     }

@@ -66,7 +66,7 @@ impl UtcOffset {
 }
 
 /// A `datetime`, naive or with a fixed offset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct DateTime {
     year: i64,
     month: i64,
@@ -77,6 +77,28 @@ pub struct DateTime {
     microsecond: i64,
     offset: Option<UtcOffset>,
 }
+
+impl PartialEq for DateTime {
+    /// Python compares two aware datetimes by instant, two naive ones by their
+    /// wall time, and never equates a naive and an aware one.
+    fn eq(&self, other: &Self) -> bool {
+        match (self.offset, other.offset) {
+            (Some(_), Some(_)) => self.timestamp_micros() == other.timestamp_micros(),
+            (None, None) => {
+                self.year == other.year
+                    && self.month == other.month
+                    && self.day == other.day
+                    && self.hour == other.hour
+                    && self.minute == other.minute
+                    && self.second == other.second
+                    && self.microsecond == other.microsecond
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for DateTime {}
 
 /// A string `datetime.fromisoformat` rejects with a `ValueError`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -684,6 +706,19 @@ impl Local<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn aware_values_compare_by_instant() {
+        let utc = DateTime::from_isoformat("2024-01-01T12:00:00+00:00").unwrap();
+        let cet = DateTime::from_isoformat("2024-01-01T13:00:00+01:00").unwrap();
+        let naive = DateTime::from_isoformat("2024-01-01T12:00:00").unwrap();
+        assert_eq!(utc, cet);
+        assert_ne!(utc, naive);
+        assert_ne!(
+            cet,
+            DateTime::from_isoformat("2024-01-01T12:00:00+01:00").unwrap()
+        );
+    }
 
     #[test]
     fn an_offset_is_less_than_a_day_either_way() {
