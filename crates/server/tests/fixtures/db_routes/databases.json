@@ -435,10 +435,81 @@
      "count": 0
     },
     "entities": {
-     "count": 30
+     "columns": [
+      "id",
+      "name",
+      "natural_id",
+      "type",
+      "origin",
+      "icon_url"
+     ],
+     "rows": [
+      [
+       "a0000000-0000-4000-8000-000000000001",
+       "Bank",
+       "bank",
+       "FINANCIAL_INSTITUTION",
+       "NATIVE",
+       null
+      ],
+      [
+       "a0000000-0000-4000-8000-000000000002",
+       "Manual",
+       "manual",
+       "FINANCIAL_INSTITUTION",
+       "MANUAL",
+       "tag"
+      ],
+      [
+       "a0000000-0000-4000-8000-000000000003",
+       "Exchange",
+       "exchange",
+       "CRYPTO_EXCHANGE",
+       "NATIVE",
+       null
+      ],
+      [
+       "a0000000-0000-4000-8000-000000000004",
+       "Sheets",
+       "sheets",
+       "FINANCIAL_INSTITUTION",
+       "MANUAL",
+       null
+      ],
+      [
+       "a0000000-0000-4000-8000-000000000005",
+       "Wallet",
+       "wallet",
+       "CRYPTO_WALLET",
+       "NATIVE",
+       null
+      ]
+     ]
     },
     "entity_accounts": {
-     "count": 2
+     "columns": [
+      "id",
+      "name",
+      "entity_id",
+      "created_at",
+      "deleted_at"
+     ],
+     "rows": [
+      [
+       "b0000000-0000-4000-8000-000000000001",
+       "b0000000-0000-4000-8000-000000000001",
+       "a0000000-0000-4000-8000-000000000001",
+       "2026-02-01T10:00:00+01:00",
+       null
+      ],
+      [
+       "b0000000-0000-4000-8000-000000000002",
+       "b0000000-0000-4000-8000-000000000002",
+       "a0000000-0000-4000-8000-000000000003",
+       "2026-02-01T10:00:00+01:00",
+       null
+      ]
+     ]
     },
     "entity_credentials": {
      "count": 0
@@ -540,7 +611,255 @@
      "count": 0
     },
     "periodic_contributions": {
-     "count": 12
+     "columns": [
+      "id",
+      "entity_id",
+      "target",
+      "target_type",
+      "alias",
+      "amount",
+      "currency",
+      "since",
+      "until",
+      "frequency",
+      "active",
+      "is_real",
+      "created_at",
+      "target_name",
+      "source",
+      "target_subtype",
+      "entity_account_id"
+     ],
+     "rows": [
+      [
+       "c1000000-0000-4000-8000-000000000001",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-1",
+       "FUND",
+       "Rent",
+       "100.005",
+       "EUR",
+       "2026-01-31",
+       null,
+       "MONTHLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 1",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000002",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-2",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-11-17",
+       null,
+       "WEEKLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 2",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000003",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-3",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2020-02-29",
+       "2026-11-20",
+       "BIWEEKLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 3",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000004",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-4",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2027-03-01",
+       "2026-01-01",
+       "YEARLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 4",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000005",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-5",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-11-18",
+       null,
+       "MONTHLY",
+       0,
+       1,
+       "<volatile>",
+       "Target 5",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000006",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-6",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-01-01",
+       null,
+       "BIMONTHLY",
+       1,
+       0,
+       "<volatile>",
+       "Target 6",
+       "MANUAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000007",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-7",
+       "STOCK_ETF",
+       null,
+       "12345678901234.56789",
+       "EUR",
+       "2025-12-31",
+       null,
+       "QUARTERLY",
+       1,
+       1,
+       "<volatile>",
+       "Ü ñ €",
+       "REAL",
+       "ETF",
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000008",
+       "a0000000-0000-4000-8000-000000000001",
+       "target-8",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "0001-01-01",
+       null,
+       "SEMIANNUAL",
+       1,
+       1,
+       "<volatile>",
+       "Target 8",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000009",
+       "a0000000-0000-4000-8000-000000000002",
+       "target-9",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-01-01",
+       null,
+       "MONTHLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 9",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000010",
+       "a0000000-0000-4000-8000-000000000003",
+       "target-10",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-02-01",
+       null,
+       "EVERY_FOUR_MONTHS",
+       1,
+       1,
+       "<volatile>",
+       "Target 10",
+       "REAL",
+       null,
+       "b0000000-0000-4000-8000-000000000002"
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000011",
+       "a0000000-0000-4000-8000-000000000004",
+       "target-11",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2024-02-29",
+       null,
+       "YEARLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 11",
+       "REAL",
+       null,
+       null
+      ],
+      [
+       "c1000000-0000-4000-8000-000000000012",
+       "a0000000-0000-4000-8000-000000000005",
+       "target-12",
+       "FUND",
+       null,
+       "100.005",
+       "EUR",
+       "2026-11-18",
+       null,
+       "WEEKLY",
+       1,
+       1,
+       "<volatile>",
+       "Target 12",
+       "REAL",
+       null,
+       null
+      ]
+     ]
     },
     "periodic_flows": {
      "count": 0
@@ -573,7 +892,26 @@
      "count": 0
     },
     "virtual_data_imports": {
-     "count": 1
+     "columns": [
+      "id",
+      "import_id",
+      "global_position_id",
+      "source",
+      "date",
+      "feature",
+      "entity_id"
+     ],
+     "rows": [
+      [
+       "d0000000-0000-4000-8000-000000000001",
+       "import-1",
+       null,
+       "MANUAL",
+       "2026-11-01T00:00:00",
+       "POSITION",
+       "a0000000-0000-4000-8000-000000000004"
+      ]
+     ]
     }
    }
   },
@@ -1012,10 +1350,42 @@
      "count": 0
     },
     "entities": {
-     "count": 26
+     "columns": [
+      "id",
+      "name",
+      "natural_id",
+      "type",
+      "origin",
+      "icon_url"
+     ],
+     "rows": [
+      [
+       "a0000000-0000-4000-8000-000000000001",
+       "Bank",
+       null,
+       "FINANCIAL_INSTITUTION",
+       "NATIVE",
+       null
+      ]
+     ]
     },
     "entity_accounts": {
-     "count": 1
+     "columns": [
+      "id",
+      "name",
+      "entity_id",
+      "created_at",
+      "deleted_at"
+     ],
+     "rows": [
+      [
+       "b0000000-0000-4000-8000-000000000001",
+       "b0000000-0000-4000-8000-000000000001",
+       "a0000000-0000-4000-8000-000000000001",
+       "2026-02-01T10:00:00+01:00",
+       null
+      ]
+     ]
     },
     "entity_credentials": {
      "count": 0
@@ -1117,7 +1487,46 @@
      "count": 0
     },
     "periodic_contributions": {
-     "count": 1
+     "columns": [
+      "id",
+      "entity_id",
+      "target",
+      "target_type",
+      "alias",
+      "amount",
+      "currency",
+      "since",
+      "until",
+      "frequency",
+      "active",
+      "is_real",
+      "created_at",
+      "target_name",
+      "source",
+      "target_subtype",
+      "entity_account_id"
+     ],
+     "rows": [
+      [
+       "c2000000-0000-4000-8000-000000000001",
+       "a0000000-0000-4000-8000-000000000001",
+       "target",
+       "FUND",
+       null,
+       "10",
+       "EUR",
+       20260101,
+       null,
+       "MONTHLY",
+       "true",
+       1,
+       "<volatile>",
+       "Target",
+       "REAL",
+       null,
+       null
+      ]
+     ]
     },
     "periodic_flows": {
      "count": 0
@@ -1150,7 +1559,16 @@
      "count": 0
     },
     "virtual_data_imports": {
-     "count": 0
+     "columns": [
+      "id",
+      "import_id",
+      "global_position_id",
+      "source",
+      "date",
+      "feature",
+      "entity_id"
+     ],
+     "rows": []
     }
    }
   },

@@ -274,8 +274,28 @@ async def fill_invalid(client):
         )
 
 
-CONTRIBUTIONS = Scenario("contributions", fill)
-INVALID = Scenario("contributions_invalid", fill_invalid)
+# Every table a scenario writes is compared row by row. `created_at` is taken
+# from the clock when the repository saves a contribution, so its value differs
+# between runs and the dump keeps a marker for it.
+TABLES = {
+    "entities": (),
+    "entity_accounts": (),
+    "periodic_contributions": ("created_at",),
+    "virtual_data_imports": (),
+}
+OWN_ENTITIES = {entity[0] for entity in ENTITIES}
+
+
+def _normalize(connection, table, columns, rows):
+    """The migrations seed entities with new ids; compare only this scenario's."""
+    if table != "entities":
+        return rows
+    index = columns.index("id")
+    return [row for row in rows if row[index] in OWN_ENTITIES]
+
+
+CONTRIBUTIONS = Scenario("contributions", fill, TABLES, _normalize)
+INVALID = Scenario("contributions_invalid", fill_invalid, TABLES, _normalize)
 
 
 def register(app, client):

@@ -5,8 +5,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
-use uuid::Uuid;
-
+use core_domain::Uuid;
 use core_domain::auto_contributions::{ContributionQueryRequest, EntityContributions};
 use core_domain::dates::Date;
 use core_domain::earnings_expenses::{PendingFlow, PeriodicFlow};
