@@ -103,9 +103,7 @@ impl FlowStatus {
 
     /// `FlowStatus(value)`: the member with exactly this value.
     pub fn parse(value: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|status| status.value() == value)
+        Self::ALL.into_iter().find(|status| status.value() == value)
     }
 }
 
@@ -222,9 +220,12 @@ mod tests {
     #[test]
     fn parses_exactly_the_values() {
         for frequency in FlowFrequency::ALL {
-            assert_eq!(FlowFrequency::parse(frequency.value()), Some(frequency));
+            assert_eq!(
+                FlowFrequency::from_value(frequency.as_str()),
+                Some(*frequency)
+            );
         }
-        assert_eq!(FlowFrequency::parse("monthly"), None);
+        assert_eq!(FlowFrequency::from_value("monthly"), None);
         assert_eq!(FlowType::parse("EXPENSE"), Some(FlowType::Expense));
         assert_eq!(FlowType::parse("Earning"), None);
         for status in FlowStatus::ALL {

@@ -1117,7 +1117,7 @@ mod tests {
 
     #[test]
     fn global_positions_default_to_now() {
-        let now = DateTime::naive("2026-11-18T12:00:00".parse().unwrap());
+        let now = DateTime::from_isoformat("2026-11-18T12:00:00").unwrap();
         let entity = Entity {
             id: None,
             name: "Bank".to_owned(),
@@ -1129,7 +1129,7 @@ mod tests {
         let position = GlobalPosition::new(Uuid::nil(), entity, now);
         assert_eq!(position.date, Some(now));
         assert!(position.products.is_empty());
-        let earlier = DateTime::naive("2026-01-01T00:00:00".parse().unwrap());
+        let earlier = DateTime::from_isoformat("2026-01-01T00:00:00").unwrap();
         let kept = GlobalPosition {
             date: Some(earlier),
             ..position

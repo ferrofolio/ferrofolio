@@ -76,7 +76,7 @@ pub fn flow_json(flow: &PeriodicFlow) -> Value {
         "amount": amount(flow.amount),
         "currency": flow.currency,
         "flow_type": flow.flow_type.value(),
-        "frequency": flow.frequency.value(),
+        "frequency": flow.frequency.as_str(),
         "category": flow.category,
         "label_id": flow.label_id,
         "enabled": flow.enabled,

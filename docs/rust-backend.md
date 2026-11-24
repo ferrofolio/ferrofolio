@@ -113,8 +113,8 @@ The port follows Python's types:
 - `Account`'s `Debug` output leaves out the IBAN, which must not reach a log.
 - Nothing in the domain reads the clock: where Python calls `datetime.now()`, the Rust function takes the time as a
   parameter, such as the `today` of `annualized_profitability` and of the `post_init` of factoring, real estate
-  crowdfunding and deposits. There is no serde in the domain either; mapping to rows and to JSON stays in
-  `infra-db` and `server`.
+  crowdfunding and deposits. `settings.rs` uses serde to write the shape Python stores; the other modules leave
+  mapping to rows and to JSON to `infra-db` and `server`.
 
 Two differences are known. `compute_loan_hash` and `compute_investment_hash` read the amount like `Dezimal(str)`,
 which in Rust rejects `NaN`, infinities and more than 38 significant digits; Python hashes them. And

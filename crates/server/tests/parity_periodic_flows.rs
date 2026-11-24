@@ -82,7 +82,7 @@ fn next_dates_are_computed_like_python_computes_them() {
             amount: Dezimal::from_python_str("1").unwrap(),
             currency: "EUR".to_owned(),
             flow_type: FlowType::Expense,
-            frequency: FlowFrequency::parse(entry[0].as_str().unwrap()).unwrap(),
+            frequency: FlowFrequency::from_value(entry[0].as_str().unwrap()).unwrap(),
             category: None,
             enabled: entry[3].as_bool().unwrap(),
             since: date(entry[1].as_str().unwrap()),

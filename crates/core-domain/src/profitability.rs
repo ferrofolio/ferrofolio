@@ -46,7 +46,7 @@ pub fn annualized_profitability(
         }
     };
 
-    let start_date = terms.start_dt.map(DateTime::date);
+    let start_date = terms.start_dt.and_then(|start| start.date());
 
     if let (Some(rate), Some(start), Some(maturity)) =
         (terms.interest_rate, start_date, terms.maturity)
@@ -99,7 +99,7 @@ mod tests {
     }
 
     fn start(value: &str) -> Option<DateTime> {
-        Some(DateTime::naive(value.parse().unwrap()))
+        Some(DateTime::from_isoformat(value).unwrap())
     }
 
     #[test]

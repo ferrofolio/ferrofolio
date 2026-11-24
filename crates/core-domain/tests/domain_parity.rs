@@ -48,7 +48,6 @@ use core_domain::global_position::{
 };
 use core_domain::profitability::{ProfitabilityTerms, annualized_profitability};
 use core_domain::public_key::{CoinType, ScriptType};
-use jiff::tz::Offset;
 use serde_json::Value;
 
 const ENUMS: &str = include_str!("fixtures/domain_enums.json");
@@ -107,21 +106,7 @@ fn optional_date(value: &Value) -> Option<Date> {
 /// An ISO 8601 date and time as `datetime.fromisoformat` reads it: aware with a
 /// trailing `+HH:MM` or `-HH:MM`, naive without.
 fn datetime(text: &str) -> DateTime {
-    let split = text.len().saturating_sub(6);
-    let (civil, offset) = text.split_at(split);
-    if let Some(sign) = offset
-        .chars()
-        .next()
-        .filter(|sign| *sign == '+' || *sign == '-')
-    {
-        let hours: i8 = offset[1..3].parse().unwrap();
-        let minutes: i8 = offset[4..6].parse().unwrap();
-        assert_eq!(minutes, 0, "{text}: only whole hours are supported");
-        let hours = if sign == '-' { -hours } else { hours };
-        DateTime::aware(civil.parse().unwrap(), Offset::constant(hours))
-    } else {
-        DateTime::naive(text.parse().unwrap())
-    }
+    DateTime::from_isoformat(text).unwrap()
 }
 
 /// An error as the fixture names it, with the fields of a `MissingFieldsError`.

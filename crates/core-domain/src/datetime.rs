@@ -12,6 +12,8 @@
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 
+use crate::dates::Date;
+
 const MIN_YEAR: i64 = 1;
 const MAX_YEAR: i64 = 9999;
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -198,6 +200,15 @@ impl DateTime {
     }
 
     /// The offset of an aware datetime.
+    /// The calendar date of this value, as Python's `datetime.date()` gives it:
+    /// the date in the value's own offset, without a conversion to UTC.
+    pub fn date(&self) -> Option<Date> {
+        let year = i16::try_from(self.year).ok()?;
+        let month = i8::try_from(self.month).ok()?;
+        let day = i8::try_from(self.day).ok()?;
+        Date::new(year, month, day).ok()
+    }
+
     pub fn offset(&self) -> Option<UtcOffset> {
         self.offset
     }
