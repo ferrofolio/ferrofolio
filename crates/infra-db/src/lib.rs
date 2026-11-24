@@ -7,6 +7,8 @@
 //! does; until the cutover the Python backend owns the schema and its migrations
 //! (docs/roadmap.md, section 5), so Rust only reads.
 
+pub mod auto_contributions;
+pub mod entity;
 pub mod labeling;
 pub mod labeling_rules;
 pub mod pending_flows;

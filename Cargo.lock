@@ -231,6 +231,7 @@ name = "core-app"
 version = "0.11.0"
 dependencies = [
  "core-domain",
+ "uuid",
 ]
 
 [[package]]
@@ -504,6 +505,7 @@ version = "0.11.0"
 dependencies = [
  "core-app",
  "core-domain",
+ "indexmap",
  "jiff",
  "rusqlite",
  "serde_json",

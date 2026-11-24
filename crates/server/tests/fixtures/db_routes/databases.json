@@ -1,5 +1,1159 @@
 {
  "databases": {
+  "contributions": {
+   "file": "contributions.db",
+   "migrations": [
+    {
+     "name": "v0 Genesis",
+     "version": 0
+    },
+    {
+     "name": "v0.1.1:0",
+     "version": 1
+    },
+    {
+     "name": "v0.2.0:0_crypto",
+     "version": 2
+    },
+    {
+     "name": "v0.2.0:1_fetches",
+     "version": 3
+    },
+    {
+     "name": "v0.2.0:2_null_portfolio_kpis",
+     "version": 4
+    },
+    {
+     "name": "v0.2.0:3_virtual_imports_feature",
+     "version": 5
+    },
+    {
+     "name": "v0.2.0:4_commodities",
+     "version": 6
+    },
+    {
+     "name": "v0.2.0:5_recf_rename",
+     "version": 7
+    },
+    {
+     "name": "v0.3.0:0_integrations",
+     "version": 8
+    },
+    {
+     "name": "v0.3.0:1_bsc",
+     "version": 9
+    },
+    {
+     "name": "v0.3.0:2_re_rename_historic",
+     "version": 10
+    },
+    {
+     "name": "v0.3.0:3_crypto_initial_investments",
+     "version": 11
+    },
+    {
+     "name": "v0.4.0:0_earnings_expenses",
+     "version": 12
+    },
+    {
+     "name": "v0.4.0:1_more_loan_details",
+     "version": 13
+    },
+    {
+     "name": "v0.4.0:2_var_mixed_loans",
+     "version": 14
+    },
+    {
+     "name": "v0.4.0:3_add_account_tx_net_amount",
+     "version": 15
+    },
+    {
+     "name": "v0.4.0:4_real_estate",
+     "version": 16
+    },
+    {
+     "name": "v0.4.0:5_flows_icon",
+     "version": 17
+    },
+    {
+     "name": "v0.4.0:6_contrib_target_name",
+     "version": 18
+    },
+    {
+     "name": "v0.4.0:7_recf_factoring_profitability",
+     "version": 19
+    },
+    {
+     "name": "v0.4.0:8_add_fund_portfolio_account",
+     "version": 20
+    },
+    {
+     "name": "v0.5.0:0_ing",
+     "version": 21
+    },
+    {
+     "name": "v0.5.0:1_external_entity_provider",
+     "version": 22
+    },
+    {
+     "name": "v0.5.0:2_loan_positions_optional_next_date",
+     "version": 23
+    },
+    {
+     "name": "v0.5.0:3_fund_portfolio_txs",
+     "version": 24
+    },
+    {
+     "name": "v0.5.0:4_fund_market_nullable",
+     "version": 25
+    },
+    {
+     "name": "v0.5.0:5_add_fund_asset_type",
+     "version": 26
+    },
+    {
+     "name": "v0.6.0:0_add_source_txs_contributions",
+     "version": 27
+    },
+    {
+     "name": "v0.6.0:1_recreate_position_tables",
+     "version": 28
+    },
+    {
+     "name": "v0.6.0:2_use_source_positions",
+     "version": 29
+    },
+    {
+     "name": "v0.6.0:3_fund_etf_data_sheet_and_type",
+     "version": 30
+    },
+    {
+     "name": "v0.6.0:4_manual_position_data",
+     "version": 31
+    },
+    {
+     "name": "v0.6.0:5_add_tx_product_subtype",
+     "version": 32
+    },
+    {
+     "name": "v0.6.0:6_migrate_equity_types",
+     "version": 33
+    },
+    {
+     "name": "v0.7.0:0_add_contrib_target_subtype",
+     "version": 34
+    },
+    {
+     "name": "v0.7.0:1_crypto_currencies_v2",
+     "version": 35
+    },
+    {
+     "name": "v0.7.0:2_external_integrations_migration",
+     "version": 36
+    },
+    {
+     "name": "v0.7.0:3_cajamar",
+     "version": 37
+    },
+    {
+     "name": "v0.7.0:4_ethplorer_integration",
+     "version": 38
+    },
+    {
+     "name": "v0.7.0:5_templates",
+     "version": 39
+    },
+    {
+     "name": "v0.7.0:6_add_recf_factoring_start_extended",
+     "version": 40
+    },
+    {
+     "name": "v0.7.0:7_add_crypto_tx_column",
+     "version": 41
+    },
+    {
+     "name": "v0.7.0:8_crypto_initial_investments",
+     "version": 42
+    },
+    {
+     "name": "v0.7.0:9_clear_sego_txs",
+     "version": 43
+    },
+    {
+     "name": "v0.8.0:0_sys_config",
+     "version": 44
+    },
+    {
+     "name": "v0.8.0:1_add_entity_icon_url",
+     "version": 45
+    },
+    {
+     "name": "v0.8.0:2_migrate_applied_at_to_iso",
+     "version": 46
+    },
+    {
+     "name": "v0.8.0:3_crypto_addresses",
+     "version": 47
+    },
+    {
+     "name": "v0.8.0:4_remove_hd_wallet_account",
+     "version": 48
+    },
+    {
+     "name": "v0.8.0:5_degiro",
+     "version": 49
+    },
+    {
+     "name": "v0.8.0:6_add_issuer",
+     "version": 50
+    },
+    {
+     "name": "v0.8.0:7_public_keychain",
+     "version": 51
+    },
+    {
+     "name": "v0.8.0:8_ibkr",
+     "version": 52
+    },
+    {
+     "name": "v0.8.0:9_binance",
+     "version": 53
+    },
+    {
+     "name": "v0.8.0:10_entity_accounts",
+     "version": 54
+    },
+    {
+     "name": "v0.8.0:11_derivatives",
+     "version": 55
+    },
+    {
+     "name": "v0.8.0:12_ibkr_credentials",
+     "version": 56
+    },
+    {
+     "name": "v0.8.0:13_improved_loans",
+     "version": 57
+    },
+    {
+     "name": "v0.8.0:14_credits",
+     "version": 58
+    },
+    {
+     "name": "v0.8.0:15_hd_address_balance",
+     "version": 59
+    },
+    {
+     "name": "v0.9.0:0_networth_timeline",
+     "version": 60
+    },
+    {
+     "name": "v0.9.0:1_recompute_loan_hashes",
+     "version": 61
+    },
+    {
+     "name": "v0.9.0:2_tracked_updates",
+     "version": 62
+    },
+    {
+     "name": "v0.9.0:3_valuation_market_value",
+     "version": 63
+    },
+    {
+     "name": "v0.9.0:4_enable_banking_provider",
+     "version": 64
+    },
+    {
+     "name": "v0.9.0:5_b100",
+     "version": 65
+    },
+    {
+     "name": "v0.9.0:6_pending_flow_status",
+     "version": 66
+    },
+    {
+     "name": "v0.9.0:7_rebuild_networth_timeline",
+     "version": 67
+    },
+    {
+     "name": "v0.9.0:8_historic_source",
+     "version": 68
+    },
+    {
+     "name": "v0.10.0:0_crescenta",
+     "version": 69
+    },
+    {
+     "name": "v0.10.0:1_polymarket",
+     "version": 70
+    },
+    {
+     "name": "v0.10.0:2_clear_sego_real_transactions",
+     "version": 71
+    },
+    {
+     "name": "v0.10.0:3_instrument_price_history",
+     "version": 72
+    },
+    {
+     "name": "v0.10.0:4_crypto_etp_to_crypto_positions",
+     "version": 73
+    },
+    {
+     "name": "v0.10.0:5_crypto_defi_zerion",
+     "version": 74
+    },
+    {
+     "name": "v0.10.0:6_clear_instrument_negative_cache",
+     "version": 75
+    },
+    {
+     "name": "v0.10.0:7_trading212",
+     "version": 76
+    },
+    {
+     "name": "v0.10.1:0_fetch_pointers",
+     "version": 77
+    },
+    {
+     "name": "v0.10.1:1_transaction_split_ratio",
+     "version": 78
+    },
+    {
+     "name": "v0.11.0:0_account_tx_labeling",
+     "version": 79
+    },
+    {
+     "name": "v0.11.0:1_openai_integration",
+     "version": 80
+    },
+    {
+     "name": "v0.11.0:2_ignored_recurring_movements",
+     "version": 81
+    },
+    {
+     "name": "v0.11.0:3_periodic_flow_budget_label",
+     "version": 82
+    },
+    {
+     "name": "v0.11.0:4_settings",
+     "version": 83
+    },
+    {
+     "name": "v0.11.0:5_mcp_config",
+     "version": 84
+    },
+    {
+     "name": "v0.11.0:6_local_ai_integrations",
+     "version": 85
+    },
+    {
+     "name": "v0.11.0:7_mcp_tool_categories",
+     "version": 86
+    },
+    {
+     "name": "v0.11.0:8_custom_ai_integration_name",
+     "version": 87
+    },
+    {
+     "name": "v0.11.0:9_split_cache_coverage",
+     "version": 88
+    },
+    {
+     "name": "v0.11.0:10_clear_unlinked_external_txs",
+     "version": 89
+    },
+    {
+     "name": "v0.12.0:0_github_copilot_integration",
+     "version": 90
+    },
+    {
+     "name": "v0.12.0:1_claude_agent_integration",
+     "version": 91
+    },
+    {
+     "name": "v0.12.0:2_chatgpt_integration",
+     "version": 92
+    },
+    {
+     "name": "v0.12.0:3_labeling_rule_multi_conditions",
+     "version": 93
+    },
+    {
+     "name": "v0.12.0:4_ai_settings",
+     "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
+    }
+   ],
+   "tables": {
+    "account_positions": {
+     "count": 0
+    },
+    "account_transaction_labels": {
+     "count": 0
+    },
+    "account_transactions": {
+     "count": 0
+    },
+    "account_transfer_pairs": {
+     "count": 0
+    },
+    "card_positions": {
+     "count": 0
+    },
+    "commodity_positions": {
+     "count": 0
+    },
+    "credit_positions": {
+     "count": 0
+    },
+    "crowdlending_positions": {
+     "count": 0
+    },
+    "crypto_assets": {
+     "count": 8
+    },
+    "crypto_currency_initial_investments": {
+     "count": 0
+    },
+    "crypto_currency_positions": {
+     "count": 0
+    },
+    "crypto_wallet_addresses": {
+     "count": 0
+    },
+    "crypto_wallets": {
+     "count": 0
+    },
+    "deposit_positions": {
+     "count": 0
+    },
+    "derivative_positions": {
+     "count": 0
+    },
+    "entities": {
+     "count": 30
+    },
+    "entity_accounts": {
+     "count": 2
+    },
+    "entity_credentials": {
+     "count": 0
+    },
+    "entity_sessions": {
+     "count": 0
+    },
+    "external_entities": {
+     "count": 0
+    },
+    "external_integrations": {
+     "count": 12
+    },
+    "factoring_positions": {
+     "count": 0
+    },
+    "fetch_pointers": {
+     "count": 0
+    },
+    "fund_portfolios": {
+     "count": 0
+    },
+    "fund_positions": {
+     "count": 0
+    },
+    "global_positions": {
+     "count": 0
+    },
+    "hd_addresses": {
+     "count": 0
+    },
+    "hd_wallet": {
+     "count": 0
+    },
+    "ignored_recurring_movements": {
+     "count": 0
+    },
+    "instrument_no_result": {
+     "count": 0
+    },
+    "instrument_price_gap": {
+     "count": 0
+    },
+    "instrument_price_history": {
+     "count": 0
+    },
+    "instrument_split_cache": {
+     "count": 0
+    },
+    "instrument_split_checked": {
+     "count": 0
+    },
+    "instrument_symbol_map": {
+     "count": 0
+    },
+    "investment_historic": {
+     "count": 0
+    },
+    "investment_historic_txs": {
+     "count": 0
+    },
+    "investment_transactions": {
+     "count": 0
+    },
+    "labeling_rule_labels": {
+     "count": 3
+    },
+    "labeling_rules": {
+     "count": 3
+    },
+    "labels": {
+     "count": 26
+    },
+    "last_fetches": {
+     "count": 0
+    },
+    "loan_positions": {
+     "count": 0
+    },
+    "manual_position_data": {
+     "count": 0
+    },
+    "market_forecast_positions": {
+     "count": 0
+    },
+    "mcp_config": {
+     "count": 0
+    },
+    "migrations": {
+     "count": 96
+    },
+    "networth_timeline_meta": {
+     "count": 0
+    },
+    "networth_timeline_points": {
+     "count": 0
+    },
+    "pending_flows": {
+     "count": 0
+    },
+    "periodic_contributions": {
+     "count": 12
+    },
+    "periodic_flows": {
+     "count": 0
+    },
+    "public_keychain": {
+     "count": 4
+    },
+    "real_estate": {
+     "count": 0
+    },
+    "real_estate_cf_positions": {
+     "count": 0
+    },
+    "real_estate_flows": {
+     "count": 0
+    },
+    "settings": {
+     "count": 0
+    },
+    "stock_positions": {
+     "count": 0
+    },
+    "sys_config": {
+     "count": 1
+    },
+    "templates": {
+     "count": 0
+    },
+    "tracked_updates": {
+     "count": 0
+    },
+    "virtual_data_imports": {
+     "count": 1
+    }
+   }
+  },
+  "contributions_invalid": {
+   "file": "contributions_invalid.db",
+   "migrations": [
+    {
+     "name": "v0 Genesis",
+     "version": 0
+    },
+    {
+     "name": "v0.1.1:0",
+     "version": 1
+    },
+    {
+     "name": "v0.2.0:0_crypto",
+     "version": 2
+    },
+    {
+     "name": "v0.2.0:1_fetches",
+     "version": 3
+    },
+    {
+     "name": "v0.2.0:2_null_portfolio_kpis",
+     "version": 4
+    },
+    {
+     "name": "v0.2.0:3_virtual_imports_feature",
+     "version": 5
+    },
+    {
+     "name": "v0.2.0:4_commodities",
+     "version": 6
+    },
+    {
+     "name": "v0.2.0:5_recf_rename",
+     "version": 7
+    },
+    {
+     "name": "v0.3.0:0_integrations",
+     "version": 8
+    },
+    {
+     "name": "v0.3.0:1_bsc",
+     "version": 9
+    },
+    {
+     "name": "v0.3.0:2_re_rename_historic",
+     "version": 10
+    },
+    {
+     "name": "v0.3.0:3_crypto_initial_investments",
+     "version": 11
+    },
+    {
+     "name": "v0.4.0:0_earnings_expenses",
+     "version": 12
+    },
+    {
+     "name": "v0.4.0:1_more_loan_details",
+     "version": 13
+    },
+    {
+     "name": "v0.4.0:2_var_mixed_loans",
+     "version": 14
+    },
+    {
+     "name": "v0.4.0:3_add_account_tx_net_amount",
+     "version": 15
+    },
+    {
+     "name": "v0.4.0:4_real_estate",
+     "version": 16
+    },
+    {
+     "name": "v0.4.0:5_flows_icon",
+     "version": 17
+    },
+    {
+     "name": "v0.4.0:6_contrib_target_name",
+     "version": 18
+    },
+    {
+     "name": "v0.4.0:7_recf_factoring_profitability",
+     "version": 19
+    },
+    {
+     "name": "v0.4.0:8_add_fund_portfolio_account",
+     "version": 20
+    },
+    {
+     "name": "v0.5.0:0_ing",
+     "version": 21
+    },
+    {
+     "name": "v0.5.0:1_external_entity_provider",
+     "version": 22
+    },
+    {
+     "name": "v0.5.0:2_loan_positions_optional_next_date",
+     "version": 23
+    },
+    {
+     "name": "v0.5.0:3_fund_portfolio_txs",
+     "version": 24
+    },
+    {
+     "name": "v0.5.0:4_fund_market_nullable",
+     "version": 25
+    },
+    {
+     "name": "v0.5.0:5_add_fund_asset_type",
+     "version": 26
+    },
+    {
+     "name": "v0.6.0:0_add_source_txs_contributions",
+     "version": 27
+    },
+    {
+     "name": "v0.6.0:1_recreate_position_tables",
+     "version": 28
+    },
+    {
+     "name": "v0.6.0:2_use_source_positions",
+     "version": 29
+    },
+    {
+     "name": "v0.6.0:3_fund_etf_data_sheet_and_type",
+     "version": 30
+    },
+    {
+     "name": "v0.6.0:4_manual_position_data",
+     "version": 31
+    },
+    {
+     "name": "v0.6.0:5_add_tx_product_subtype",
+     "version": 32
+    },
+    {
+     "name": "v0.6.0:6_migrate_equity_types",
+     "version": 33
+    },
+    {
+     "name": "v0.7.0:0_add_contrib_target_subtype",
+     "version": 34
+    },
+    {
+     "name": "v0.7.0:1_crypto_currencies_v2",
+     "version": 35
+    },
+    {
+     "name": "v0.7.0:2_external_integrations_migration",
+     "version": 36
+    },
+    {
+     "name": "v0.7.0:3_cajamar",
+     "version": 37
+    },
+    {
+     "name": "v0.7.0:4_ethplorer_integration",
+     "version": 38
+    },
+    {
+     "name": "v0.7.0:5_templates",
+     "version": 39
+    },
+    {
+     "name": "v0.7.0:6_add_recf_factoring_start_extended",
+     "version": 40
+    },
+    {
+     "name": "v0.7.0:7_add_crypto_tx_column",
+     "version": 41
+    },
+    {
+     "name": "v0.7.0:8_crypto_initial_investments",
+     "version": 42
+    },
+    {
+     "name": "v0.7.0:9_clear_sego_txs",
+     "version": 43
+    },
+    {
+     "name": "v0.8.0:0_sys_config",
+     "version": 44
+    },
+    {
+     "name": "v0.8.0:1_add_entity_icon_url",
+     "version": 45
+    },
+    {
+     "name": "v0.8.0:2_migrate_applied_at_to_iso",
+     "version": 46
+    },
+    {
+     "name": "v0.8.0:3_crypto_addresses",
+     "version": 47
+    },
+    {
+     "name": "v0.8.0:4_remove_hd_wallet_account",
+     "version": 48
+    },
+    {
+     "name": "v0.8.0:5_degiro",
+     "version": 49
+    },
+    {
+     "name": "v0.8.0:6_add_issuer",
+     "version": 50
+    },
+    {
+     "name": "v0.8.0:7_public_keychain",
+     "version": 51
+    },
+    {
+     "name": "v0.8.0:8_ibkr",
+     "version": 52
+    },
+    {
+     "name": "v0.8.0:9_binance",
+     "version": 53
+    },
+    {
+     "name": "v0.8.0:10_entity_accounts",
+     "version": 54
+    },
+    {
+     "name": "v0.8.0:11_derivatives",
+     "version": 55
+    },
+    {
+     "name": "v0.8.0:12_ibkr_credentials",
+     "version": 56
+    },
+    {
+     "name": "v0.8.0:13_improved_loans",
+     "version": 57
+    },
+    {
+     "name": "v0.8.0:14_credits",
+     "version": 58
+    },
+    {
+     "name": "v0.8.0:15_hd_address_balance",
+     "version": 59
+    },
+    {
+     "name": "v0.9.0:0_networth_timeline",
+     "version": 60
+    },
+    {
+     "name": "v0.9.0:1_recompute_loan_hashes",
+     "version": 61
+    },
+    {
+     "name": "v0.9.0:2_tracked_updates",
+     "version": 62
+    },
+    {
+     "name": "v0.9.0:3_valuation_market_value",
+     "version": 63
+    },
+    {
+     "name": "v0.9.0:4_enable_banking_provider",
+     "version": 64
+    },
+    {
+     "name": "v0.9.0:5_b100",
+     "version": 65
+    },
+    {
+     "name": "v0.9.0:6_pending_flow_status",
+     "version": 66
+    },
+    {
+     "name": "v0.9.0:7_rebuild_networth_timeline",
+     "version": 67
+    },
+    {
+     "name": "v0.9.0:8_historic_source",
+     "version": 68
+    },
+    {
+     "name": "v0.10.0:0_crescenta",
+     "version": 69
+    },
+    {
+     "name": "v0.10.0:1_polymarket",
+     "version": 70
+    },
+    {
+     "name": "v0.10.0:2_clear_sego_real_transactions",
+     "version": 71
+    },
+    {
+     "name": "v0.10.0:3_instrument_price_history",
+     "version": 72
+    },
+    {
+     "name": "v0.10.0:4_crypto_etp_to_crypto_positions",
+     "version": 73
+    },
+    {
+     "name": "v0.10.0:5_crypto_defi_zerion",
+     "version": 74
+    },
+    {
+     "name": "v0.10.0:6_clear_instrument_negative_cache",
+     "version": 75
+    },
+    {
+     "name": "v0.10.0:7_trading212",
+     "version": 76
+    },
+    {
+     "name": "v0.10.1:0_fetch_pointers",
+     "version": 77
+    },
+    {
+     "name": "v0.10.1:1_transaction_split_ratio",
+     "version": 78
+    },
+    {
+     "name": "v0.11.0:0_account_tx_labeling",
+     "version": 79
+    },
+    {
+     "name": "v0.11.0:1_openai_integration",
+     "version": 80
+    },
+    {
+     "name": "v0.11.0:2_ignored_recurring_movements",
+     "version": 81
+    },
+    {
+     "name": "v0.11.0:3_periodic_flow_budget_label",
+     "version": 82
+    },
+    {
+     "name": "v0.11.0:4_settings",
+     "version": 83
+    },
+    {
+     "name": "v0.11.0:5_mcp_config",
+     "version": 84
+    },
+    {
+     "name": "v0.11.0:6_local_ai_integrations",
+     "version": 85
+    },
+    {
+     "name": "v0.11.0:7_mcp_tool_categories",
+     "version": 86
+    },
+    {
+     "name": "v0.11.0:8_custom_ai_integration_name",
+     "version": 87
+    },
+    {
+     "name": "v0.11.0:9_split_cache_coverage",
+     "version": 88
+    },
+    {
+     "name": "v0.11.0:10_clear_unlinked_external_txs",
+     "version": 89
+    },
+    {
+     "name": "v0.12.0:0_github_copilot_integration",
+     "version": 90
+    },
+    {
+     "name": "v0.12.0:1_claude_agent_integration",
+     "version": 91
+    },
+    {
+     "name": "v0.12.0:2_chatgpt_integration",
+     "version": 92
+    },
+    {
+     "name": "v0.12.0:3_labeling_rule_multi_conditions",
+     "version": 93
+    },
+    {
+     "name": "v0.12.0:4_ai_settings",
+     "version": 94
+    },
+    {
+     "name": "v0.12.0:5_remove_github_copilot",
+     "version": 95
+    }
+   ],
+   "tables": {
+    "account_positions": {
+     "count": 0
+    },
+    "account_transaction_labels": {
+     "count": 0
+    },
+    "account_transactions": {
+     "count": 0
+    },
+    "account_transfer_pairs": {
+     "count": 0
+    },
+    "card_positions": {
+     "count": 0
+    },
+    "commodity_positions": {
+     "count": 0
+    },
+    "credit_positions": {
+     "count": 0
+    },
+    "crowdlending_positions": {
+     "count": 0
+    },
+    "crypto_assets": {
+     "count": 8
+    },
+    "crypto_currency_initial_investments": {
+     "count": 0
+    },
+    "crypto_currency_positions": {
+     "count": 0
+    },
+    "crypto_wallet_addresses": {
+     "count": 0
+    },
+    "crypto_wallets": {
+     "count": 0
+    },
+    "deposit_positions": {
+     "count": 0
+    },
+    "derivative_positions": {
+     "count": 0
+    },
+    "entities": {
+     "count": 26
+    },
+    "entity_accounts": {
+     "count": 1
+    },
+    "entity_credentials": {
+     "count": 0
+    },
+    "entity_sessions": {
+     "count": 0
+    },
+    "external_entities": {
+     "count": 0
+    },
+    "external_integrations": {
+     "count": 12
+    },
+    "factoring_positions": {
+     "count": 0
+    },
+    "fetch_pointers": {
+     "count": 0
+    },
+    "fund_portfolios": {
+     "count": 0
+    },
+    "fund_positions": {
+     "count": 0
+    },
+    "global_positions": {
+     "count": 0
+    },
+    "hd_addresses": {
+     "count": 0
+    },
+    "hd_wallet": {
+     "count": 0
+    },
+    "ignored_recurring_movements": {
+     "count": 0
+    },
+    "instrument_no_result": {
+     "count": 0
+    },
+    "instrument_price_gap": {
+     "count": 0
+    },
+    "instrument_price_history": {
+     "count": 0
+    },
+    "instrument_split_cache": {
+     "count": 0
+    },
+    "instrument_split_checked": {
+     "count": 0
+    },
+    "instrument_symbol_map": {
+     "count": 0
+    },
+    "investment_historic": {
+     "count": 0
+    },
+    "investment_historic_txs": {
+     "count": 0
+    },
+    "investment_transactions": {
+     "count": 0
+    },
+    "labeling_rule_labels": {
+     "count": 3
+    },
+    "labeling_rules": {
+     "count": 3
+    },
+    "labels": {
+     "count": 26
+    },
+    "last_fetches": {
+     "count": 0
+    },
+    "loan_positions": {
+     "count": 0
+    },
+    "manual_position_data": {
+     "count": 0
+    },
+    "market_forecast_positions": {
+     "count": 0
+    },
+    "mcp_config": {
+     "count": 0
+    },
+    "migrations": {
+     "count": 96
+    },
+    "networth_timeline_meta": {
+     "count": 0
+    },
+    "networth_timeline_points": {
+     "count": 0
+    },
+    "pending_flows": {
+     "count": 0
+    },
+    "periodic_contributions": {
+     "count": 1
+    },
+    "periodic_flows": {
+     "count": 0
+    },
+    "public_keychain": {
+     "count": 4
+    },
+    "real_estate": {
+     "count": 0
+    },
+    "real_estate_cf_positions": {
+     "count": 0
+    },
+    "real_estate_flows": {
+     "count": 0
+    },
+    "settings": {
+     "count": 0
+    },
+    "stock_positions": {
+     "count": 0
+    },
+    "sys_config": {
+     "count": 1
+    },
+    "templates": {
+     "count": 0
+    },
+    "tracked_updates": {
+     "count": 0
+    },
+    "virtual_data_imports": {
+     "count": 0
+    }
+   }
+  },
   "empty": {
    "file": "empty.db",
    "migrations": [

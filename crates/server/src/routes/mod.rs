@@ -9,6 +9,7 @@
 //! answered by the backend, which keeps the same route.
 
 pub mod calculations;
+pub mod contributions;
 pub mod database;
 pub mod labeling_rules;
 pub mod labels;

@@ -5,6 +5,9 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
+use uuid::Uuid;
+
+use core_domain::auto_contributions::{ContributionQueryRequest, EntityContributions};
 use core_domain::dates::Date;
 use core_domain::earnings_expenses::{PendingFlow, PeriodicFlow};
 use core_domain::exception::CalculationError;
@@ -118,4 +121,20 @@ pub trait PeriodicFlowPort: Debug {
 pub trait PendingFlowPort: Debug {
     /// `get_all`: every flow in the order the database returns them.
     fn get_all(&self) -> Result<Vec<PendingFlow>, ReadError>;
+}
+
+/// `AutoContributionsPort`: the periodic contributions, the reading half.
+pub trait AutoContributionsPort: Debug {
+    /// `get_all_grouped_by_entity`: the contributions by entity id, in the order
+    /// the database returns the rows.
+    fn get_all_grouped_by_entity(
+        &self,
+        query: &ContributionQueryRequest,
+    ) -> Result<EntityContributions, ReadError>;
+}
+
+/// `EntityPort`: the reading half of the entities the use cases need.
+pub trait EntityPort: Debug {
+    /// `get_disabled_entities`: the ids of the entities whose data is excluded.
+    fn get_disabled_entities(&self) -> Result<Vec<Uuid>, ReadError>;
 }

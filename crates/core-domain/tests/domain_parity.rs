@@ -19,6 +19,9 @@ use std::collections::BTreeMap;
 
 use core_domain::StrEnum;
 use core_domain::Uuid;
+use core_domain::auto_contributions::{
+    ContributionFrequency, ContributionTargetSubtype, ContributionTargetType,
+};
 use core_domain::commodity::{
     COMMODITY_HISTORIC_CUTOFF, CommodityType, WeightUnit, to_troy_ounces, weight_conversion,
 };
@@ -153,6 +156,18 @@ fn values<E: StrEnum>() -> (&'static str, Vec<&'static str>) {
 /// Every ported enum, keyed as the fixture keys it: Python module and class name.
 fn rust_enums() -> BTreeMap<&'static str, (&'static str, Vec<&'static str>)> {
     BTreeMap::from([
+        (
+            "auto_contributions.ContributionFrequency",
+            values::<ContributionFrequency>(),
+        ),
+        (
+            "auto_contributions.ContributionTargetSubtype",
+            values::<ContributionTargetSubtype>(),
+        ),
+        (
+            "auto_contributions.ContributionTargetType",
+            values::<ContributionTargetType>(),
+        ),
         ("commodity.CommodityType", values::<CommodityType>()),
         ("commodity.WeightUnit", values::<WeightUnit>()),
         ("crypto.AddressSource", values::<AddressSource>()),

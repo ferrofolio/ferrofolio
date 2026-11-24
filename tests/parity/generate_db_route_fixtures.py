@@ -23,6 +23,7 @@ from pathlib import Path
 
 from ci_python import require_ci_python
 from db_routes import (
+    contributions,
     harness,
     labeling_rules,
     labels,
@@ -33,6 +34,7 @@ from db_routes import (
 
 SLICES = [
     settings.SLICE,
+    contributions.SLICE,
     labels.SLICE,
     labeling_rules.SLICE,
     periodic_flows.SLICE,
